@@ -1,93 +1,72 @@
 "use client";
 
-import Image from "next/image";
-import Link from "next/link";
+import ScrollReveal from "@/components/motion/ScrollReveal";
 
 export default function HomeOffers() {
-  const img =
-    "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1800&q=80";
-
   return (
-    <section className="bg-white">
-      <div className="mx-auto w-full max-w-7xl px-4 pb-16 md:px-6 md:pb-24">
-        <div className="grid gap-10 md:grid-cols-2 md:items-start">
+    <section className="mx-auto max-w-7xl px-4 py-16 md:px-6 md:py-24">
+      <ScrollReveal variant="fadeUp" start="top 85%">
+        <div data-sr className="flex items-end justify-between gap-6">
           <div>
-            <div className="text-xs uppercase tracking-[0.14em] text-gray-500">
-              Special offer
+            <div className="text-xs uppercase tracking-[0.12em] text-gray-500">
+              Special offers
             </div>
-            <h3 className="mt-2 text-3xl font-semibold text-[#111827] [font-family:Playfair_Display,ui-serif,Georgia,serif] md:text-4xl">
-              Best offers for premium stays
-            </h3>
-            <p className="mt-3 max-w-xl text-sm text-gray-600 md:text-base">
-              Elegant packages and curated stays — presented in a Luxivo premium style.
+            <div className="mt-2 text-3xl md:text-4xl text-[#111827] [font-family:Playfair_Display,ui-serif,Georgia,serif]">
+              Premium deals, curated stays.
+            </div>
+            <p className="mt-2 max-w-2xl text-sm text-gray-600 md:text-base">
+              Seasonal pricing and limited-time packages — presented with luxury, executed with operational discipline.
+            </p>
+          </div>
+
+          <a
+            href="/offers"
+            className="hidden md:inline-flex rounded-2xl bg-[#6B7C5C] px-5 py-3 text-sm font-medium text-white hover:bg-[#5C6E4F]"
+          >
+            View all offers →
+          </a>
+        </div>
+
+        <div data-sr className="mt-10 grid gap-6 md:grid-cols-2">
+          <div className="rounded-[32px] bg-[#0F1720] p-8 text-white shadow-[0_24px_80px_rgba(0,0,0,0.18)]">
+            <div className="text-xs uppercase tracking-[0.12em] text-white/60">
+              Owner offer
+            </div>
+            <div className="mt-2 text-2xl font-semibold [font-family:Playfair_Display,ui-serif,Georgia,serif]">
+              Free revenue consultation for new owners
+            </div>
+            <p className="mt-3 text-sm text-white/70 md:text-base">
+              Get an earning estimate and improvement plan for your property — pricing, positioning, and operations.
             </p>
 
-            <div className="mt-8 grid gap-4">
-              <OfferCard
-                title="Save 15% on weekly stays"
-                desc="Perfect for work trips or extended holidays. Premium cleaning + 24/7 support included."
-                price="From AED 690 / night"
-              />
-              <OfferCard
-                title="Family comfort package"
-                desc="Extra linens, late check-out (subject to availability), and family-friendly recommendations."
-                price="From AED 840 / night"
-              />
-            </div>
-
-            <div className="mt-8">
-              <Link
-                href="/properties"
-                className="inline-flex items-center rounded-2xl bg-[#6B7C5C] px-6 py-3 text-sm font-medium text-white hover:bg-[#5C6E4F]"
-              >
-                View all offers →
-              </Link>
-            </div>
+            <a
+              href="/owners"
+              className="mt-7 inline-flex rounded-2xl border border-white/15 bg-white/5 px-5 py-3 text-sm font-medium text-white hover:bg-white/10"
+            >
+              Get estimate →
+            </a>
           </div>
 
-          <div className="rounded-[32px] border border-black/10 bg-white p-4 shadow-[0_22px_70px_rgba(17,24,39,0.10)]">
-            <div className="relative h-[420px] overflow-hidden rounded-[28px]">
-              <Image
-                src={img}
-                alt="Luxury stay offer"
-                fill
-                unoptimized
-                className="object-cover"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/35 via-transparent to-transparent" />
-              <div className="absolute left-5 bottom-5 rounded-3xl border border-white/20 bg-white/10 px-5 py-4 text-white backdrop-blur">
-                <div className="text-xs text-white/80">Limited time</div>
-                <div className="mt-1 text-lg font-semibold">Premium stay deals</div>
-                <div className="mt-1 text-xs text-white/75">
-                  Curated for high occupancy & better reviews
-                </div>
-              </div>
+          <div className="rounded-[32px] border border-black/10 bg-white p-8 shadow-[0_22px_70px_rgba(17,24,39,0.10)]">
+            <div className="text-xs uppercase tracking-[0.12em] text-gray-500">
+              Guest offer
             </div>
+            <div className="mt-2 text-2xl font-semibold text-[#111827] [font-family:Playfair_Display,ui-serif,Georgia,serif]">
+              Early-booking savings on selected stays
+            </div>
+            <p className="mt-3 text-sm text-gray-600 md:text-base">
+              Limited availability. Browse premium stays and secure the best rates early.
+            </p>
+
+            <a
+              href="/properties"
+              className="mt-7 inline-flex rounded-2xl bg-[#6B7C5C] px-5 py-3 text-sm font-medium text-white hover:bg-[#5C6E4F]"
+            >
+              Browse stays →
+            </a>
           </div>
         </div>
-      </div>
+      </ScrollReveal>
     </section>
-  );
-}
-
-function OfferCard({
-  title,
-  desc,
-  price,
-}: {
-  title: string;
-  desc: string;
-  price: string;
-}) {
-  return (
-    <div className="rounded-[28px] border border-black/10 bg-white p-6 shadow-[0_18px_60px_rgba(17,24,39,0.08)]">
-      <div className="text-lg font-semibold text-[#111827]">{title}</div>
-      <div className="mt-2 text-sm text-gray-600">{desc}</div>
-      <div className="mt-4 text-sm font-medium text-[#111827]">{price}</div>
-
-      <button className="mt-5 rounded-2xl border border-black/10 bg-white px-5 py-2 text-sm hover:bg-black/5">
-        Book now →
-      </button>
-    </div>
   );
 }

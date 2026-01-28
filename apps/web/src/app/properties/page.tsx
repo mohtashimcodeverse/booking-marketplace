@@ -56,7 +56,7 @@ export default async function PropertiesPage() {
         idx === 0
           ? "We optimize rates based on demand and location while protecting brand value."
           : idx === 1
-          ? "Hotel-grade cleaning, inspections, linens, and maintenance coordination."
+          ? "Managed home-grade cleaning, inspections, linens, and maintenance coordination."
           : idx === 2
           ? "Fast response times, smooth check-ins, and issue resolution that protects reviews."
           : "Consistent presentation that converts guests and retains owners.",

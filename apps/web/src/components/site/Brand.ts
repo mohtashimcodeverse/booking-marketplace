@@ -1,4 +1,4 @@
 export const BRAND = {
-  name: "NovaStay",
+  name: "Laugh & Lodge",
   punchline: "Premium stays. Seamless booking.",
 };

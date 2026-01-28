@@ -136,7 +136,7 @@ export default async function PropertyDetailPage({
                 <Block title="What’s included">
                   <ul className="grid gap-2 text-sm text-gray-600 md:grid-cols-2">
                     {[
-                      "Hotel-grade cleaning",
+                      "Managed home-grade cleaning",
                       "Fresh linens & toiletries",
                       "24/7 guest support",
                       "Smart pricing strategy",

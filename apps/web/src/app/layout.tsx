@@ -4,7 +4,7 @@ import Navbar from "@/components/site/Navbar";
 import Footer from "@/components/site/Footer";
 import { Gilda_Display, Plus_Jakarta_Sans } from "next/font/google";
 import Providers from "./providers";
-
+import { site } from "@/config/site";
 
 const heading = Gilda_Display({
   subsets: ["latin"],
@@ -21,8 +21,13 @@ const body = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "NovaStay — Premium stays. Seamless booking.",
-  description: "High-performance booking experience with modern UI and fast search.",
+  title: {
+    default: site.shortName,
+    template: `%s • ${site.shortName}`,
+  },
+  description:
+    "Luxury short-term rental management in Dubai — professionally operated homes for owners and premium stays for guests.",
+  metadataBase: new URL(site.websiteUrl),
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

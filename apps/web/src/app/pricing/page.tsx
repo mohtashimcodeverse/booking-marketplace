@@ -31,7 +31,7 @@ export default function PricingPage() {
               desc="Luxury standards + higher conversion."
               items={[
                 "Dynamic pricing",
-                "Hotel-grade inspections",
+                "Managed home-grade inspections",
                 "24/7 guest support",
                 "Maintenance coordination",
               ]}

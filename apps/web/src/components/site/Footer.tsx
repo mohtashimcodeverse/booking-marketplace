@@ -1,110 +1,103 @@
 import Link from "next/link";
-import { BRAND } from "@/components/site/Brand";
+
+const COMPANY = {
+  name: "Laugh & Lodge Vocation Homes Rental LLC",
+  email: "Info@rentpropertyuae.com",
+  phone: "+971502348756",
+  address: "Dubai, UAE",
+};
 
 export default function Footer() {
   return (
-    <footer className="relative overflow-hidden bg-[#0F1720] text-white">
-      {/* Decorative glow/noise (Luxivo vibe) */}
-      <div className="pointer-events-none absolute inset-0 opacity-60 [background:radial-gradient(circle_at_20%_20%,rgba(255,255,255,0.06)_0%,transparent_45%),radial-gradient(circle_at_80%_10%,rgba(255,255,255,0.05)_0%,transparent_48%),radial-gradient(circle_at_70%_90%,rgba(107,124,92,0.12)_0%,transparent_48%)]" />
-      <div className="pointer-events-none absolute -left-24 top-16 h-[420px] w-[420px] rounded-full bg-white/5 blur-3xl" />
-      <div className="pointer-events-none absolute -right-28 -top-20 h-[520px] w-[520px] rounded-full bg-white/5 blur-3xl" />
-
-      <div className="relative mx-auto w-full max-w-7xl px-4 py-14 md:px-6 md:py-16">
+    <footer className="bg-[#0F1720] text-white">
+      <div className="mx-auto w-full max-w-7xl px-4 py-14 md:px-6">
         <div className="grid gap-10 md:grid-cols-4">
-          <div className="md:col-span-2">
-            <div className="flex items-center gap-3">
-              <div className="grid h-12 w-12 place-items-center rounded-3xl bg-white/10 backdrop-blur">
-                <div className="h-2 w-2 rounded-full bg-[#6B7C5C]" />
-              </div>
-              <div>
-                <div className="text-2xl font-semibold">{BRAND.name}</div>
-                <div className="text-sm text-white/60">{BRAND.punchline}</div>
-              </div>
+          {/* Brand */}
+          <div className="md:col-span-1">
+            <div className="text-lg font-semibold [font-family:Playfair_Display,ui-serif,Georgia,serif]">
+              {COMPANY.name}
             </div>
-
-            <p className="mt-5 max-w-xl text-sm text-white/65">
-              Luxury stays, professionally managed. Owners get end-to-end short-term rental operations.
-              Guests book premium homes with consistent quality.
+            <p className="mt-3 text-sm text-white/70">
+              Luxury stays, professionally managed. Built for owners who want better returns and guests who expect consistent quality.
             </p>
 
-            <div className="mt-6 flex flex-wrap gap-3">
-              <Link
-                href="/owners"
-                className="rounded-full bg-[#6B7C5C] px-5 py-2 text-sm font-medium text-white hover:bg-[#5C6E4F]"
-              >
-                Get a revenue estimate →
-              </Link>
-              <Link
-                href="/contact"
-                className="rounded-full border border-white/15 bg-white/5 px-5 py-2 text-sm text-white hover:bg-white/10"
-              >
-                Contact →
-              </Link>
+            <div className="mt-6 space-y-2 text-sm text-white/75">
+              <div><span className="text-white/55">Email:</span> {COMPANY.email}</div>
+              <div><span className="text-white/55">Phone:</span> {COMPANY.phone}</div>
+              <div><span className="text-white/55">Address:</span> {COMPANY.address}</div>
             </div>
           </div>
 
-          <Col
-            title="Company"
-            links={[
-              { href: "/about", label: "About" },
-              { href: "/services", label: "Services" },
-              { href: "/pricing", label: "Pricing" },
-              { href: "/gallery", label: "Gallery" },
-            ]}
-          />
-          <Col
-            title="Explore"
-            links={[
-              { href: "/properties", label: "Stays" },
-              { href: "/owners", label: "Owners" },
-              { href: "/blog", label: "Blog" },
-              { href: "/contact", label: "Support" },
-            ]}
-          />
-        </div>
-
-        <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-6 md:flex-row md:items-center md:justify-between">
-          <div className="text-xs text-white/55">
-            © {new Date().getFullYear()} {BRAND.name}. All rights reserved.
+          {/* Links */}
+          <div>
+            <div className="text-xs uppercase tracking-[0.14em] text-white/60">
+              Explore
+            </div>
+            <ul className="mt-4 space-y-3 text-sm">
+              <li><Link className="hover:text-white/80" href="/properties">Properties</Link></li>
+              <li><Link className="hover:text-white/80" href="/services">Services</Link></li>
+              <li><Link className="hover:text-white/80" href="/owners">For Owners</Link></li>
+              <li><Link className="hover:text-white/80" href="/offers">Offers</Link></li>
+              <li><Link className="hover:text-white/80" href="/contact">Contact</Link></li>
+            </ul>
           </div>
 
-          <div className="flex gap-4 text-xs text-white/55">
-            <Link className="hover:text-white" href="/legal/terms">
-              Terms
-            </Link>
-            <Link className="hover:text-white" href="/legal/privacy">
-              Privacy
-            </Link>
+          {/* Company */}
+          <div>
+            <div className="text-xs uppercase tracking-[0.14em] text-white/60">
+              Company
+            </div>
+            <ul className="mt-4 space-y-3 text-sm">
+              <li><Link className="hover:text-white/80" href="/about">About</Link></li>
+              <li><Link className="hover:text-white/80" href="/gallery">Gallery</Link></li>
+              <li><Link className="hover:text-white/80" href="/pricing">Pricing</Link></li>
+              <li><Link className="hover:text-white/80" href="/blog">Blog</Link></li>
+            </ul>
+          </div>
+
+          {/* Legal */}
+          <div>
+            <div className="text-xs uppercase tracking-[0.14em] text-white/60">
+              Legal
+            </div>
+            <ul className="mt-4 space-y-3 text-sm">
+              <li><Link className="hover:text-white/80" href="/legal/terms">Terms & Conditions</Link></li>
+              <li><Link className="hover:text-white/80" href="/legal/privacy">Privacy Policy</Link></li>
+              <li><Link className="hover:text-white/80" href="/legal/cancellation">Cancellation Policy</Link></li>
+              <li><Link className="hover:text-white/80" href="/legal/refund">Refund Policy</Link></li>
+            </ul>
+
+            <div className="mt-6 rounded-[22px] border border-white/10 bg-white/5 p-5">
+              <div className="text-sm font-medium">Newsletter</div>
+              <p className="mt-2 text-xs text-white/65">
+                Optional. You can remove this if not needed before launch.
+              </p>
+              <div className="mt-3 flex gap-2">
+                <input
+                  className="w-full rounded-2xl border border-white/10 bg-white/5 px-4 py-3 text-sm text-white outline-none placeholder:text-white/40 focus:border-white/25"
+                  placeholder="Email address"
+                />
+                <button className="rounded-2xl bg-[#6B7C5C] px-5 py-3 text-sm font-medium text-white hover:bg-[#5C6E4F]">
+                  Join
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Bottom bar */}
+        <div className="mt-12 flex flex-col gap-3 border-t border-white/10 pt-6 text-xs text-white/60 md:flex-row md:items-center md:justify-between">
+          <div>
+            © {new Date().getFullYear()} {COMPANY.name}. All rights reserved.
+          </div>
+          <div className="flex flex-wrap gap-4">
+            <Link className="hover:text-white/80" href="/legal/terms">Terms</Link>
+            <Link className="hover:text-white/80" href="/legal/privacy">Privacy</Link>
+            <Link className="hover:text-white/80" href="/legal/cancellation">Cancellation</Link>
+            <Link className="hover:text-white/80" href="/legal/refund">Refund</Link>
           </div>
         </div>
       </div>
     </footer>
-  );
-}
-
-function Col({
-  title,
-  links,
-}: {
-  title: string;
-  links: { href: string; label: string }[];
-}) {
-  return (
-    <div>
-      <div className="text-xs uppercase tracking-[0.14em] text-white/60">
-        {title}
-      </div>
-      <div className="mt-4 space-y-3">
-        {links.map((l) => (
-          <Link
-            key={l.href}
-            href={l.href}
-            className="block text-sm text-white/70 hover:text-white"
-          >
-            {l.label}
-          </Link>
-        ))}
-      </div>
-    </div>
   );
 }
