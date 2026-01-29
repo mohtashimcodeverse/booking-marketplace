@@ -1,4 +1,4 @@
 export const BRAND = {
   name: "Laugh & Lodge",
-  punchline: "Premium stays. Seamless booking.",
+  punchline: "Vocation Homes Rental LLC",
 };

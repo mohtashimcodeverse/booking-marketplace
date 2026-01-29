@@ -64,17 +64,18 @@ export default function HeroLux() {
             </div>
 
             <h1 className="hx mt-6 text-[46px] leading-[1.05] tracking-[-0.02em] md:text-[64px]">
-              <span className="font-[600] [font-family:Playfair_Display,ui-serif,Georgia,serif]">
-                Luxury stays,
-              </span>
-              <br />
-              <span className="font-[600] [font-family:Playfair_Display,ui-serif,Georgia,serif]">
-                professionally
-              </span>{" "}
-              <span className="font-[600] [font-family:Playfair_Display,ui-serif,Georgia,serif]">
-                managed.
-              </span>
-            </h1>
+           <span className="font-[600] [font-family:Playfair_Display,ui-serif,Georgia,serif]">
+             Where every stay
+  </span>
+  <br />
+  <span className="font-[600] [font-family:Playfair_Display,ui-serif,Georgia,serif]">
+    feels like
+  </span>{" "}
+  <span className="font-[600] [font-family:Playfair_Display,ui-serif,Georgia,serif]">
+    home.
+  </span>
+</h1>
+
 
             <p className="hx mt-5 max-w-xl text-sm text-white/70 md:text-base">
               For owners: maximize revenue with pricing, cleaning, guest support, and maintenance.
@@ -82,7 +83,7 @@ export default function HeroLux() {
             </p>
 
             <div className="hx mt-8 flex flex-wrap gap-3">
-              <Link
+              <Link     
                 href="/owners"
                 className="rounded-2xl bg-[#6B7C5C] px-6 py-3 text-sm font-medium text-white shadow-[0_18px_60px_rgba(17,24,39,0.20)] hover:bg-[#5C6E4F]"
               >

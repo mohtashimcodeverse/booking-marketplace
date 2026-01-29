@@ -1,7 +1,7 @@
 export const site = {
   brandName: "Laugh & Lodge Vocation Homes Rental LLC",
   shortName: "RentPropertyUAE",
-  tagline: "Luxury stays • Full-service management",
+  tagline: "Where Every Stay Feels Like Home",
   domain: "www.rentpropertyuae.com",
   websiteUrl: "https://www.rentpropertyuae.com",
   country: "United Arab Emirates",
