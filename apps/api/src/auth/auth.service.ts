@@ -21,9 +21,9 @@ export class AuthService {
   ) {}
 
   private accessExpiresSeconds(): number {
-  const raw = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
-  return parseDurationToSeconds(raw, 15 * 60);
-}
+    const raw = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
+    return parseDurationToSeconds(raw, 15 * 60);
+  }
 
   private refreshExpiresDays(): number {
     const v = Number(process.env.JWT_REFRESH_EXPIRES_IN_DAYS || '30');
@@ -53,7 +53,13 @@ export class AuthService {
         role: UserRole.CUSTOMER,
         isEmailVerified: false,
       },
-      select: { id: true, email: true, role: true, isEmailVerified: true, fullName: true },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isEmailVerified: true,
+        fullName: true,
+      },
     });
 
     // demo-friendly: return token instead of emailing (we’ll email later with queues)
@@ -86,11 +92,20 @@ export class AuthService {
     const ok = await verifyPassword(password, user.passwordHash);
     if (!ok) throw new UnauthorizedException('Invalid credentials');
 
-    const accessToken = await this.signAccessToken(user.id, user.email, user.role);
+    const accessToken = await this.signAccessToken(
+      user.id,
+      user.email,
+      user.role,
+    );
     const { refreshToken } = await this.issueRefreshToken(user.id);
 
     return {
-      user: { id: user.id, email: user.email, role: user.role, isEmailVerified: user.isEmailVerified },
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+      },
       accessToken,
       refreshToken,
     };
@@ -201,8 +216,13 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { id: userId } });
     if (!user) throw new NotFoundException('User not found');
 
-    const newAccess = await this.signAccessToken(user.id, user.email, user.role);
-    const { refreshToken: newRefresh, recordId: newRecordId } = await this.issueRefreshToken(user.id);
+    const newAccess = await this.signAccessToken(
+      user.id,
+      user.email,
+      user.role,
+    );
+    const { refreshToken: newRefresh, recordId: newRecordId } =
+      await this.issueRefreshToken(user.id);
 
     await this.prisma.refreshToken.update({
       where: { id: matchedId },
@@ -210,7 +230,12 @@ export class AuthService {
     });
 
     return {
-      user: { id: user.id, email: user.email, role: user.role, isEmailVerified: user.isEmailVerified },
+      user: {
+        id: user.id,
+        email: user.email,
+        role: user.role,
+        isEmailVerified: user.isEmailVerified,
+      },
       accessToken: newAccess,
       refreshToken: newRefresh,
     };
@@ -247,18 +272,16 @@ export class AuthService {
   }
 
   private async signAccessToken(userId: string, email: string, role: UserRole) {
-  const payload: JwtAccessPayload = { sub: userId, email, role };
-  return this.jwt.signAsync(payload, {
-    secret: process.env.JWT_ACCESS_SECRET,
-    expiresIn: this.accessExpiresSeconds(), // ✅ number
-  });
-}
-
+    const payload: JwtAccessPayload = { sub: userId, email, role };
+    return this.jwt.signAsync(payload, {
+      secret: process.env.JWT_ACCESS_SECRET,
+      expiresIn: this.accessExpiresSeconds(), // ✅ number
+    });
+  }
 
   private refreshExpiresSeconds(): number {
-  return this.refreshExpiresDays() * 24 * 60 * 60;
-}
-
+    return this.refreshExpiresDays() * 24 * 60 * 60;
+  }
 
   private async issueRefreshToken(userId: string) {
     const payload: JwtRefreshPayload = { sub: userId, typ: 'refresh' };

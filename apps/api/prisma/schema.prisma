@@ -46,23 +46,90 @@ enum PaymentStatus {
   REFUNDED
 }
 
+enum CalendarDayStatus {
+  AVAILABLE
+  BLOCKED
+}
+
+enum HoldStatus {
+  ACTIVE
+  EXPIRED
+  CONVERTED
+  CANCELLED
+}
+
+enum CancellationActor {
+  CUSTOMER
+  VENDOR
+  ADMIN
+}
+
+enum CancellationReason {
+  GUEST_REQUEST
+  OWNER_REQUEST
+  NO_PAYMENT
+  FORCE_MAJEURE
+  FRAUD
+  ADMIN_OVERRIDE
+}
+
+enum CancellationMode {
+  SOFT
+  HARD
+}
+
+enum RefundStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum RefundReason {
+  CANCELLATION
+  PARTIAL_ADJUSTMENT
+  GOODWILL
+  DISPUTE
+}
+
+enum PenaltyType {
+  NONE
+  PERCENT_OF_NIGHTS
+  PERCENT_OF_TOTAL
+  FIXED_FEE
+}
+
+enum PaymentEventType {
+  AUTHORIZE
+  CAPTURE
+  REFUND
+  WEBHOOK
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
   passwordHash String
   role         UserRole @default(CUSTOMER)
 
-  fullName         String?
-  isEmailVerified  Boolean @default(false)
+  fullName        String?
+  isEmailVerified Boolean @default(false)
 
   vendorProfile VendorProfile?
-  properties    Property[] @relation("VendorProperties")
-  bookings      Booking[]  @relation("CustomerBookings")
+  properties    Property[]     @relation("VendorProperties")
+  bookings      Booking[]      @relation("CustomerBookings")
+
+  // Holds created by this user (for booking flow)
+  holds PropertyHold[] @relation("HoldCreatedBy")
+
+  // Idempotency records
+  bookingIdempotencies BookingIdempotency[]
 
   // 🔐 auth relations
-  refreshTokens       RefreshToken[]
-  emailVerifications  EmailVerificationToken[]
-  passwordResets      PasswordResetToken[]
+  refreshTokens      RefreshToken[]
+  emailVerifications EmailVerificationToken[]
+  passwordResets     PasswordResetToken[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -72,27 +139,27 @@ model User {
 }
 
 model RefreshToken {
-  id            String   @id @default(cuid())
-  userId        String
-  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tokenHash     String
-  replacedById  String?
-  revokedAt     DateTime?
-  expiresAt     DateTime
+  tokenHash    String
+  replacedById String?
+  revokedAt    DateTime?
+  expiresAt    DateTime
 
-  createdAt     DateTime @default(now())
+  createdAt DateTime @default(now())
 
   @@index([userId])
   @@index([expiresAt])
 }
 
 model EmailVerificationToken {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
 
@@ -103,11 +170,11 @@ model EmailVerificationToken {
 }
 
 model PasswordResetToken {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tokenHash String   @unique
+  tokenHash String    @unique
   expiresAt DateTime
   usedAt    DateTime?
 
@@ -118,9 +185,9 @@ model PasswordResetToken {
 }
 
 model VendorProfile {
-  id          String       @id @default(uuid())
-  userId      String       @unique
-  user        User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id     String @id @default(uuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   displayName String
   companyName String?
@@ -133,40 +200,112 @@ model VendorProfile {
   @@index([status])
 }
 
-model Property {
-  id          String         @id @default(uuid())
-  vendorId    String
-  vendor      User           @relation("VendorProperties", fields: [vendorId], references: [id], onDelete: Cascade)
+model Location {
+  id String @id @default(uuid())
 
-  title       String
-  slug        String         @unique
-  description String?
+  country String
+  city    String
+  area    String?
+  name    String?
+  address String?
 
-  city        String
-  area        String?
-  address     String?
-  lat         Float?
-  lng         Float?
+  lat Float?
+  lng Float?
 
-  maxGuests   Int            @default(2)
-  bedrooms    Int            @default(1)
-  bathrooms   Int            @default(1)
-
-  basePrice   Int
-  cleaningFee Int            @default(0)
-  currency    String         @default("PKR")
-
-  status      PropertyStatus @default(DRAFT)
-
-  media       Media[]
-  bookings    Booking[]
+  properties Property[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([country, city])
+  @@index([city, area])
+}
+
+model Amenity {
+  id   String  @id @default(uuid())
+  key  String  @unique
+  name String
+  icon String?
+
+  properties PropertyAmenity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model PropertyAmenity {
+  propertyId String
+  amenityId  String
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  amenity  Amenity  @relation(fields: [amenityId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@id([propertyId, amenityId])
+  @@index([amenityId])
+}
+
+model Property {
+  id       String @id @default(uuid())
+  vendorId String
+  vendor   User   @relation("VendorProperties", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  title       String
+  slug        String  @unique
+  description String?
+
+  // Backwards-compatible location fields (KEEP — used by seed/UI)
+  city    String
+  area    String?
+  address String?
+  lat     Float?
+  lng     Float?
+
+  // Normalized location (optional, does not break existing)
+  locationId String?
+  location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
+
+  maxGuests Int @default(2)
+  bedrooms  Int @default(1)
+  bathrooms Int @default(1)
+
+  // Pricing basics (we’ll evolve later with seasons/discounts)
+  basePrice   Int
+  cleaningFee Int    @default(0)
+  currency    String @default("PKR")
+
+  // Operational settings used later by availability/booking engine
+  minNights      Int     @default(1)
+  maxNights      Int?
+  checkInFromMin Int?
+  checkInToMax   Int?
+  checkOutMin    Int?
+  isInstantBook  Boolean @default(false)
+
+  status PropertyStatus @default(DRAFT)
+
+  media     Media[]
+  amenities PropertyAmenity[]
+  bookings  Booking[]
+
+  // ✅ Availability Engine relations
+  availabilitySettings PropertyAvailabilitySettings?
+  calendarDays         PropertyCalendarDay[]
+  holds                PropertyHold[]
+
+  createdAt                DateTime                  @default(now())
+  updatedAt                DateTime                  @updatedAt
+  cancellationPolicyConfig CancellationPolicyConfig?
+
   @@index([vendorId])
   @@index([city])
   @@index([status])
+  @@index([createdAt])
+  @@index([locationId])
+  @@index([city, area])
+  @@index([basePrice])
+  @@index([bedrooms, bathrooms, maxGuests])
 }
 
 model Media {
@@ -174,61 +313,280 @@ model Media {
   propertyId String
   property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  url        String
-  alt        String?
-  sortOrder  Int      @default(0)
+  url       String
+  alt       String?
+  sortOrder Int     @default(0)
 
   createdAt DateTime @default(now())
 
   @@index([propertyId])
+  @@index([sortOrder])
 }
 
 model Booking {
-  id          String        @id @default(uuid())
-  customerId  String
-  customer    User          @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
+  id String @id @default(uuid())
 
-  propertyId  String
-  property    Property      @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+  customerId String
+  customer   User   @relation("CustomerBookings", fields: [customerId], references: [id], onDelete: Cascade)
 
-  checkIn     DateTime
-  checkOut    DateTime
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  adults      Int           @default(1)
-  children    Int           @default(0)
+  holdId String       @unique
+  hold   PropertyHold @relation(fields: [holdId], references: [id], onDelete: Restrict)
 
-  status      BookingStatus @default(PENDING_PAYMENT)
+  checkIn  DateTime
+  checkOut DateTime
+
+  adults   Int @default(1)
+  children Int @default(0)
+
+  status BookingStatus @default(PENDING_PAYMENT)
 
   totalAmount Int
-  currency    String        @default("PKR")
+  currency    String @default("PKR")
 
-  payment     Payment?
+  // 🔐 Idempotency
+  idempotencyKey     String?
+  idempotencyRecords BookingIdempotency[]
+
+  payment Payment?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  expiresAt   DateTime?
+  cancelledAt DateTime?
+
+  // ✅ Cancellation (Frank Porter policy + audit)
+  cancellation BookingCancellation?
+
+  // Optional: useful for reporting even without joining cancellation
+  cancelledBy        CancellationActor?
+  cancellationReason CancellationReason?
+
+  refunds Refund[]
+
+  @@unique([customerId, idempotencyKey], map: "uniq_booking_idempotency_per_customer")
   @@index([customerId])
   @@index([propertyId])
   @@index([status])
   @@index([checkIn, checkOut])
 }
 
+model BookingIdempotency {
+  id             String  @id @default(cuid())
+  userId         String
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  idempotencyKey String
+  bookingId      String  @unique
+  booking        Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  createdAt DateTime @default(now())
+
+  @@unique([userId, idempotencyKey])
+  @@index([createdAt])
+}
+
 model Payment {
-  id          String          @id @default(uuid())
-  bookingId   String          @unique
-  booking     Booking         @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  id        String  @id @default(uuid())
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  provider    PaymentProvider @default(STRIPE)
-  status      PaymentStatus   @default(REQUIRES_ACTION)
+  provider PaymentProvider @default(STRIPE)
+  status   PaymentStatus   @default(REQUIRES_ACTION)
 
-  amount      Int
-  currency    String          @default("PKR")
+  amount   Int
+  currency String @default("PKR")
 
   providerRef String?
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  refunds   Refund[]
+
+  events PaymentEvent[]
 
   @@index([status])
   @@index([provider])
+}
+
+model PropertyAvailabilitySettings {
+  id                String   @id @default(cuid())
+  propertyId        String   @unique
+  defaultMinNights  Int      @default(1)
+  defaultMaxNights  Int?
+  advanceNoticeDays Int      @default(0)
+  preparationDays   Int      @default(0)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId])
+}
+
+model PropertyCalendarDay {
+  id                String            @id @default(cuid())
+  propertyId        String
+  date              DateTime
+  status            CalendarDayStatus @default(AVAILABLE)
+  minNightsOverride Int?
+  note              String?
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@unique([propertyId, date])
+  @@index([propertyId, date])
+}
+
+model PropertyHold {
+  id         String     @id @default(cuid())
+  propertyId String
+  checkIn    DateTime
+  checkOut   DateTime
+  status     HoldStatus @default(ACTIVE)
+  expiresAt  DateTime
+
+  // ✅ NEW: enforce ownership (booking is CUSTOMER-only at API, but DB keeps creator)
+  createdById String
+  createdBy   User   @relation("HoldCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
+
+  // ✅ NEW: conversion tracking + one booking per hold
+  bookingId   String?   @unique
+  booking     Booking?
+  convertedAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  property Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  @@index([propertyId, status, expiresAt])
+  @@index([propertyId, checkIn, checkOut])
+  @@index([createdById])
+}
+
+model PaymentEvent {
+  id String @id @default(cuid())
+
+  paymentId String
+  payment   Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+
+  type PaymentEventType
+
+  // Used for idempotency (authorize/capture/refund/webhook retries)
+  idempotencyKey String?
+
+  // Provider correlation (Telr transaction ref, etc.)
+  providerRef String?
+
+  // Optional JSON payload snapshot (webhook body, provider response, etc.)
+  payloadJson String?
+
+  createdAt DateTime @default(now())
+
+  // Key safety rule: same action + same key for same payment should be a no-op
+  @@unique([paymentId, type, idempotencyKey], name: "uniq_payment_event_idempotency", map: "uniq_payment_event_idempotency")
+  @@index([paymentId])
+  @@index([type])
+  @@index([createdAt])
+}
+
+model BookingCancellation {
+  id String @id @default(cuid())
+
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  actor  CancellationActor
+  reason CancellationReason
+  notes  String?
+  mode   CancellationMode   @default(SOFT)
+
+  policyVersion String?
+
+  cancelledAt DateTime @default(now())
+
+  totalAmount      Int
+  managementFee    Int    @default(0)
+  penaltyAmount    Int    @default(0)
+  refundableAmount Int    @default(0)
+  currency         String @default("PKR")
+
+  releasesInventory Boolean @default(true)
+
+  refundId String? @unique
+  refund   Refund? @relation(fields: [refundId], references: [id], onDelete: SetNull)
+
+  createdAt DateTime @default(now())
+
+  @@index([cancelledAt])
+  @@index([actor])
+  @@index([reason])
+}
+
+model CancellationPolicyConfig {
+  id String @id @default(cuid())
+
+  // If propertyId is null => GLOBAL default policy
+  propertyId String?   @unique
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  // Versioning + activation
+  version  String
+  isActive Boolean @default(true)
+
+  // Cutoff windows (in hours)
+  freeCancelBeforeHours    Int @default(0) // e.g. 72 = free until 72h before check-in
+  partialRefundBeforeHours Int @default(0) // e.g. 48 = partial until 48h before check-in
+  noRefundWithinHours      Int @default(0) // e.g. 24 = no refund within 24h
+
+  // Penalty model
+  penaltyType  PenaltyType @default(PERCENT_OF_TOTAL)
+  penaltyValue Int         @default(0) // percent (0-100) or fixed amount depending on type
+
+  // Hard vs Soft defaults
+  defaultMode CancellationMode @default(SOFT)
+
+  // Optional: enforce min nights penalty behavior like “charge first night”
+  chargeFirstNightOnLateCancel Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([version])
+}
+
+model Refund {
+  id String @id @default(uuid())
+
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  paymentId String?
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  status RefundStatus @default(PENDING)
+  reason RefundReason @default(CANCELLATION)
+
+  amount   Int
+  currency String @default("PKR")
+
+  provider          PaymentProvider @default(STRIPE)
+  providerRefundRef String?
+
+  // Telr hooks later: idempotency + webhook correlation
+  idempotencyKey String?
+
+  createdAt           DateTime             @default(now())
+  updatedAt           DateTime             @updatedAt
+  bookingCancellation BookingCancellation?
+
+  @@index([status])
+  @@index([provider])
+  @@index([bookingId])
 }

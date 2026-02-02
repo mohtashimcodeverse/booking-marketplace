@@ -1,33 +1,50 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
+import { Injectable } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { Strategy } from 'passport-jwt';
-import { JwtRefreshPayload } from '../types/auth.types';
+import { Strategy, type StrategyOptions } from 'passport-jwt';
+import type { Request } from 'express';
+import type { UserRole } from '@prisma/client';
 
-function extractRefreshToken(req: any): string | null {
-  const cookieName = process.env.AUTH_COOKIE_NAME || 'rentpropertyuae_rt';
-  const fromCookie = req?.cookies?.[cookieName];
-  if (typeof fromCookie === 'string' && fromCookie.length > 10) return fromCookie;
+export type JwtRefreshPayload = {
+  sub: string;
+  email: string;
+  role: UserRole;
+};
 
-  const auth = req?.headers?.authorization;
-  if (typeof auth === 'string' && auth.startsWith('Bearer ')) return auth.slice(7);
+export type AuthUser = {
+  id: string;
+  email: string;
+  role: UserRole;
+};
+
+function extractRefreshToken(req: Request): string | null {
+  const cookies =
+    (req as unknown as { cookies?: Record<string, string> }).cookies ?? {};
+  const cookieToken = cookies['refresh_token'];
+  if (typeof cookieToken === 'string' && cookieToken.trim())
+    return cookieToken.trim();
+
+  const headerToken = req.headers['x-refresh-token'];
+  if (typeof headerToken === 'string' && headerToken.trim())
+    return headerToken.trim();
 
   return null;
 }
 
 @Injectable()
-export class JwtRefreshStrategy extends PassportStrategy(Strategy, 'jwt-refresh') {
-  constructor(config: ConfigService) {
-    super({
-      jwtFromRequest: extractRefreshToken,
-      secretOrKey: config.get<string>('JWT_REFRESH_SECRET'),
-      passReqToCallback: true,
-    });
+export class JwtRefreshStrategy extends PassportStrategy(
+  Strategy,
+  'jwt-refresh',
+) {
+  constructor() {
+    const options: StrategyOptions = {
+      jwtFromRequest: (req: Request) => extractRefreshToken(req),
+      secretOrKey: process.env.JWT_REFRESH_SECRET ?? 'dev_refresh_secret',
+      passReqToCallback: false,
+    };
+    super(options);
   }
 
-  async validate(req: any, payload: JwtRefreshPayload) {
-    const token = extractRefreshToken(req);
-    if (!token) throw new UnauthorizedException('Missing refresh token');
-    return { id: payload.sub, refreshToken: token };
+  validate(payload: JwtRefreshPayload): AuthUser {
+    return { id: payload.sub, email: payload.email, role: payload.role };
   }
 }

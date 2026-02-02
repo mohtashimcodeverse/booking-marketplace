@@ -1,23 +1,23 @@
 import { CanActivate, ExecutionContext, Injectable } from '@nestjs/common';
 import { Reflector } from '@nestjs/core';
-import { UserRole } from '@prisma/client';
-import { AUTH_ROLES_KEY } from '../auth.const';
+import type { UserRole } from '@prisma/client';
+import { ROLES_KEY } from '../decorators/roles.decorator';
+import type { AuthRequest } from '../types/auth-request.type';
 
 @Injectable()
 export class RolesGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
 
-  canActivate(ctx: ExecutionContext): boolean {
-    const required = this.reflector.getAllAndOverride<UserRole[]>(AUTH_ROLES_KEY, [
-      ctx.getHandler(),
-      ctx.getClass(),
-    ]);
-    if (!required || required.length === 0) return true;
+  canActivate(context: ExecutionContext): boolean {
+    const requiredRoles =
+      this.reflector.getAllAndOverride<UserRole[]>(ROLES_KEY, [
+        context.getHandler(),
+        context.getClass(),
+      ]) ?? [];
 
-    const req = ctx.switchToHttp().getRequest();
-    const user = req.user as { role?: UserRole } | undefined;
-    if (!user?.role) return false;
+    if (requiredRoles.length === 0) return true;
 
-    return required.includes(user.role);
+    const req = context.switchToHttp().getRequest<AuthRequest>();
+    return requiredRoles.includes(req.user.role);
   }
 }

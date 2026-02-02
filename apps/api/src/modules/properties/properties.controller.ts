@@ -1,4 +1,10 @@
-import { Controller, Get, NotFoundException, Param, Query } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  NotFoundException,
+  Param,
+  Query,
+} from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { PropertiesService } from './properties.service';
 import { ListPropertiesDto } from './dto/list-properties.dto';

@@ -1,10 +1,47 @@
-import { Body, Controller, Get, Post, Req, Res, UseGuards } from '@nestjs/common';
-import type { Response } from 'express';
+import {
+  Body,
+  Controller,
+  Get,
+  Post,
+  Req,
+  Res,
+  UseGuards,
+} from '@nestjs/common';
+import type { Request, Response } from 'express';
 import { Throttle } from '@nestjs/throttler';
 import { AuthService } from './auth.service';
-import { LoginDto, RegisterDto, RequestPasswordResetDto, ResetPasswordDto, VerifyEmailDto } from './dto/auth.dto';
+import {
+  LoginDto,
+  RegisterDto,
+  RequestPasswordResetDto,
+  ResetPasswordDto,
+  VerifyEmailDto,
+} from './dto/auth.dto';
 import { JwtAccessGuard } from './guards/jwt-access.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+
+type Cookies = Partial<Record<string, string>>;
+
+type AccessUser = {
+  id: string;
+  email?: string;
+  role?: string;
+};
+
+type RefreshUser = {
+  id: string;
+  refreshToken: string;
+};
+
+type AccessRequest = Omit<Request, 'user' | 'cookies'> & {
+  user: AccessUser;
+  cookies?: Cookies;
+};
+
+type RefreshRequest = Omit<Request, 'user' | 'cookies'> & {
+  user: RefreshUser;
+  cookies?: Cookies;
+};
 
 @Controller('auth')
 export class AuthController {
@@ -16,7 +53,10 @@ export class AuthController {
 
   private cookieOptions() {
     const secure = (process.env.AUTH_COOKIE_SECURE || 'false') === 'true';
-    const sameSite = (process.env.AUTH_COOKIE_SAMESITE || 'lax') as 'lax' | 'strict' | 'none';
+    const sameSite = (process.env.AUTH_COOKIE_SAMESITE || 'lax') as
+      | 'lax'
+      | 'strict'
+      | 'none';
     const domain = process.env.AUTH_COOKIE_DOMAIN || undefined;
 
     return {
@@ -36,12 +76,20 @@ export class AuthController {
 
   @Post('login')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  async login(@Body() dto: LoginDto, @Res({ passthrough: true }) res: Response) {
+  async login(
+    @Body() dto: LoginDto,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const result = await this.auth.login(dto.email, dto.password);
 
     res.cookie(this.cookieName(), result.refreshToken, {
       ...this.cookieOptions(),
-      maxAge: 1000 * 60 * 60 * 24 * Number(process.env.JWT_REFRESH_EXPIRES_IN_DAYS || '30'),
+      maxAge:
+        1000 *
+        60 *
+        60 *
+        24 *
+        Number(process.env.JWT_REFRESH_EXPIRES_IN_DAYS || '30'),
     });
 
     return {
@@ -52,15 +100,23 @@ export class AuthController {
 
   @Post('refresh')
   @UseGuards(JwtRefreshGuard)
-  async refresh(@Req() req: any, @Res({ passthrough: true }) res: Response) {
-    const userId = req.user.id as string;
-    const refreshToken = req.user.refreshToken as string;
+  async refresh(
+    @Req() req: RefreshRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const userId = req.user.id;
+    const refreshToken = req.user.refreshToken;
 
     const result = await this.auth.refresh(userId, refreshToken);
 
     res.cookie(this.cookieName(), result.refreshToken, {
       ...this.cookieOptions(),
-      maxAge: 1000 * 60 * 60 * 24 * Number(process.env.JWT_REFRESH_EXPIRES_IN_DAYS || '30'),
+      maxAge:
+        1000 *
+        60 *
+        60 *
+        24 *
+        Number(process.env.JWT_REFRESH_EXPIRES_IN_DAYS || '30'),
     });
 
     return {
@@ -71,9 +127,12 @@ export class AuthController {
 
   @Post('logout')
   @UseGuards(JwtAccessGuard)
-  async logout(@Req() req: any, @Res({ passthrough: true }) res: Response) {
+  async logout(
+    @Req() req: AccessRequest,
+    @Res({ passthrough: true }) res: Response,
+  ) {
     const cookieName = this.cookieName();
-    const token = req.cookies?.[cookieName] as string | undefined;
+    const token = req.cookies?.[cookieName];
 
     await this.auth.logout(req.user.id, token);
     res.clearCookie(cookieName, this.cookieOptions());
@@ -101,7 +160,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAccessGuard)
-  async me(@Req() req: any) {
+  me(@Req() req: AccessRequest) {
     return { user: req.user };
   }
 }

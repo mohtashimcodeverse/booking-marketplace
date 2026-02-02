@@ -1,4 +1,5 @@
 import { Injectable } from '@nestjs/common';
+import { Prisma, PropertyStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListPropertiesDto } from './dto/list-properties.dto';
 
@@ -11,26 +12,37 @@ export class PropertiesService {
     const limit = input.limit ?? 12;
     const skip = (page - 1) * limit;
 
-    const where: any = {
-      status: 'PUBLISHED',
-      ...(input.city ? { city: { equals: input.city, mode: 'insensitive' } } : {}),
+    const where: Prisma.PropertyWhereInput = {
+      status: PropertyStatus.PUBLISHED,
+      ...(input.city
+        ? { city: { equals: input.city, mode: Prisma.QueryMode.insensitive } }
+        : {}),
       ...(input.q
         ? {
             OR: [
-              { title: { contains: input.q, mode: 'insensitive' } },
-              { area: { contains: input.q, mode: 'insensitive' } },
-              { city: { contains: input.q, mode: 'insensitive' } },
+              {
+                title: {
+                  contains: input.q,
+                  mode: Prisma.QueryMode.insensitive,
+                },
+              },
+              {
+                area: { contains: input.q, mode: Prisma.QueryMode.insensitive },
+              },
+              {
+                city: { contains: input.q, mode: Prisma.QueryMode.insensitive },
+              },
             ],
           }
         : {}),
     };
 
-    const orderBy =
+    const orderBy: Prisma.PropertyOrderByWithRelationInput =
       input.sort === 'price_asc'
-        ? { basePrice: 'asc' as const }
+        ? { basePrice: 'asc' }
         : input.sort === 'price_desc'
-          ? { basePrice: 'desc' as const }
-          : { createdAt: 'desc' as const };
+          ? { basePrice: 'desc' }
+          : { createdAt: 'desc' };
 
     const [total, items] = await this.prisma.$transaction([
       this.prisma.property.count({ where }),
@@ -51,7 +63,11 @@ export class PropertiesService {
           basePrice: true,
           cleaningFee: true,
           currency: true,
-          media: { orderBy: { sortOrder: 'asc' }, take: 1, select: { url: true, alt: true } },
+          media: {
+            orderBy: { sortOrder: 'asc' },
+            take: 1,
+            select: { url: true, alt: true },
+          },
         },
       }),
     ]);
@@ -88,7 +104,10 @@ export class PropertiesService {
         cleaningFee: true,
         currency: true,
         status: true,
-        media: { orderBy: { sortOrder: 'asc' }, select: { url: true, alt: true, sortOrder: true } },
+        media: {
+          orderBy: { sortOrder: 'asc' },
+          select: { url: true, alt: true, sortOrder: true },
+        },
       },
     });
 

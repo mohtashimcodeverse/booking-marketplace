@@ -5,6 +5,7 @@ import {
   UserRole,
   VendorStatus,
   type Property,
+  HoldStatus,
 } from '@prisma/client';
 import bcrypt from 'bcryptjs';
 
@@ -27,9 +28,19 @@ async function main() {
   const passwordHash = await bcrypt.hash('Password123!', 10);
 
   // Clean (order matters due to relations)
+  // Availability tables first (they reference Property)
+  await prisma.bookingIdempotency.deleteMany().catch(() => undefined);
   await prisma.payment.deleteMany();
   await prisma.booking.deleteMany();
+  await prisma.propertyHold.deleteMany();
+  await prisma.propertyCalendarDay.deleteMany();
+  await prisma.propertyAvailabilitySettings.deleteMany();
+
   await prisma.media.deleteMany();
+  await prisma.propertyAmenity.deleteMany().catch(() => undefined);
+  await prisma.amenity.deleteMany().catch(() => undefined);
+  await prisma.location.deleteMany().catch(() => undefined);
+
   await prisma.property.deleteMany();
   await prisma.vendorProfile.deleteMany();
   await prisma.user.deleteMany();
@@ -70,7 +81,11 @@ async function main() {
   const customers = await Promise.all(
     Array.from({ length: 5 }).map((_, i) =>
       prisma.user.create({
-        data: { email: `customer${i + 1}@demo.com`, passwordHash, role: UserRole.CUSTOMER },
+        data: {
+          email: `customer${i + 1}@demo.com`,
+          passwordHash,
+          role: UserRole.CUSTOMER,
+        },
       }),
     ),
   );
@@ -126,7 +141,7 @@ async function main() {
     properties.push(created);
   }
 
-  // Bookings (simple)
+  // Bookings (simple) - NOW requires holds
   const now = new Date();
   const day = 24 * 60 * 60 * 1000;
 
@@ -140,10 +155,24 @@ async function main() {
     const nights = Math.max(1, Math.round((checkOut.getTime() - checkIn.getTime()) / day));
     const totalAmount = property.basePrice * nights + property.cleaningFee;
 
-    await prisma.booking.create({
+    // 1) Create a hold first (required for real booking flow)
+    const hold = await prisma.propertyHold.create({
+      data: {
+        propertyId: property.id,
+        checkIn,
+        checkOut,
+        status: HoldStatus.ACTIVE,
+        expiresAt: new Date(now.getTime() + 60 * 60 * 1000), // 60 min
+        createdById: customer.id,
+      },
+    });
+
+    // 2) Create booking linked to the hold
+    const booking = await prisma.booking.create({
       data: {
         customerId: customer.id,
         propertyId: property.id,
+        holdId: hold.id,
         checkIn,
         checkOut,
         adults: 2,
@@ -157,6 +186,16 @@ async function main() {
             providerRef: `seed_${i + 1}`,
           },
         },
+      },
+    });
+
+    // 3) Convert hold -> CONVERTED + link booking (prevents reuse)
+    await prisma.propertyHold.update({
+      where: { id: hold.id },
+      data: {
+        status: HoldStatus.CONVERTED,
+        convertedAt: new Date(),
+        bookingId: booking.id,
       },
     });
   }

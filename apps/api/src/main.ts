@@ -3,9 +3,9 @@ import { NestFactory } from '@nestjs/core';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 import helmet from 'helmet';
 import { AppModule } from './app.module';
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-const cookieParser = require('cookie-parser');
+import cookieParser from 'cookie-parser';
+import express from 'express';
+import { join } from 'path';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,6 +16,11 @@ async function bootstrap() {
   // Security + cookies
   app.use(cookieParser());
   app.use(helmet());
+
+  // Static uploads (local dev + staging)
+  // Stored by multer at: <apps/api>/uploads/properties/...
+  // Served at:          http://host/uploads/properties/...
+  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
 
   // CORS (single source of truth)
   // Example: CORS_ORIGIN="http://localhost:3000,https://rentpropertyuae.vercel.app"
@@ -50,9 +55,7 @@ async function bootstrap() {
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port);
 
-  // eslint-disable-next-line no-console
   console.log(`✅ API running: http://localhost:${port}/api`);
-  // eslint-disable-next-line no-console
   console.log(`📚 Swagger:     http://localhost:${port}/docs`);
 }
 

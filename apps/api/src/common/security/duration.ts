@@ -1,4 +1,7 @@
-export function parseDurationToSeconds(input: string, fallbackSeconds: number): number {
+export function parseDurationToSeconds(
+  input: string,
+  fallbackSeconds: number,
+): number {
   const v = (input || '').trim().toLowerCase();
   if (!v) return fallbackSeconds;
 
