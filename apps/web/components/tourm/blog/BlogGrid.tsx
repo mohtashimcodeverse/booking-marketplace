@@ -1,0 +1,109 @@
+import Link from "next/link";
+
+type Post = {
+  slug: string;
+  title: string;
+  excerpt: string;
+  date: string;
+  coverUrl: string;
+  tag: string;
+};
+
+function PostCard({ p }: { p: Post }) {
+  return (
+    <Link
+      href={`/blog/${p.slug}`}
+      className="group overflow-hidden rounded-2xl border border-stone bg-white/55 shadow-[0_18px_60px_rgba(2,10,20,0.05)] transition hover:-translate-y-0.5 hover:bg-white"
+    >
+      <div className="relative aspect-[16/10] w-full overflow-hidden">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src={p.coverUrl}
+          alt={p.title}
+          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.04]"
+          loading="lazy"
+        />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-midnight/55 via-midnight/10 to-transparent" />
+        <div className="absolute left-4 top-4 rounded-full border border-stone bg-white/80 px-3 py-1.5 text-xs font-extrabold text-midnight backdrop-blur">
+          {p.tag}
+        </div>
+      </div>
+
+      <div className="space-y-2 p-5">
+        <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-ink/60">
+          {p.date}
+        </p>
+        <h3 className="text-base font-semibold text-midnight">{p.title}</h3>
+        <p className="text-sm text-ink/75">{p.excerpt}</p>
+        <div className="pt-2 text-sm font-extrabold text-midnight">
+          Read more <span aria-hidden className="ml-1 text-ink/60">→</span>
+        </div>
+        <div className="h-1.5 w-12 rounded-full bg-[#16a6c8]/15" />
+      </div>
+    </Link>
+  );
+}
+
+export default function BlogGrid() {
+  const posts: Post[] = [
+    {
+      slug: "best-areas-to-stay-in-dubai",
+      title: "Best areas to stay in Dubai (based on your trip)",
+      excerpt:
+        "A practical guide to choosing Downtown, Marina, Business Bay, and more — with clear tradeoffs.",
+      date: "Guide",
+      tag: "Area Guide",
+      coverUrl:
+        "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1600&q=80",
+    },
+    {
+      slug: "how-we-keep-stays-consistent",
+      title: "How we keep stays consistent: operations behind the scenes",
+      excerpt:
+        "From cleaning to inspections to readiness checks — a quick look into operator-grade standards.",
+      date: "Operations",
+      tag: "Hospitality",
+      coverUrl:
+        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1600&q=80",
+    },
+    {
+      slug: "booking-flow-explained",
+      title: "Booking flow explained: holds, quotes, and inventory safety",
+      excerpt:
+        "Why our booking flow avoids double-booking and why totals stay consistent with server-side quotes.",
+      date: "Product",
+      tag: "Booking",
+      coverUrl:
+        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1600&q=80",
+    },
+  ];
+
+  return (
+    <section className="relative w-full bg-[var(--tourm-bg)] py-14 sm:py-18">
+      <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
+        <div className="max-w-3xl">
+          <p className="inline-flex items-center gap-2 rounded-full border border-stone bg-white/70 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.22em] text-ink/70 shadow-sm backdrop-blur">
+            <span className="inline-block h-2 w-2 rounded-full bg-[#16a6c8]" />
+            Latest
+          </p>
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-midnight sm:text-3xl">
+            Fresh reads
+          </h2>
+          <p className="mt-2 text-sm text-ink/75 sm:text-base">
+            This is a UI shell for now — we’ll wire real posts later.
+          </p>
+        </div>
+
+        <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+          {posts.map((p) => (
+            <PostCard key={p.slug} p={p} />
+          ))}
+        </div>
+      </div>
+
+      <div className="pointer-events-none absolute inset-0 -z-10">
+        <div className="absolute -left-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-[#16a6c8]/10 blur-3xl" />
+      </div>
+    </section>
+  );
+}

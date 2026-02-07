@@ -1,7 +1,15 @@
-import { BadRequestException, ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { BookingStatus, CalendarDayStatus, HoldStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { enumerateNights, isoDayToUtcDate, utcDateToIsoDay } from './availability.utils';
+import {
+  enumerateNights,
+  isoDayToUtcDate,
+  utcDateToIsoDay,
+} from './availability.utils';
 import { AvailabilityRangeResult } from './types/availability.types';
 import { UpdateAvailabilitySettingsDto } from './dto/settings.dto';
 import { UpsertCalendarDaysDto, BlockRangeDto } from './dto/calendar.dto';
@@ -17,13 +25,17 @@ export class AvailabilityService {
   // Helpers
   // -----------------------------
 
-  private async assertVendorOwnsPropertyOrThrow(userId: string, propertyId: string) {
+  private async assertVendorOwnsPropertyOrThrow(
+    userId: string,
+    propertyId: string,
+  ) {
     const property = await this.prisma.property.findFirst({
       where: { id: propertyId, vendorId: userId },
       select: { id: true },
     });
 
-    if (!property) throw new ForbiddenException('You do not own this property.');
+    if (!property)
+      throw new ForbiddenException('You do not own this property.');
   }
 
   /**
@@ -36,10 +48,17 @@ export class AvailabilityService {
     return Math.max(0, diff);
   }
 
-  private extractUserId(maybeUserOrId: any): string | null {
+  private hasStringId(value: unknown): value is { id: string } {
+    if (typeof value !== 'object' || value === null) return false;
+    return (
+      'id' in value && typeof (value as Record<string, unknown>).id === 'string'
+    );
+  }
+
+  private extractUserId(maybeUserOrId: unknown): string | null {
     if (!maybeUserOrId) return null;
     if (typeof maybeUserOrId === 'string') return maybeUserOrId;
-    if (typeof maybeUserOrId === 'object' && typeof maybeUserOrId.id === 'string') return maybeUserOrId.id;
+    if (this.hasStringId(maybeUserOrId)) return maybeUserOrId.id;
     return null;
   }
 
@@ -66,11 +85,20 @@ export class AvailabilityService {
     return this.getOrCreateSettings(propertyId);
   }
 
-  async vendorUpdateSettings(userId: string, propertyId: string, dto: UpdateAvailabilitySettingsDto) {
+  async vendorUpdateSettings(
+    userId: string,
+    propertyId: string,
+    dto: UpdateAvailabilitySettingsDto,
+  ) {
     await this.assertVendorOwnsPropertyOrThrow(userId, propertyId);
 
-    if (dto.defaultMaxNights != null && dto.defaultMaxNights < dto.defaultMinNights) {
-      throw new BadRequestException('defaultMaxNights cannot be less than defaultMinNights.');
+    if (
+      dto.defaultMaxNights != null &&
+      dto.defaultMaxNights < dto.defaultMinNights
+    ) {
+      throw new BadRequestException(
+        'defaultMaxNights cannot be less than defaultMinNights.',
+      );
     }
 
     return this.prisma.propertyAvailabilitySettings.upsert({
@@ -95,7 +123,11 @@ export class AvailabilityService {
   // Calendar querying
   // -----------------------------
 
-  async getAvailabilityRange(propertyId: string, fromIso: string, toIso: string): Promise<AvailabilityRangeResult> {
+  async getAvailabilityRange(
+    propertyId: string,
+    fromIso: string,
+    toIso: string,
+  ): Promise<AvailabilityRangeResult> {
     const from = isoDayToUtcDate(fromIso);
     const to = isoDayToUtcDate(toIso);
 
@@ -113,7 +145,12 @@ export class AvailabilityService {
     const [overrides, activeHolds] = await Promise.all([
       this.prisma.propertyCalendarDay.findMany({
         where: { propertyId, date: { gte: from, lt: to } },
-        select: { date: true, status: true, minNightsOverride: true, note: true },
+        select: {
+          date: true,
+          status: true,
+          minNightsOverride: true,
+          note: true,
+        },
       }),
       this.prisma.propertyHold.findMany({
         where: {
@@ -127,7 +164,7 @@ export class AvailabilityService {
       }),
     ]);
 
-    const overrideMap = new Map<string, typeof overrides[number]>();
+    const overrideMap = new Map<string, (typeof overrides)[number]>();
     for (const o of overrides) overrideMap.set(utcDateToIsoDay(o.date), o);
 
     const heldNights = new Set<string>();
@@ -158,7 +195,12 @@ export class AvailabilityService {
     return { propertyId, from: fromIso, to: toIso, days };
   }
 
-  async vendorGetCalendar(userId: string, propertyId: string, fromIso: string, toIso: string) {
+  async vendorGetCalendar(
+    userId: string,
+    propertyId: string,
+    fromIso: string,
+    toIso: string,
+  ) {
     await this.assertVendorOwnsPropertyOrThrow(userId, propertyId);
     return this.getAvailabilityRange(propertyId, fromIso, toIso);
   }
@@ -167,7 +209,11 @@ export class AvailabilityService {
   // Calendar mutations
   // -----------------------------
 
-  async vendorUpsertCalendarDays(userId: string, propertyId: string, dto: UpsertCalendarDaysDto) {
+  async vendorUpsertCalendarDays(
+    userId: string,
+    propertyId: string,
+    dto: UpsertCalendarDaysDto,
+  ) {
     await this.assertVendorOwnsPropertyOrThrow(userId, propertyId);
 
     const lastByDate = new Map<string, (typeof dto.days)[number]>();
@@ -176,7 +222,10 @@ export class AvailabilityService {
     const rows = Array.from(lastByDate.values()).map((d) => ({
       propertyId,
       date: isoDayToUtcDate(d.date),
-      status: d.status === 'BLOCKED' ? CalendarDayStatus.BLOCKED : CalendarDayStatus.AVAILABLE,
+      status:
+        d.status === 'BLOCKED'
+          ? CalendarDayStatus.BLOCKED
+          : CalendarDayStatus.AVAILABLE,
       minNightsOverride: d.minNightsOverride ?? null,
       note: d.note ?? null,
     }));
@@ -184,8 +233,14 @@ export class AvailabilityService {
     return this.prisma.$transaction(async (tx) => {
       for (const r of rows) {
         await tx.propertyCalendarDay.upsert({
-          where: { propertyId_date: { propertyId: r.propertyId, date: r.date } },
-          update: { status: r.status, minNightsOverride: r.minNightsOverride, note: r.note },
+          where: {
+            propertyId_date: { propertyId: r.propertyId, date: r.date },
+          },
+          update: {
+            status: r.status,
+            minNightsOverride: r.minNightsOverride,
+            note: r.note,
+          },
           create: r,
         });
       }
@@ -193,44 +248,69 @@ export class AvailabilityService {
     });
   }
 
-  async vendorBlockRange(userId: string, propertyId: string, dto: BlockRangeDto) {
+  async vendorBlockRange(
+    userId: string,
+    propertyId: string,
+    dto: BlockRangeDto,
+  ) {
     await this.assertVendorOwnsPropertyOrThrow(userId, propertyId);
 
     const from = isoDayToUtcDate(dto.from);
     const to = isoDayToUtcDate(dto.to);
-    if (from.getTime() >= to.getTime()) throw new BadRequestException('from must be earlier than to.');
+    if (from.getTime() >= to.getTime())
+      throw new BadRequestException('from must be earlier than to.');
 
     const days: Date[] = [];
-    for (let t = from.getTime(); t < to.getTime(); t += 24 * 60 * 60 * 1000) days.push(new Date(t));
+    for (let t = from.getTime(); t < to.getTime(); t += 24 * 60 * 60 * 1000)
+      days.push(new Date(t));
 
     return this.prisma.$transaction(async (tx) => {
       for (const day of days) {
         await tx.propertyCalendarDay.upsert({
           where: { propertyId_date: { propertyId, date: day } },
           update: { status: CalendarDayStatus.BLOCKED, note: dto.note ?? null },
-          create: { propertyId, date: day, status: CalendarDayStatus.BLOCKED, note: dto.note ?? null },
+          create: {
+            propertyId,
+            date: day,
+            status: CalendarDayStatus.BLOCKED,
+            note: dto.note ?? null,
+          },
         });
       }
       return { ok: true, blockedDays: days.length };
     });
   }
 
-  async vendorUnblockRange(userId: string, propertyId: string, dto: BlockRangeDto) {
+  async vendorUnblockRange(
+    userId: string,
+    propertyId: string,
+    dto: BlockRangeDto,
+  ) {
     await this.assertVendorOwnsPropertyOrThrow(userId, propertyId);
 
     const from = isoDayToUtcDate(dto.from);
     const to = isoDayToUtcDate(dto.to);
-    if (from.getTime() >= to.getTime()) throw new BadRequestException('from must be earlier than to.');
+    if (from.getTime() >= to.getTime())
+      throw new BadRequestException('from must be earlier than to.');
 
     const days: Date[] = [];
-    for (let t = from.getTime(); t < to.getTime(); t += 24 * 60 * 60 * 1000) days.push(new Date(t));
+    for (let t = from.getTime(); t < to.getTime(); t += 24 * 60 * 60 * 1000)
+      days.push(new Date(t));
 
     return this.prisma.$transaction(async (tx) => {
       for (const day of days) {
         await tx.propertyCalendarDay.upsert({
           where: { propertyId_date: { propertyId, date: day } },
-          update: { status: CalendarDayStatus.AVAILABLE, note: dto.note ?? null },
-          create: { propertyId, date: day, status: CalendarDayStatus.AVAILABLE, note: dto.note ?? null },
+          update: {
+            status: CalendarDayStatus.AVAILABLE,
+            note: dto.note ?? null,
+          },
+          create: {
+            propertyId,
+            date: day,
+            status: CalendarDayStatus.AVAILABLE,
+            note: dto.note ?? null,
+          },
         });
       }
       return { ok: true, unblockedDays: days.length };
@@ -241,7 +321,7 @@ export class AvailabilityService {
   // Holds (anti double-booking)
   // -----------------------------
 
-  async createHold(userId: any, propertyId: string, dto: CreateHoldDto) {
+  async createHold(userId: unknown, propertyId: string, dto: CreateHoldDto) {
     const checkIn = isoDayToUtcDate(dto.checkIn);
     const checkOut = isoDayToUtcDate(dto.checkOut);
 
@@ -250,7 +330,8 @@ export class AvailabilityService {
     }
 
     const ttl = dto.ttlMinutes ?? 15;
-    if (ttl < 5 || ttl > 60) throw new BadRequestException('ttlMinutes must be between 5 and 60.');
+    if (ttl < 5 || ttl > 60)
+      throw new BadRequestException('ttlMinutes must be between 5 and 60.');
 
     const createdById = this.extractUserId(userId);
     const expiresAt = new Date(Date.now() + ttl * 60 * 1000);
@@ -265,22 +346,31 @@ export class AvailabilityService {
       `;
 
       const nights = enumerateNights(checkIn, checkOut);
-      if (nights.length <= 0) throw new BadRequestException('Invalid date range.');
+      if (nights.length <= 0)
+        throw new BadRequestException('Invalid date range.');
 
       const blocked = await tx.propertyCalendarDay.findFirst({
-        where: { propertyId, status: CalendarDayStatus.BLOCKED, date: { in: nights } },
+        where: {
+          propertyId,
+          status: CalendarDayStatus.BLOCKED,
+          date: { in: nights },
+        },
         select: { date: true },
       });
 
       if (blocked) {
-        throw new BadRequestException(`Dates unavailable (blocked on ${utcDateToIsoDay(blocked.date)}).`);
+        throw new BadRequestException(
+          `Dates unavailable (blocked on ${utcDateToIsoDay(blocked.date)}).`,
+        );
       }
 
       // Also protect against real bookings (confirmed/pending payment) overlapping
       const overlapBooking = await tx.booking.findFirst({
         where: {
           propertyId,
-          status: { in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED] },
+          status: {
+            in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED],
+          },
           checkIn: { lt: checkOut },
           checkOut: { gt: checkIn },
         },
@@ -303,13 +393,16 @@ export class AvailabilityService {
       });
 
       if (overlapHold) {
-        throw new BadRequestException('Dates temporarily unavailable (another checkout in progress).');
+        throw new BadRequestException(
+          'Dates temporarily unavailable (another checkout in progress).',
+        );
       }
 
       if (!createdById) {
-        throw new BadRequestException('createdById is required to create a hold.');
+        throw new BadRequestException(
+          'createdById is required to create a hold.',
+        );
       }
-
 
       const hold = await tx.propertyHold.create({
         data: {
@@ -374,9 +467,6 @@ export class AvailabilityService {
       reasons.push(`Max guests exceeded (max ${property.maxGuests}).`);
     }
 
-    // For now we allow quoting on DRAFT properties (vendor preview), but you can restrict if needed.
-    // if (property.status !== PropertyStatus.PUBLISHED) reasons.push('Property is not published.');
-
     const settings = await this.getOrCreateSettings(propertyId);
     const minNightsRequired = settings.defaultMinNights;
 
@@ -387,7 +477,11 @@ export class AvailabilityService {
     // Validate blocked days
     const nights = enumerateNights(checkIn, checkOut);
     const blocked = await this.prisma.propertyCalendarDay.findFirst({
-      where: { propertyId, status: CalendarDayStatus.BLOCKED, date: { in: nights } },
+      where: {
+        propertyId,
+        status: CalendarDayStatus.BLOCKED,
+        date: { in: nights },
+      },
       select: { date: true },
     });
     if (blocked) reasons.push(`Blocked on ${utcDateToIsoDay(blocked.date)}.`);
@@ -403,13 +497,16 @@ export class AvailabilityService {
       },
       select: { id: true },
     });
-    if (overlapHold) reasons.push('Temporarily unavailable (another checkout in progress).');
+    if (overlapHold)
+      reasons.push('Temporarily unavailable (another checkout in progress).');
 
     // Validate existing bookings overlap (real production safety)
     const overlapBooking = await this.prisma.booking.findFirst({
       where: {
         propertyId,
-        status: { in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED] },
+        status: {
+          in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED],
+        },
         checkIn: { lt: checkOut },
         checkOut: { gt: checkIn },
       },
@@ -442,36 +539,45 @@ export class AvailabilityService {
       },
     };
   }
-  async reserve(user: any, propertyId: string, dto: { checkIn: string; checkOut: string; guests?: number | null; ttlMinutes?: number | null }) {
-  // 1) Quote first (source of truth)
-  const quote = await this.quote(propertyId, {
-    checkIn: dto.checkIn,
-    checkOut: dto.checkOut,
-    guests: dto.guests ?? null,
-  });
 
-  if (!quote.canBook) {
+  async reserve(
+    user: unknown,
+    propertyId: string,
+    dto: {
+      checkIn: string;
+      checkOut: string;
+      guests?: number | null;
+      ttlMinutes?: number | null;
+    },
+  ) {
+    // 1) Quote first (source of truth)
+    const quote = await this.quote(propertyId, {
+      checkIn: dto.checkIn,
+      checkOut: dto.checkOut,
+      guests: dto.guests ?? null,
+    });
+
+    if (!quote.canBook) {
+      return {
+        ok: true,
+        canReserve: false,
+        reasons: quote.reasons,
+        quote,
+      };
+    }
+
+    // 2) Create hold (this enforces advisory lock + overlap checks again)
+    const hold = await this.createHold(user, propertyId, {
+      checkIn: dto.checkIn,
+      checkOut: dto.checkOut,
+      ttlMinutes: dto.ttlMinutes ?? 15,
+    });
+
     return {
       ok: true,
-      canReserve: false,
-      reasons: quote.reasons,
+      canReserve: true,
+      hold,
       quote,
     };
   }
-
-  // 2) Create hold (this enforces advisory lock + overlap checks again)
-  const hold = await this.createHold(user, propertyId, {
-    checkIn: dto.checkIn,
-    checkOut: dto.checkOut,
-    ttlMinutes: dto.ttlMinutes ?? 15,
-  });
-
-  return {
-    ok: true,
-    canReserve: true,
-    hold,
-    quote,
-  };
-}
-
 }

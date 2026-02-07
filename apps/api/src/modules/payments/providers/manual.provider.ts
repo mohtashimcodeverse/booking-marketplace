@@ -2,26 +2,26 @@ import { Injectable } from '@nestjs/common';
 
 @Injectable()
 export class ManualPaymentsProvider {
-  async authorize(params: { bookingId: string; amount: number; currency: string }) {
-    return {
+  authorize(params: { bookingId: string; amount: number; currency: string }) {
+    return Promise.resolve({
       providerRef: `manual_auth_${params.bookingId}_${Date.now()}`,
-    };
+    });
   }
 
-  async capture(params: { providerRef: string }) {
-    return {
+  capture(params: { providerRef: string }) {
+    return Promise.resolve({
       providerRef: `manual_cap_${params.providerRef}_${Date.now()}`,
-    };
+    });
   }
 
-  async refund(params: {
+  refund(params: {
     providerRef?: string | null;
     refundId: string;
     amount: number;
     currency: string;
   }) {
-    return {
+    return Promise.resolve({
       providerRefundRef: `manual_ref_${params.refundId}_${Date.now()}`,
-    };
+    });
   }
 }

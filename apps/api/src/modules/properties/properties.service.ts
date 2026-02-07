@@ -3,6 +3,23 @@ import { Prisma, PropertyStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListPropertiesDto } from './dto/list-properties.dto';
 
+type AmenityGroupDto = {
+  id: string;
+  key: string;
+  name: string;
+  sortOrder: number;
+};
+
+type AmenityDto = {
+  id: string;
+  key: string;
+  name: string;
+  icon: string | null;
+  sortOrder: number;
+  isActive: boolean;
+  group: AmenityGroupDto | null;
+};
+
 @Injectable()
 export class PropertiesService {
   constructor(private readonly prisma: PrismaService) {}
@@ -85,8 +102,9 @@ export class PropertiesService {
   }
 
   async bySlug(slug: string) {
-    const property = await this.prisma.property.findUnique({
-      where: { slug },
+    // ✅ Public safety: only show PUBLISHED listings
+    const property = await this.prisma.property.findFirst({
+      where: { slug, status: PropertyStatus.PUBLISHED },
       select: {
         id: true,
         title: true,
@@ -106,11 +124,76 @@ export class PropertiesService {
         status: true,
         media: {
           orderBy: { sortOrder: 'asc' },
-          select: { url: true, alt: true, sortOrder: true },
+          select: { url: true, alt: true, sortOrder: true, category: true },
+        },
+
+        // ✅ Amenities + groups (Frank Porter style)
+        amenities: {
+          select: {
+            amenity: {
+              select: {
+                id: true,
+                key: true,
+                name: true,
+                icon: true,
+                sortOrder: true,
+                isActive: true,
+                group: {
+                  select: {
+                    id: true,
+                    key: true,
+                    name: true,
+                    sortOrder: true,
+                  },
+                },
+              },
+            },
+          },
         },
       },
     });
 
-    return property;
+    if (!property) return null;
+
+    const amenities: AmenityDto[] = (property.amenities ?? [])
+      .map((pa) => pa.amenity)
+      .filter((a) => a.isActive)
+      .sort((a, b) => {
+        const ga = a.group?.sortOrder ?? 9999;
+        const gb = b.group?.sortOrder ?? 9999;
+        if (ga !== gb) return ga - gb;
+
+        if (a.sortOrder !== b.sortOrder) return a.sortOrder - b.sortOrder;
+
+        return a.name.localeCompare(b.name);
+      });
+
+    const groupsMap = new Map<
+      string,
+      { group: AmenityGroupDto | null; amenities: AmenityDto[] }
+    >();
+
+    for (const a of amenities) {
+      const key = a.group?.id ?? 'ungrouped';
+      const existing = groupsMap.get(key);
+      if (existing) existing.amenities.push(a);
+      else groupsMap.set(key, { group: a.group ?? null, amenities: [a] });
+    }
+
+    const amenitiesGrouped = Array.from(groupsMap.values()).sort((x, y) => {
+      const sx = x.group?.sortOrder ?? 9999;
+      const sy = y.group?.sortOrder ?? 9999;
+      if (sx !== sy) return sx - sy;
+
+      const nx = x.group?.name ?? 'Other';
+      const ny = y.group?.name ?? 'Other';
+      return nx.localeCompare(ny);
+    });
+
+    return {
+      ...property,
+      amenities,
+      amenitiesGrouped,
+    };
   }
 }

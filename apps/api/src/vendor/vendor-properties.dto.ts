@@ -10,19 +10,13 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
-
-export enum PropertyStatus {
-  DRAFT = 'DRAFT',
-  PUBLISHED = 'PUBLISHED',
-  SUSPENDED = 'SUSPENDED',
-}
+import { PropertyDocumentType, PropertyMediaCategory } from '@prisma/client';
 
 export class CreatePropertyDto {
   @IsString()
   @MaxLength(140)
   title!: string;
 
-  // ✅ IMPORTANT: must be optional in validation too
   @IsOptional()
   @IsString()
   @MaxLength(180)
@@ -46,7 +40,6 @@ export class CreatePropertyDto {
   @MaxLength(180)
   address?: string;
 
-  // ✅ ensure numbers (also supports numeric strings if transform is enabled globally)
   @IsOptional()
   @IsNumber()
   lat?: number;
@@ -83,10 +76,6 @@ export class CreatePropertyDto {
   @IsString()
   @MaxLength(10)
   currency?: string;
-
-  @IsOptional()
-  @IsEnum(PropertyStatus)
-  status?: PropertyStatus;
 
   // operational settings
   @IsOptional()
@@ -157,7 +146,7 @@ export class UpdatePropertyDto {
   @IsNumber()
   lng?: number;
 
-  // ✅ allow null explicitly for detach semantics
+  // allow null explicitly for detach semantics
   @IsOptional()
   @IsUUID()
   locationId?: string | null;
@@ -191,10 +180,6 @@ export class UpdatePropertyDto {
   @IsString()
   @MaxLength(10)
   currency?: string;
-
-  @IsOptional()
-  @IsEnum(PropertyStatus)
-  status?: PropertyStatus;
 
   // operational settings
   @IsOptional()
@@ -231,4 +216,32 @@ export class ReorderMediaDto {
   @IsArray()
   @IsString({ each: true })
   orderedMediaIds!: string[];
+}
+
+/**
+ * ✅ V1: Media categorization (your chosen option)
+ * PATCH /vendor/properties/:propertyId/media/:mediaId
+ */
+export class UpdateMediaCategoryDto {
+  @IsEnum(PropertyMediaCategory)
+  category!: PropertyMediaCategory;
+}
+
+/**
+ * ✅ V1: Property document upload metadata
+ * POST /vendor/properties/:id/documents  (multipart)
+ */
+export class UploadPropertyDocumentDto {
+  @IsEnum(PropertyDocumentType)
+  type!: PropertyDocumentType;
+}
+
+/**
+ * ✅ V3: Amenities selector (catalog-driven)
+ * POST /vendor/properties/:id/amenities
+ */
+export class SetPropertyAmenitiesDto {
+  @IsArray()
+  @IsString({ each: true })
+  amenityIds!: string[];
 }

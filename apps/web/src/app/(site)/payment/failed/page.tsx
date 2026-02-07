@@ -1,0 +1,18 @@
+import { PaymentResultCard } from "@/components/checkout/PaymentResultCard";
+
+type PageProps = {
+  searchParams: Promise<{ bookingId?: string }>;
+};
+
+export default async function PaymentFailedPage(props: PageProps) {
+  const sp = await props.searchParams;
+  const bookingId = (sp.bookingId ?? "").trim();
+
+  return (
+    <main className="min-h-screen bg-white">
+      <div className="mx-auto max-w-3xl px-4 pb-24 pt-28 sm:px-6 lg:px-8">
+        <PaymentResultCard tone="failed" bookingId={bookingId} />
+      </div>
+    </main>
+  );
+}

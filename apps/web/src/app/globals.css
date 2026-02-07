@@ -1,19 +1,86 @@
 @import "tailwindcss";
 
-/* keep it minimal + stable */
+/* Tourm-first calm palette */
+:root {
+  --tourm-primary: #16a6c8; /* cyan */
+  --tourm-ink: #0b2230;
+  --tourm-muted: #5b6b75;
+  --tourm-bg: #f6f3ec; /* warm ivory like Tourm */
+  --tourm-card: rgba(255, 255, 255, 0.88);
+  --tourm-border: rgba(15, 23, 42, 0.10);
+  --tourm-border-strong: rgba(15, 23, 42, 0.14);
+  --tourm-shadow: 0 18px 60px rgba(2, 10, 20, 0.10);
+  --tourm-shadow-soft: 0 12px 36px rgba(2, 10, 20, 0.08);
+}
+
 html,
 body {
   height: 100%;
 }
 
-/* premium selection highlight (no grey blocks) */
-::selection {
-  background: rgba(107, 124, 92, 0.28);
-  color: #111827;
+html {
+  scroll-behavior: smooth;
 }
 
-/* Optional: smoother typography rendering */
 body {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
+  background: var(--tourm-bg);
+  color: var(--tourm-ink);
+  /* HARD STOP for ugly horizontal scroll */
+  overflow-x: hidden;
+}
+
+/**
+ * GLOBAL SOFTENING:
+ * Many components use Tailwind class "border-stone".
+ * We keep your layout intact but enforce calm borders everywhere.
+ */
+.border-stone {
+  border-color: var(--tourm-border) !important;
+}
+
+/* Also calm down "ring" borders if they appear */
+.ring-stone,
+.ring-stone\/20,
+.ring-stone\/30 {
+  --tw-ring-color: var(--tourm-border) !important;
+}
+
+@layer utilities {
+  .container-page {
+    @apply mx-auto w-full max-w-[1200px] px-4;
+  }
+
+  .tourm-card {
+    background: var(--tourm-card);
+    border: 1px solid var(--tourm-border);
+    box-shadow: var(--tourm-shadow-soft);
+    backdrop-filter: blur(14px);
+  }
+
+  .tourm-border {
+    border: 1px solid var(--tourm-border);
+  }
+
+  .tourm-border-strong {
+    border: 1px solid var(--tourm-border-strong);
+  }
+}
+
+@keyframes preloaderFade {
+  0% {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  40% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-preloader-fade {
+  animation: preloaderFade 0.6s ease-out both;
 }

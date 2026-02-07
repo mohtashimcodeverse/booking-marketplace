@@ -1,0 +1,374 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { motion } from "framer-motion";
+import DateRangePicker, { type DateRangeValue } from "./DateRangePicker";
+import { quote, reserve } from "@/lib/api/properties";
+import type { QuoteResponse, ReserveResponse } from "@/lib/types/property";
+import { CalendarDays, Users, ShieldCheck, Timer, Sparkles, ChevronDown } from "lucide-react";
+import Link from "next/link";
+
+function formatMoney(currency: string, value: number): string {
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(value);
+  } catch {
+    return `${currency} ${Math.round(value)}`;
+  }
+}
+
+function formatIsoShort(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return iso;
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      weekday: "short",
+      day: "2-digit",
+      month: "short",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
+  } catch {
+    return iso;
+  }
+}
+
+type UiState =
+  | { kind: "idle" }
+  | { kind: "loadingQuote" }
+  | { kind: "quoted"; quote: QuoteResponse }
+  | { kind: "reserving"; quote: QuoteResponse }
+  | { kind: "reserved"; reserved: ReserveResponse }
+  | { kind: "error"; message: string };
+
+type Props = {
+  propertyId: string;
+  currency: string;
+  priceFrom: number;
+};
+
+function TrustChip(props: { icon: React.ReactNode; text: string }) {
+  return (
+    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800">
+      <span className="text-slate-600">{props.icon}</span>
+      <span className="whitespace-nowrap">{props.text}</span>
+    </div>
+  );
+}
+
+function LabelRow(props: { label: string; value: string; emphasize?: boolean }) {
+  return (
+    <div className="flex items-center justify-between gap-3">
+      <span className="text-slate-700">{props.label}</span>
+      <span className={`${props.emphasize ? "text-base" : ""} font-semibold text-slate-900`}>
+        {props.value}
+      </span>
+    </div>
+  );
+}
+
+const GUEST_PRESETS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
+
+export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
+  const [dates, setDates] = useState<DateRangeValue>({ from: null, to: null });
+  const [guests, setGuests] = useState<number>(2);
+  const [ui, setUi] = useState<UiState>({ kind: "idle" });
+  const [mobileOpen, setMobileOpen] = useState(false);
+
+  const canQuote = useMemo(() => {
+    return !!dates.from && !!dates.to && guests >= 1 && guests <= 16;
+  }, [dates.from, dates.to, guests]);
+
+  async function runQuote() {
+    if (!dates.from || !dates.to) return;
+    setUi({ kind: "loadingQuote" });
+
+    const res = await quote(propertyId, { checkIn: dates.from, checkOut: dates.to, guests });
+    if (!res.ok) {
+      setUi({ kind: "error", message: res.message });
+      return;
+    }
+    setUi({ kind: "quoted", quote: res.data });
+  }
+
+  async function runReserve() {
+    if (ui.kind !== "quoted") return;
+    if (!dates.from || !dates.to) return;
+
+    setUi({ kind: "reserving", quote: ui.quote });
+    const res = await reserve(propertyId, { checkIn: dates.from, checkOut: dates.to, guests });
+
+    if (!res.ok) {
+      setUi({ kind: "error", message: res.message });
+      return;
+    }
+    setUi({ kind: "reserved", reserved: res.data });
+  }
+
+  const breakdown = ui.kind === "quoted" || ui.kind === "reserving" ? ui.quote.breakdown : null;
+
+  useEffect(() => {
+    if (ui.kind === "quoted" || ui.kind === "reserved" || ui.kind === "reserving") {
+      setMobileOpen(true);
+    }
+  }, [ui.kind]);
+
+  const hold = ui.kind === "reserved" ? ui.reserved.hold : null;
+  const checkoutHref = hold?.id
+  ? `/checkout/${encodeURIComponent(propertyId)}?holdId=${encodeURIComponent(hold.id)}`
+  : `/checkout/${encodeURIComponent(propertyId)}`;
+
+
+  return (
+    <>
+      <motion.aside
+        className="hidden lg:block sticky top-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        initial={{ y: 8, opacity: 0 }}
+        animate={{ y: 0, opacity: 1 }}
+        transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
+      >
+        <div className="flex items-end justify-between gap-4">
+          <div>
+            <div className="text-xs text-slate-600">From</div>
+            <div className="text-2xl font-semibold text-slate-900">
+              {formatMoney(currency, priceFrom)}
+            </div>
+          </div>
+          <div className="text-xs text-slate-600">per night baseline</div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          <TrustChip icon={<ShieldCheck className="h-4 w-4" />} text="Verified calendar" />
+          <TrustChip icon={<Timer className="h-4 w-4" />} text="Hold prevents double booking" />
+          <TrustChip icon={<Sparkles className="h-4 w-4" />} text="Operator-grade standards" />
+        </div>
+
+        <div className="mt-5 grid gap-4">
+          <div>
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+              <CalendarDays className="h-4 w-4 text-slate-500" />
+              Dates
+            </div>
+            <DateRangePicker value={dates} onChange={setDates} minDate={new Date()} />
+          </div>
+
+          <GuestsBlock guests={guests} onChange={setGuests} />
+
+          <button
+            type="button"
+            disabled={!canQuote || ui.kind === "loadingQuote"}
+            onClick={runQuote}
+            className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {ui.kind === "loadingQuote" ? "Checking price…" : "Get exact price"}
+          </button>
+
+          {breakdown ? (
+            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
+              <div className="text-xs font-semibold text-slate-900">Price breakdown</div>
+              <div className="mt-3 space-y-2">
+                <LabelRow label="Nights" value={`${breakdown.nights}`} />
+                <LabelRow label="Base" value={formatMoney(breakdown.currency, breakdown.baseAmount)} />
+                <LabelRow
+                  label="Cleaning"
+                  value={formatMoney(breakdown.currency, breakdown.cleaningFee)}
+                />
+                <LabelRow
+                  label="Service fee"
+                  value={formatMoney(breakdown.currency, breakdown.serviceFee)}
+                />
+                <LabelRow label="Taxes" value={formatMoney(breakdown.currency, breakdown.taxes)} />
+              </div>
+
+              <div className="mt-3 border-t border-slate-200 pt-3">
+                <LabelRow
+                  label="Total"
+                  value={formatMoney(breakdown.currency, breakdown.total)}
+                  emphasize
+                />
+              </div>
+
+              <button
+                type="button"
+                onClick={runReserve}
+                disabled={ui.kind === "reserving"}
+                className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {ui.kind === "reserving" ? "Reserving…" : "Reserve (hold inventory)"}
+              </button>
+
+              <div className="mt-3 text-xs text-slate-600">
+                Reserving creates a time-limited hold. You won’t be charged yet.
+              </div>
+            </div>
+          ) : null}
+
+          {ui.kind === "reserved" && hold ? (
+            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+              <div className="font-semibold">Hold created</div>
+              <div className="mt-1 text-xs text-emerald-900/80">
+                Expires: <span className="font-semibold">{formatIsoShort(hold.expiresAt)}</span>
+              </div>
+
+              <Link
+                href={checkoutHref}
+                className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
+              >
+                Continue to checkout
+              </Link>
+
+              <div className="mt-3 text-xs text-emerald-900/80">
+                Next: convert hold → booking in checkout.
+              </div>
+            </div>
+          ) : null}
+
+          {ui.kind === "error" ? (
+            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+              {ui.message}
+            </div>
+          ) : null}
+        </div>
+      </motion.aside>
+
+      {/* MOBILE BAR */}
+      <div className="lg:hidden">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
+          <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
+            <div className="min-w-0">
+              <div className="text-[11px] text-slate-600">From</div>
+              <div className="truncate text-sm font-semibold text-slate-900">
+                {formatMoney(currency, priceFrom)}
+                <span className="ml-1 text-xs font-medium text-slate-600">/ night</span>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setMobileOpen((v) => !v)}
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+            >
+              {breakdown ? "View price" : "Check availability"}
+              <ChevronDown className={`h-4 w-4 transition ${mobileOpen ? "rotate-180" : ""}`} />
+            </button>
+          </div>
+        </div>
+
+        {mobileOpen ? (
+          <div className="fixed inset-0 z-50">
+            <button
+              type="button"
+              aria-label="Close quote panel"
+              onClick={() => setMobileOpen(false)}
+              className="absolute inset-0 bg-black/40"
+            />
+
+            <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-white p-4 shadow-2xl">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="text-sm font-semibold text-slate-900">Your stay</div>
+                  <div className="mt-1 text-xs text-slate-600">
+                    Select dates and guests to get an exact price.
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen(false)}
+                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-900"
+                >
+                  Close
+                </button>
+              </div>
+
+              <div className="mt-4 grid gap-4 pb-3">
+                <div>
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+                    <CalendarDays className="h-4 w-4 text-slate-500" />
+                    Dates
+                  </div>
+                  <DateRangePicker value={dates} onChange={setDates} minDate={new Date()} />
+                </div>
+
+                <GuestsBlock guests={guests} onChange={setGuests} />
+
+                <button
+                  type="button"
+                  disabled={!canQuote || ui.kind === "loadingQuote"}
+                  onClick={runQuote}
+                  className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {ui.kind === "loadingQuote" ? "Checking price…" : "Get exact price"}
+                </button>
+
+                {ui.kind === "reserved" && hold ? (
+                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                    <div className="font-semibold">Hold created</div>
+                    <div className="mt-1 text-xs text-emerald-900/80">
+                      Expires: <span className="font-semibold">{formatIsoShort(hold.expiresAt)}</span>
+                    </div>
+
+                    <Link
+                      href={checkoutHref}
+                      className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                    >
+                      Continue to checkout
+                    </Link>
+                  </div>
+                ) : null}
+              </div>
+            </div>
+          </div>
+        ) : null}
+
+        <div className="h-16" />
+      </div>
+    </>
+  );
+}
+
+function GuestsBlock(props: { guests: number; onChange: (n: number) => void }) {
+  return (
+    <div>
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
+        <Users className="h-4 w-4 text-slate-500" />
+        Guests
+      </div>
+
+      <div className="grid grid-cols-4 gap-2">
+        {GUEST_PRESETS.map((n) => {
+          const active = props.guests === n;
+          return (
+            <button
+              key={n}
+              type="button"
+              onClick={() => props.onChange(n)}
+              className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
+                active
+                  ? "border-slate-900 bg-slate-900 text-white"
+                  : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
+              }`}
+            >
+              {n}
+            </button>
+          );
+        })}
+
+        <div className="col-span-4 mt-2">
+          <input
+            type="number"
+            min={1}
+            max={16}
+            value={props.guests}
+            onChange={(e) => props.onChange(Number(e.target.value))}
+            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+            aria-label="Guests"
+          />
+          <div className="mt-1 text-[11px] text-slate-600">Max 16 guests.</div>
+        </div>
+      </div>
+    </div>
+  );
+}

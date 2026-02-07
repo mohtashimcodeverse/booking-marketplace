@@ -11,15 +11,18 @@ import {
   CancellationMode,
   CancellationReason,
   HoldStatus,
+  OpsTaskStatus,
   PaymentStatus,
   Prisma,
   RefundReason,
   RefundStatus,
   UserRole,
+  NotificationType,
 } from '@prisma/client';
 import { PrismaService } from '../modules/prisma/prisma.service';
 import { CancelBookingDto } from './dto/cancel-booking.dto';
 import { CancellationPolicyService } from './policies/cancellation.policy';
+import { NotificationsService } from '../modules/notifications/notifications.service';
 
 const PAYMENT_WINDOW_MINUTES = 15;
 
@@ -28,6 +31,7 @@ export class BookingsService {
   constructor(
     private readonly prisma: PrismaService,
     private readonly cancellationPolicy: CancellationPolicyService,
+    private readonly notifications: NotificationsService,
   ) {}
 
   // ---------------------------
@@ -240,7 +244,7 @@ export class BookingsService {
           ? CancellationActor.VENDOR
           : CancellationActor.CUSTOMER;
 
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const booking = await tx.booking.findUnique({
         where: { id: bookingId },
         include: {
@@ -252,19 +256,24 @@ export class BookingsService {
 
       if (!booking) throw new NotFoundException('Booking not found.');
 
-      // ✅ Idempotent: already cancelled
+      // ✅ Idempotent: already cancelled — still ensure ops tasks are cancelled (retry-safe)
       if (booking.status === BookingStatus.CANCELLED && booking.cancellation) {
+        await this.cancelOpsTasksForBooking(tx, booking.id);
         return {
           ok: true,
           alreadyCancelled: true,
           bookingId: booking.id,
+          booking,
           cancellationId: booking.cancellation.id,
           refundId: booking.cancellation.refundId ?? null,
+          actor,
         };
       }
 
       if (booking.status === BookingStatus.COMPLETED) {
-        throw new BadRequestException('Completed bookings cannot be cancelled.');
+        throw new BadRequestException(
+          'Completed bookings cannot be cancelled.',
+        );
       }
 
       // ✅ Permission enforcement
@@ -326,8 +335,9 @@ export class BookingsService {
         CancellationReason.ADMIN_OVERRIDE,
       ]);
 
-      const requestedMode =
-        forcedHardReasons.has(dto.reason) ? CancellationMode.HARD : dto.mode;
+      const requestedMode = forcedHardReasons.has(dto.reason)
+        ? CancellationMode.HARD
+        : dto.mode;
 
       // ✅ Policy decision
       const decision = this.cancellationPolicy.decide({
@@ -402,11 +412,16 @@ export class BookingsService {
         },
       });
 
+      // ✅ Frank Porter Ops Hook: cancel ops tasks linked to this booking
+      await this.cancelOpsTasksForBooking(tx, booking.id);
+
       return {
         ok: true,
         bookingId: booking.id,
+        booking,
         cancellationId: cancellation.id,
         refundId,
+        actor,
         decision: {
           tier: decision.tier,
           mode: decision.mode,
@@ -414,8 +429,129 @@ export class BookingsService {
           penaltyAmount: decision.penaltyAmount,
           refundableAmount: decision.refundableAmount,
           policyVersion: decision.policyVersion,
+          reason: dto.reason,
+          notes: dto.notes?.trim() || null,
         },
       };
+    });
+
+    // 🔔 Emit notifications AFTER COMMIT (non-blocking)
+    try {
+      const booking = result.booking;
+      const vendorId = booking?.property?.vendorId ?? null;
+      const customerId = booking?.customerId ?? null;
+
+      if (booking?.id && customerId) {
+        // Customer always receives BOOKING_CANCELLED
+        await this.notifications.emit({
+          type: NotificationType.BOOKING_CANCELLED,
+          entityType: 'BOOKING',
+          entityId: booking.id,
+          recipientUserId: customerId,
+          payload: {
+            booking: {
+              id: booking.id,
+              propertyId: booking.propertyId,
+              checkIn: booking.checkIn,
+              checkOut: booking.checkOut,
+              totalAmount: booking.totalAmount,
+              currency: booking.currency,
+              status: BookingStatus.CANCELLED,
+            },
+            cancellation: {
+              actor: result.actor,
+              reason:
+                result.decision?.reason ?? booking.cancellationReason ?? null,
+              mode: result.decision?.mode ?? null,
+              penaltyAmount: result.decision?.penaltyAmount ?? null,
+              refundableAmount: result.decision?.refundableAmount ?? null,
+              refundId: result.refundId ?? null,
+            },
+          },
+        });
+      }
+
+      if (booking?.id && vendorId) {
+        // Vendor receives "cancelled by guest" if actor is CUSTOMER; otherwise generic cancellation
+        const vendorType =
+          result.actor === CancellationActor.CUSTOMER
+            ? NotificationType.BOOKING_CANCELLED_BY_GUEST
+            : NotificationType.BOOKING_CANCELLED;
+
+        await this.notifications.emit({
+          type: vendorType,
+          entityType: 'BOOKING',
+          entityId: booking.id,
+          recipientUserId: vendorId,
+          payload: {
+            booking: {
+              id: booking.id,
+              propertyId: booking.propertyId,
+              checkIn: booking.checkIn,
+              checkOut: booking.checkOut,
+              totalAmount: booking.totalAmount,
+              currency: booking.currency,
+              status: BookingStatus.CANCELLED,
+            },
+            cancellation: {
+              actor: result.actor,
+              reason:
+                result.decision?.reason ?? booking.cancellationReason ?? null,
+              mode: result.decision?.mode ?? null,
+              penaltyAmount: result.decision?.penaltyAmount ?? null,
+              refundableAmount: result.decision?.refundableAmount ?? null,
+              refundId: result.refundId ?? null,
+            },
+          },
+        });
+      }
+    } catch {
+      // non-blocking: notifications are async side-effects
+    }
+
+    // Preserve original response contract
+    if (result.alreadyCancelled) {
+      return {
+        ok: true,
+        alreadyCancelled: true,
+        bookingId: result.bookingId,
+        cancellationId: result.cancellationId,
+        refundId: result.refundId ?? null,
+      };
+    }
+
+    return {
+      ok: true,
+      bookingId: result.bookingId,
+      cancellationId: result.cancellationId,
+      refundId: result.refundId ?? null,
+      decision: result.decision,
+    };
+  }
+
+  /**
+   * ✅ Operator Layer V1: Booking cancellation cancels any not-completed tasks.
+   * Keeps audit trail (no delete).
+   */
+  private async cancelOpsTasksForBooking(
+    tx: Prisma.TransactionClient,
+    bookingId: string,
+  ): Promise<void> {
+    await tx.opsTask.updateMany({
+      where: {
+        bookingId,
+        status: {
+          in: [
+            OpsTaskStatus.PENDING,
+            OpsTaskStatus.ASSIGNED,
+            OpsTaskStatus.IN_PROGRESS,
+          ],
+        },
+      },
+      data: {
+        status: OpsTaskStatus.CANCELLED,
+        cancelledAt: new Date(),
+      },
     });
   }
 }

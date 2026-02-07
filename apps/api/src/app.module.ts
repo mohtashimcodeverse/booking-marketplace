@@ -12,8 +12,14 @@ import { VendorModule } from './vendor/vendor.module';
 import { AvailabilityModule } from './modules/availability/availability.module';
 import { BookingsModule } from './bookings/bookings.module';
 import { PaymentsModule } from './modules/payments/payments.module';
+import { OperatorModule } from './modules/operator/operator.module';
+import { NotificationsModule } from './modules/notifications/notifications.module';
+import { AdminModule } from './admin/admin.module';
+import { PortalModule } from './portal/portal.module';
 
 import { BookingExpiryWorker } from './workers/booking-expiry.worker';
+import { SearchModule } from './modules/search/search.module';
+import { FinanceModule } from './modules/finance/finance.module';
 
 @Module({
   imports: [
@@ -22,21 +28,30 @@ import { BookingExpiryWorker } from './workers/booking-expiry.worker';
       envFilePath: ['.env.local', '.env'],
     }),
 
-    ScheduleModule.forRoot(), // ✅ REQUIRED for cron jobs
+    ScheduleModule.forRoot(),
 
     PrismaModule,
     AvailabilityModule,
     ThrottlerModule.forRoot([{ ttl: 60_000, limit: 120 }]),
     AuthModule,
     VendorModule,
+    AdminModule, // ✅ ADMIN WIRED
     HealthModule,
     PropertiesModule,
+    PortalModule, // 🧭 PORTAL WIRED
     BookingsModule,
+    OperatorModule,
     PaymentsModule,
+
+    // 🔔 Notifications Layer (V1)
+    NotificationsModule,
+
+    // 💸 Finance: Statements + Ledger + Payouts
+    FinanceModule,
+
+    SearchModule,
   ],
   controllers: [AppController],
-  providers: [
-    BookingExpiryWorker, // ✅ registers the background job
-  ],
+  providers: [BookingExpiryWorker],
 })
 export class AppModule {}

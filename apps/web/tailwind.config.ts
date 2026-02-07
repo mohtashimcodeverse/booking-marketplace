@@ -3,21 +3,27 @@ import type { Config } from "tailwindcss";
 export default {
   content: [
     "./src/**/*.{ts,tsx}",
-    "./app/**/*.{ts,tsx}", // safe
-    "./components/**/*.{ts,tsx}", // safe
+    "./app/**/*.{ts,tsx}",
+    "./components/**/*.{ts,tsx}",
+    "./lib/**/*.{ts,tsx}",
   ],
   theme: {
     extend: {
       colors: {
-        // Luxivo-inspired palette
-        "lux-bg": "#0F1720", // deep navy charcoal
+        /* ✅ Project tokens (use everywhere) */
+        brand: "var(--c-brand)",
+        sand: "var(--c-bg)",
+        stone: "var(--c-stone)",
+        ink: "var(--c-ink)",
+        midnight: "var(--c-midnight)",
+
+        /* Keep your previous palette too (safe) */
+        "lux-bg": "#0F1720",
         "lux-ivory": "#F7F4EE",
         "lux-olive": "#6B7C5C",
         "lux-olive2": "#5C6E4F",
-        ink: "#111827",
       },
       fontFamily: {
-        // if you already use next/font, keep those; this is fallback
         heading: ['"Playfair Display"', "ui-serif", "Georgia", "serif"],
         sans: ["ui-sans-serif", "system-ui", "Inter", "Arial", "sans-serif"],
       },

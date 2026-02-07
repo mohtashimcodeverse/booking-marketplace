@@ -8,22 +8,36 @@ import express from 'express';
 import { join } from 'path';
 
 async function bootstrap() {
+  // ✅ Normal JSON parsing is fine since TELR-only mode: raw-body middleware not required
   const app = await NestFactory.create(AppModule);
 
   // Global prefix
   app.setGlobalPrefix('api');
 
+  // ✅ Normal JSON parsing for all routes
+  app.use(express.json({ limit: '1mb' }));
+  app.use(express.urlencoded({ extended: true, limit: '1mb' }));
+
   // Security + cookies
   app.use(cookieParser());
   app.use(helmet());
 
-  // Static uploads (local dev + staging)
-  // Stored by multer at: <apps/api>/uploads/properties/...
-  // Served at:          http://host/uploads/properties/...
-  app.use('/uploads', express.static(join(process.cwd(), 'uploads')));
+  /**
+   * ✅ Public static assets
+   *
+   * IMPORTANT:
+   * - Public: property listing images (safe)
+   * - Private: ownership/verification documents (must NEVER be publicly served)
+   *
+   * Images are stored at: <apps/api>/uploads/properties/images/...
+   * Served at:            http://host/uploads/properties/images/...
+   */
+  app.use(
+    '/uploads/properties/images',
+    express.static(join(process.cwd(), 'uploads', 'properties', 'images')),
+  );
 
   // CORS (single source of truth)
-  // Example: CORS_ORIGIN="http://localhost:3000,https://rentpropertyuae.vercel.app"
   const corsOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
   app.enableCors({
     origin: corsOrigin.split(',').map((s) => s.trim()),
@@ -51,7 +65,6 @@ async function bootstrap() {
   const document = SwaggerModule.createDocument(app, swaggerConfig);
   SwaggerModule.setup('docs', app, document);
 
-  // Listen ONCE
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port);
 

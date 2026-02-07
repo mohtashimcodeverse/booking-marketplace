@@ -49,7 +49,12 @@ export class CancellationPolicyService {
   decide(params: {
     now: Date;
     actor: CancellationActor;
-    booking: { checkIn: Date; checkOut: Date; totalAmount: number; currency: string };
+    booking: {
+      checkIn: Date;
+      checkOut: Date;
+      totalAmount: number;
+      currency: string;
+    };
     policy: CancellationPolicyConfig;
     requestedMode?: CancellationMode;
   }): CancellationPolicyDecision {
@@ -60,7 +65,9 @@ export class CancellationPolicyService {
     // If check-in already started/passed, our V1 strict rule: no cancellations by default.
     // Admin overrides can still be allowed at service layer if desired.
     if (hoursToCheckIn < 0) {
-      throw new BadRequestException('Cancellation is not allowed after check-in time.');
+      throw new BadRequestException(
+        'Cancellation is not allowed after check-in time.',
+      );
     }
 
     const freeH = policy.freeCancelBeforeHours ?? 0;
@@ -81,9 +88,7 @@ export class CancellationPolicyService {
 
     const total = Math.max(0, booking.totalAmount);
 
-    const mode =
-      requestedMode ??
-      (policy.defaultMode ?? CancellationMode.SOFT);
+    const mode = requestedMode ?? policy.defaultMode ?? CancellationMode.SOFT;
 
     // Releases inventory:
     // - HARD always releases
@@ -96,7 +101,12 @@ export class CancellationPolicyService {
     if (tier === 'FREE') {
       penaltyAmount = 0;
     } else if (tier === 'PARTIAL') {
-      penaltyAmount = this.computePenalty(total, booking.checkIn, booking.checkOut, policy);
+      penaltyAmount = this.computePenalty(
+        total,
+        booking.checkIn,
+        booking.checkOut,
+        policy,
+      );
     } else {
       // NO_REFUND: strict
       // Either take full amount, OR policy-defined penalty if it implies full capture.

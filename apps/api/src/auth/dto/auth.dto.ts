@@ -21,10 +21,7 @@ export class LoginDto {
   password!: string;
 }
 
-export class VerifyEmailDto {
-  @IsString()
-  token!: string;
-}
+// ✅ Removed VerifyEmailDto (legacy magic-link flow)
 
 export class RequestPasswordResetDto {
   @IsEmail()

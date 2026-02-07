@@ -1,9 +1,16 @@
 import { Module } from '@nestjs/common';
 import { PropertiesController } from './properties.controller';
 import { PropertiesService } from './properties.service';
+import { PropertyDocumentsService } from './documents/property-documents.service';
+import { VendorPropertyDocumentsController } from './vendor/vendor-property-documents.controller';
+import { AdminPropertyDocumentsController } from './admin/admin-property-documents.controller';
 
 @Module({
-  controllers: [PropertiesController],
-  providers: [PropertiesService],
+  controllers: [
+    PropertiesController,
+    VendorPropertyDocumentsController,
+    AdminPropertyDocumentsController,
+  ],
+  providers: [PropertiesService, PropertyDocumentsService],
 })
 export class PropertiesModule {}

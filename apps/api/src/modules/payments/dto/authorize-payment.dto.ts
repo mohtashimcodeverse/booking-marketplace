@@ -8,7 +8,11 @@ export class AuthorizePaymentDto {
   @IsNotEmpty()
   bookingId!: string;
 
-  @ApiPropertyOptional({ enum: PaymentProvider, default: PaymentProvider.MANUAL })
+  @ApiPropertyOptional({
+    enum: PaymentProvider,
+    default: PaymentProvider.TELR,
+    description: 'TELR is the only supported customer payment method.',
+  })
   @IsOptional()
   @IsEnum(PaymentProvider)
   provider?: PaymentProvider;

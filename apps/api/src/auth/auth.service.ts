@@ -6,12 +6,19 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { UserRole } from '@prisma/client';
+import { randomBytes } from 'crypto';
 import { PrismaService } from '../modules/prisma/prisma.service';
 import { hashPassword, verifyPassword } from '../common/security/password';
-import { generateRandomToken } from '../common/security/random';
 import { hashToken, verifyToken } from '../common/security/token-hash';
 import { JwtAccessPayload, JwtRefreshPayload } from './types/auth.types';
 import { parseDurationToSeconds } from '../common/security/duration';
+
+type SafeAuthUser = {
+  id: string;
+  email: string;
+  role: UserRole;
+  isEmailVerified: boolean;
+};
 
 @Injectable()
 export class AuthService {
@@ -37,7 +44,39 @@ export class AuthService {
     return d;
   }
 
-  async register(emailRaw: string, password: string, fullName?: string) {
+  /**
+   * Canonical "me" endpoint source of truth.
+   * SECURITY: Only returns safe fields (no tokens, no passwordHash, no OTP metadata).
+   */
+  async me(userId: string): Promise<{ user: SafeAuthUser }> {
+    const user = await this.prisma.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        email: true,
+        role: true,
+        isEmailVerified: true,
+      },
+    });
+
+    if (!user) throw new NotFoundException('User not found');
+
+    return { user };
+  }
+
+  async register(
+    emailRaw: string,
+    password: string,
+    fullName?: string,
+  ): Promise<{
+    user: {
+      id: string;
+      email: string;
+      role: UserRole;
+      isEmailVerified: boolean;
+      fullName: string | null;
+    };
+  }> {
     const email = emailRaw.trim().toLowerCase();
 
     const existing = await this.prisma.user.findUnique({ where: { email } });
@@ -62,28 +101,17 @@ export class AuthService {
       },
     });
 
-    // demo-friendly: return token instead of emailing (we’ll email later with queues)
-    const verifyTokenPlain = generateRandomToken(32);
-    const verifyTokenHashed = await hashToken(verifyTokenPlain);
-
-    const expires = new Date();
-    expires.setHours(expires.getHours() + 24);
-
-    await this.prisma.emailVerificationToken.create({
-      data: {
-        userId: user.id,
-        tokenHash: verifyTokenHashed,
-        expiresAt: expires,
-      },
-    });
-
-    return {
-      user,
-      emailVerificationToken: verifyTokenPlain,
-    };
+    return { user };
   }
 
-  async login(emailRaw: string, password: string) {
+  async login(
+    emailRaw: string,
+    password: string,
+  ): Promise<{
+    user: SafeAuthUser;
+    accessToken: string;
+    refreshToken: string;
+  }> {
     const email = emailRaw.trim().toLowerCase();
 
     const user = await this.prisma.user.findUnique({ where: { email } });
@@ -111,32 +139,16 @@ export class AuthService {
     };
   }
 
-  async verifyEmail(token: string) {
-    const candidates = await this.prisma.emailVerificationToken.findMany({
-      where: { usedAt: null, expiresAt: { gt: new Date() } },
-      orderBy: { createdAt: 'desc' },
-      take: 50,
-    });
-
-    for (const c of candidates) {
-      const match = await verifyToken(token, c.tokenHash);
-      if (!match) continue;
-
-      await this.prisma.$transaction([
-        this.prisma.emailVerificationToken.update({
-          where: { id: c.id },
-          data: { usedAt: new Date() },
-        }),
-        this.prisma.user.update({
-          where: { id: c.userId },
-          data: { isEmailVerified: true },
-        }),
-      ]);
-
-      return { ok: true };
-    }
-
-    throw new BadRequestException('Invalid or expired token');
+  /**
+   * Legacy magic-link verification was removed.
+   * Use OTP endpoints instead:
+   * - POST /api/auth/email-verification/request
+   * - POST /api/auth/email-verification/verify
+   */
+  verifyEmail(): never {
+    throw new BadRequestException(
+      'Legacy verify-email endpoint disabled. Use OTP verification endpoints.',
+    );
   }
 
   async requestPasswordReset(emailRaw: string) {
@@ -145,7 +157,7 @@ export class AuthService {
     const user = await this.prisma.user.findUnique({ where: { email } });
     if (!user) return { ok: true };
 
-    const tokenPlain = generateRandomToken(32);
+    const tokenPlain = cryptoRandomToken(32);
     const tokenHashed = await hashToken(tokenPlain);
 
     const expires = new Date();
@@ -196,7 +208,14 @@ export class AuthService {
     throw new BadRequestException('Invalid or expired token');
   }
 
-  async refresh(userId: string, refreshTokenPlain: string) {
+  async refresh(
+    userId: string,
+    refreshTokenPlain: string,
+  ): Promise<{
+    user: SafeAuthUser;
+    accessToken: string;
+    refreshToken: string;
+  }> {
     const active = await this.prisma.refreshToken.findMany({
       where: { userId, revokedAt: null, expiresAt: { gt: new Date() } },
       orderBy: { createdAt: 'desc' },
@@ -275,7 +294,7 @@ export class AuthService {
     const payload: JwtAccessPayload = { sub: userId, email, role };
     return this.jwt.signAsync(payload, {
       secret: process.env.JWT_ACCESS_SECRET,
-      expiresIn: this.accessExpiresSeconds(), // ✅ number
+      expiresIn: this.accessExpiresSeconds(),
     });
   }
 
@@ -304,4 +323,8 @@ export class AuthService {
 
     return { refreshToken, recordId: record.id };
   }
+}
+
+function cryptoRandomToken(bytes: number): string {
+  return randomBytes(bytes).toString('hex');
 }

@@ -6,10 +6,27 @@ import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { RbacTestController } from './rbac-test.controller';
 
+// ✅ NEW: OTP email verification
+import { EmailVerificationController } from './email-verification/email-verification.controller';
+import { EmailVerificationService } from './email-verification/email-verification.service';
+
+// ✅ Assumed existing modules (standard in your repo structure)
+import { PrismaModule } from '../modules/prisma/prisma.module';
+import { NotificationsModule } from '../modules/notifications/notifications.module';
+
 @Module({
-  imports: [JwtModule.register({})],
-  controllers: [AuthController, RbacTestController],
-  providers: [AuthService, JwtAccessStrategy, JwtRefreshStrategy],
-  exports: [AuthService],
+  imports: [JwtModule.register({}), PrismaModule, NotificationsModule],
+  controllers: [
+    AuthController,
+    RbacTestController,
+    EmailVerificationController,
+  ],
+  providers: [
+    AuthService,
+    JwtAccessStrategy,
+    JwtRefreshStrategy,
+    EmailVerificationService,
+  ],
+  exports: [AuthService, EmailVerificationService],
 })
 export class AuthModule {}

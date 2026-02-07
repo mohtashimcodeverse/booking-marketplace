@@ -7,7 +7,10 @@ export class CancelBookingDto {
   @IsEnum(CancellationReason)
   reason!: CancellationReason;
 
-  @ApiPropertyOptional({ enum: CancellationMode, default: CancellationMode.SOFT })
+  @ApiPropertyOptional({
+    enum: CancellationMode,
+    default: CancellationMode.SOFT,
+  })
   @IsOptional()
   @IsEnum(CancellationMode)
   mode?: CancellationMode;

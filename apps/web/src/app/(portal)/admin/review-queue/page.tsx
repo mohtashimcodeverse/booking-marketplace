@@ -1,0 +1,255 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import { RequireAuth } from "@/components/auth/RequireAuth";
+import { PortalShell } from "@/components/portal/PortalShell";
+import { DataTable, type Column } from "@/components/portal/ui/DataTable";
+import { StatusPill } from "@/components/portal/ui/StatusPill";
+import { SkeletonTable } from "@/components/portal/ui/Skeleton";
+import { Toolbar } from "@/components/portal/ui/Toolbar";
+import { EmptyState } from "@/components/portal/ui/EmptyState";
+import { ReviewQueueDrawer } from "@/components/portal/admin/review-queue/ReviewQueueDrawer";
+import {
+  approveAdminProperty,
+  getAdminReviewQueue,
+  rejectAdminProperty,
+  requestChangesAdminProperty,
+  type AdminReviewQueueItem,
+  type ReviewQueueStatus,
+} from "@/lib/api/admin/reviewQueue";
+
+type LoadState =
+  | { kind: "loading" }
+  | { kind: "error"; message: string }
+  | { kind: "ready"; items: AdminReviewQueueItem[]; page: number; pageSize: number; total: number };
+
+function toneForStatus(s: ReviewQueueStatus): "neutral" | "success" | "warning" | "danger" {
+  if (s === "APPROVED") return "success";
+  if (s === "UNDER_REVIEW") return "warning";
+  if (s === "CHANGES_REQUESTED") return "danger";
+  if (s === "REJECTED") return "danger";
+  return "neutral";
+}
+
+function safeLower(v: string | null | undefined): string {
+  return (v ?? "").toLowerCase();
+}
+
+function canApprove(status: ReviewQueueStatus): boolean {
+  return status === "UNDER_REVIEW";
+}
+
+export default function AdminReviewQueuePage() {
+  const [status, setStatus] = useState<ReviewQueueStatus>("UNDER_REVIEW");
+  const [page, setPage] = useState(1);
+  const [pageSize] = useState(10);
+
+  const [busy, setBusy] = useState<string | null>(null);
+  const [drawer, setDrawer] = useState<AdminReviewQueueItem | null>(null);
+  const [q, setQ] = useState("");
+  const [state, setState] = useState<LoadState>({ kind: "loading" });
+
+  async function load() {
+    setState({ kind: "loading" });
+    try {
+      const res = await getAdminReviewQueue({ status, page, pageSize });
+      setState({
+        kind: "ready",
+        items: res.items ?? [],
+        page: res.page,
+        pageSize: res.pageSize,
+        total: res.total,
+      });
+    } catch (e) {
+      setState({
+        kind: "error",
+        message: e instanceof Error ? e.message : "Failed to load review queue",
+      });
+    }
+  }
+
+  useEffect(() => {
+    void load();
+  }, [status, page, pageSize]);
+
+  const filteredItems = useMemo(() => {
+    if (state.kind !== "ready") return [];
+    const qq = q.trim().toLowerCase();
+    if (!qq) return state.items;
+
+    return state.items.filter((p) =>
+      [
+        safeLower(p.title),
+        safeLower(p.slug),
+        safeLower(p.id),
+        safeLower(p.city),
+        safeLower(p.area),
+        safeLower(p.vendorName ?? null),
+        safeLower(p.vendorId ?? null),
+      ]
+        .join(" | ")
+        .includes(qq)
+    );
+  }, [state, q]);
+
+  const columns: Array<Column<AdminReviewQueueItem>> = useMemo(
+    () => [
+      {
+        key: "property",
+        header: "Property",
+        className: "col-span-5",
+        render: (row) => (
+          <div className="min-w-0">
+            <div className="truncate font-semibold text-slate-900">{row.title}</div>
+            <div className="mt-1 truncate font-mono text-xs text-slate-500">{row.id}</div>
+          </div>
+        ),
+      },
+      {
+        key: "location",
+        header: "Location",
+        className: "col-span-3",
+        render: (row) => (
+          <div>
+            <div className="text-slate-900">{row.city}</div>
+            <div className="truncate text-xs text-slate-500">{row.area ?? "—"}</div>
+          </div>
+        ),
+      },
+      {
+        key: "vendor",
+        header: "Vendor",
+        className: "col-span-2",
+        render: (row) => (
+          <div>
+            <div className="truncate text-slate-900">{row.vendorName ?? "—"}</div>
+            <div className="truncate text-xs text-slate-500">{row.vendorId ?? "—"}</div>
+          </div>
+        ),
+      },
+      {
+        key: "status",
+        header: "Status",
+        className: "col-span-2",
+        render: (row) => <StatusPill tone={toneForStatus(row.status)}>{row.status}</StatusPill>,
+      },
+    ],
+    []
+  );
+
+  const statusTabs: ReviewQueueStatus[] = ["UNDER_REVIEW", "CHANGES_REQUESTED", "APPROVED", "REJECTED"];
+
+  return (
+    <RequireAuth>
+      <PortalShell
+        role="admin"
+        title="Review Queue"
+        subtitle="Approve, reject, or request changes for vendor listings."
+        right={
+          busy ? (
+            <div className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">{busy}</div>
+          ) : null
+        }
+      >
+        <div className="space-y-6">
+          <Toolbar
+            title="Listings awaiting review"
+            subtitle="Open a listing to review photos, documents, and location details."
+            searchPlaceholder="Search by title, vendor, city, or ID…"
+            onSearch={setQ}
+            right={
+              <div className="flex flex-wrap gap-2">
+                {statusTabs.map((s) => (
+                  <button
+                    key={s}
+                    onClick={() => {
+                      setStatus(s);
+                      setPage(1);
+                      setQ("");
+                    }}
+                    className={[
+                      "rounded-full px-4 py-2 text-sm font-semibold transition",
+                      status === s ? "bg-[#16A6C8] text-white" : "bg-white text-slate-900 ring-1 ring-black/10 hover:bg-slate-50",
+                    ].join(" ")}
+                  >
+                    {s}
+                  </button>
+                ))}
+              </div>
+            }
+          />
+
+          {state.kind === "loading" ? (
+            <SkeletonTable rows={8} />
+          ) : state.kind === "error" ? (
+            <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">{state.message}</div>
+          ) : filteredItems.length === 0 ? (
+            <EmptyState title="No listings in this queue" description="There are no properties matching the selected status or search." />
+          ) : (
+            <DataTable<AdminReviewQueueItem>
+              title="Review queue"
+              count={filteredItems.length}
+              subtitle={
+                <>
+                  Showing <span className="font-semibold text-slate-900">{filteredItems.length}</span> of{" "}
+                  <span className="font-semibold text-slate-900">{state.total}</span>
+                </>
+              }
+              columns={columns}
+              rows={filteredItems}
+              variant="cards"
+              rowActions={(row) => (
+                <>
+                  <button
+                    onClick={() => setDrawer(row)}
+                    className="rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                  >
+                    Review
+                  </button>
+
+                  {canApprove(row.status) ? (
+                    <button
+                      onClick={() => void approveAdminProperty(row.id)}
+                      className="rounded-2xl bg-[#16A6C8] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                    >
+                      Approve
+                    </button>
+                  ) : null}
+                </>
+              )}
+            />
+          )}
+
+          {drawer ? (
+            <ReviewQueueDrawer
+              item={drawer}
+              busyLabel={busy}
+              onClose={() => setDrawer(null)}
+              onApprove={async (id) => {
+                setBusy("Approving…");
+                await approveAdminProperty(id);
+                await load();
+                setBusy(null);
+                setDrawer(null);
+              }}
+              onReject={async (id, reason) => {
+                setBusy("Rejecting…");
+                await rejectAdminProperty(id, reason);
+                await load();
+                setBusy(null);
+                setDrawer(null);
+              }}
+              onRequestChanges={async (id, note) => {
+                setBusy("Requesting changes…");
+                await requestChangesAdminProperty(id, note);
+                await load();
+                setBusy(null);
+                setDrawer(null);
+              }}
+            />
+          ) : null}
+        </div>
+      </PortalShell>
+    </RequireAuth>
+  );
+}

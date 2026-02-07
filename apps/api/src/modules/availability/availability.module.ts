@@ -9,11 +9,13 @@ import { ReserveController } from './controllers/reserve.controller';
 
 @Module({
   imports: [PrismaModule],
-  controllers: [PublicAvailabilityController, VendorAvailabilityController,
-  HoldsController,
-  QuoteController,
-  ReserveController,
-],
+  controllers: [
+    PublicAvailabilityController,
+    VendorAvailabilityController,
+    HoldsController,
+    QuoteController,
+    ReserveController,
+  ],
   providers: [AvailabilityService],
   exports: [AvailabilityService],
 })

@@ -15,10 +15,11 @@ import {
   RegisterDto,
   RequestPasswordResetDto,
   ResetPasswordDto,
-  VerifyEmailDto,
 } from './dto/auth.dto';
 import { JwtAccessGuard } from './guards/jwt-access.guard';
 import { JwtRefreshGuard } from './guards/jwt-refresh.guard';
+
+import { EmailVerificationService } from './email-verification/email-verification.service';
 
 type Cookies = Partial<Record<string, string>>;
 
@@ -43,9 +44,22 @@ type RefreshRequest = Omit<Request, 'user' | 'cookies'> & {
   cookies?: Cookies;
 };
 
+type RegisterResult = {
+  user: {
+    id: string;
+    email: string;
+    role: string;
+    isEmailVerified: boolean;
+    fullName: string | null;
+  };
+};
+
 @Controller('auth')
 export class AuthController {
-  constructor(private readonly auth: AuthService) {}
+  constructor(
+    private readonly auth: AuthService,
+    private readonly emailVerification: EmailVerificationService,
+  ) {}
 
   private cookieName() {
     return process.env.AUTH_COOKIE_NAME || 'rentpropertyuae_rt';
@@ -71,7 +85,18 @@ export class AuthController {
   @Post('register')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async register(@Body() dto: RegisterDto) {
-    return this.auth.register(dto.email, dto.password, dto.fullName);
+    const result = (await this.auth.register(
+      dto.email,
+      dto.password,
+      dto.fullName,
+    )) as RegisterResult;
+
+    const userId = result.user.id;
+    if (userId) {
+      this.emailVerification.requestOtp({ userId }).catch(() => undefined);
+    }
+
+    return result;
   }
 
   @Post('login')
@@ -140,12 +165,6 @@ export class AuthController {
     return { ok: true };
   }
 
-  @Post('verify-email')
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
-  async verifyEmail(@Body() dto: VerifyEmailDto) {
-    return this.auth.verifyEmail(dto.token);
-  }
-
   @Post('request-password-reset')
   @Throttle({ default: { limit: 10, ttl: 60_000 } })
   async requestPasswordReset(@Body() dto: RequestPasswordResetDto) {
@@ -160,7 +179,7 @@ export class AuthController {
 
   @Get('me')
   @UseGuards(JwtAccessGuard)
-  me(@Req() req: AccessRequest) {
-    return { user: req.user };
+  async me(@Req() req: AccessRequest) {
+    return this.auth.me(req.user.id);
   }
 }

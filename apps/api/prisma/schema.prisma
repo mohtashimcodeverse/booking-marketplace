@@ -19,8 +19,21 @@ enum VendorStatus {
   REJECTED
 }
 
+/**
+ * ✅ Property lifecycle now includes review/moderation workflow
+ * - Vendor can edit in DRAFT or CHANGES_REQUESTED
+ * - Vendor submits => UNDER_REVIEW
+ * - Admin approves => APPROVED (vendor can publish)
+ * - Admin rejects => REJECTED
+ * - PUBLISHED = live
+ * - SUSPENDED = admin takedown
+ */
 enum PropertyStatus {
   DRAFT
+  UNDER_REVIEW
+  APPROVED
+  CHANGES_REQUESTED
+  REJECTED
   PUBLISHED
   SUSPENDED
 }
@@ -34,6 +47,7 @@ enum BookingStatus {
 
 enum PaymentProvider {
   STRIPE
+  TELR
   MANUAL
   OTHER
 }
@@ -93,6 +107,55 @@ enum RefundReason {
   DISPUTE
 }
 
+enum SecurityDepositStatus {
+  NOT_REQUIRED
+  REQUIRED
+  AUTHORIZED
+  CAPTURED
+  RELEASED
+  CLAIMED
+  FAILED
+  CANCELLED
+}
+
+enum SecurityDepositMode {
+  NONE
+  AUTHORIZE
+  CAPTURE
+}
+
+enum VendorStatementStatus {
+  DRAFT
+  FINALIZED
+  PAID
+  VOID
+}
+
+enum PayoutStatus {
+  PENDING
+  PROCESSING
+  SUCCEEDED
+  FAILED
+  CANCELLED
+}
+
+enum LedgerEntryType {
+  BOOKING_CAPTURED
+  MANAGEMENT_FEE
+  REFUND
+  DEPOSIT_AUTH
+  DEPOSIT_CAPTURE
+  DEPOSIT_RELEASE
+  DEPOSIT_CLAIM
+  ADJUSTMENT
+  PAYOUT
+}
+
+enum LedgerDirection {
+  CREDIT
+  DEBIT
+}
+
 enum PenaltyType {
   NONE
   PERCENT_OF_NIGHTS
@@ -105,6 +168,146 @@ enum PaymentEventType {
   CAPTURE
   REFUND
   WEBHOOK
+}
+
+//
+// 🔔 Notifications Layer (V1) enums
+//
+
+enum NotificationType {
+  EMAIL_VERIFICATION_OTP
+  BOOKING_CONFIRMED
+  BOOKING_CANCELLED
+  PAYMENT_FAILED
+  REFUND_PROCESSED
+  NEW_BOOKING_RECEIVED
+  BOOKING_CANCELLED_BY_GUEST
+  OPS_TASKS_CREATED
+  MAINTENANCE_REQUEST_CREATED
+}
+
+enum NotificationChannel {
+  EMAIL
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  FAILED
+}
+
+//
+// ✅ Operator Services Layer (V1) enums
+//
+
+enum ServicePlanType {
+  LISTING_ONLY
+  SEMI_MANAGED
+  FULLY_MANAGED
+}
+
+enum VendorAgreementStatus {
+  ACTIVE
+  PAUSED
+  TERMINATED
+}
+
+enum OpsTaskType {
+  CLEANING
+  INSPECTION
+  LINEN
+  RESTOCK
+}
+
+enum OpsTaskStatus {
+  PENDING
+  ASSIGNED
+  IN_PROGRESS
+  DONE
+  CANCELLED
+}
+
+enum MaintenancePriority {
+  LOW
+  MEDIUM
+  HIGH
+  URGENT
+}
+
+enum MaintenanceStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CANCELLED
+}
+
+enum WorkOrderStatus {
+  DRAFT
+  APPROVED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+}
+
+//
+// ✅ Listing verification (V1) enums
+//
+
+/**
+ * ✅ Expanded photo categories:
+ * - The 4 required ones stay: LIVING_ROOM, BEDROOM, BATHROOM, KITCHEN
+ * - Everything else is OPTIONAL (for cover, view, balcony, etc.)
+ */
+enum PropertyMediaCategory {
+  // Required for review gating
+  LIVING_ROOM
+  BEDROOM
+  BATHROOM
+  KITCHEN
+
+  // Optional but supported (vendor/admin can tag freely)
+  COVER
+  DINING
+  ENTRY
+  HALLWAY
+  STUDY
+  LAUNDRY
+
+  BALCONY
+  TERRACE
+  VIEW
+  EXTERIOR
+  BUILDING
+  NEIGHBORHOOD
+
+  POOL
+  GYM
+  PARKING
+  AMENITY
+
+  FLOOR_PLAN
+  OTHER
+}
+
+enum PropertyDocumentType {
+  OWNERSHIP_PROOF
+  AUTHORIZATION_PROOF
+  OWNER_ID
+  ADDRESS_PROOF
+  HOLIDAY_HOME_PERMIT
+  OTHER
+}
+
+enum PropertyDocumentStatus {
+  UPLOADED
+  ACCEPTED
+  REJECTED
+}
+
+enum PropertyReviewDecision {
+  APPROVE
+  REQUEST_CHANGES
+  REJECT
 }
 
 model User {
@@ -120,16 +323,34 @@ model User {
   properties    Property[]     @relation("VendorProperties")
   bookings      Booking[]      @relation("CustomerBookings")
 
-  // Holds created by this user (for booking flow)
   holds PropertyHold[] @relation("HoldCreatedBy")
 
-  // Idempotency records
+  securityDeposits SecurityDeposit[] @relation("SecurityDepositCustomer")
+
+  vendorStatements VendorStatement[]
+  payouts          Payout[]
+  ledgerEntries    LedgerEntry[]
+
   bookingIdempotencies BookingIdempotency[]
 
-  // 🔐 auth relations
   refreshTokens      RefreshToken[]
   emailVerifications EmailVerificationToken[]
   passwordResets     PasswordResetToken[]
+
+  approvedVendorAgreements VendorServiceAgreement[] @relation("VendorAgreementApprovedBy")
+  assignedOpsTasks         OpsTask[]                @relation("OpsTaskAssignedTo")
+  createdMaintenance       MaintenanceRequest[]     @relation("MaintenanceCreatedBy")
+  assignedWorkOrders       WorkOrder[]              @relation("WorkOrderAssignedTo")
+
+  notifications NotificationEvent[] @relation("NotificationRecipient")
+
+  // ✅ Property review relations
+  propertyReviews   PropertyReview[]   @relation("PropertyReviewedByAdmin")
+  uploadedDocuments PropertyDocument[] @relation("PropertyDocumentUploadedByUser")
+  reviewedDocuments PropertyDocument[] @relation("PropertyDocumentReviewedByAdmin")
+
+  // ✅ Admin-created listings audit (optional)
+  createdPropertiesAsAdmin Property[] @relation("PropertyCreatedByAdmin")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -159,14 +380,20 @@ model EmailVerificationToken {
   userId String
   user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  tokenHash String    @unique
+  email   String
+  otpHash String
+
   expiresAt DateTime
   usedAt    DateTime?
+
+  attemptCount Int @default(0)
 
   createdAt DateTime @default(now())
 
   @@index([userId])
+  @@index([email])
   @@index([expiresAt])
+  @@index([userId, email, usedAt])
 }
 
 model PasswordResetToken {
@@ -193,6 +420,8 @@ model VendorProfile {
   companyName String?
   phone       String?
   status      VendorStatus @default(PENDING)
+
+  serviceAgreements VendorServiceAgreement[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -221,16 +450,48 @@ model Location {
   @@index([city, area])
 }
 
+//
+// ✅ NEW: Amenity grouping (Frank Porter–style)
+//
+
+model AmenityGroup {
+  id        String  @id @default(uuid())
+  key       String  @unique // e.g. "ESSENTIALS", "KITCHEN", "SAFETY"
+  name      String
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
+  amenities Amenity[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([sortOrder])
+}
+
 model Amenity {
   id   String  @id @default(uuid())
   key  String  @unique
   name String
   icon String?
 
+  // ✅ NEW (nullable for safe migration): group support
+  groupId String?
+  group   AmenityGroup? @relation(fields: [groupId], references: [id], onDelete: SetNull)
+
+  // ✅ NEW: stable ordering + soft disable (never delete catalog rows)
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+
   properties PropertyAmenity[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([isActive])
+  @@index([groupId])
+  @@index([sortOrder])
 }
 
 model PropertyAmenity {
@@ -251,18 +512,20 @@ model Property {
   vendorId String
   vendor   User   @relation("VendorProperties", fields: [vendorId], references: [id], onDelete: Cascade)
 
+  // ✅ Admin-created audit (optional). If present, listing skipped vendor review.
+  createdByAdminId String?
+  createdByAdmin   User? @relation("PropertyCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+
   title       String
   slug        String  @unique
   description String?
 
-  // Backwards-compatible location fields (KEEP — used by seed/UI)
   city    String
   area    String?
   address String?
   lat     Float?
   lng     Float?
 
-  // Normalized location (optional, does not break existing)
   locationId String?
   location   Location? @relation(fields: [locationId], references: [id], onDelete: SetNull)
 
@@ -270,12 +533,10 @@ model Property {
   bedrooms  Int @default(1)
   bathrooms Int @default(1)
 
-  // Pricing basics (we’ll evolve later with seasons/discounts)
   basePrice   Int
   cleaningFee Int    @default(0)
   currency    String @default("PKR")
 
-  // Operational settings used later by availability/booking engine
   minNights      Int     @default(1)
   maxNights      Int?
   checkInFromMin Int?
@@ -286,19 +547,31 @@ model Property {
   status PropertyStatus @default(DRAFT)
 
   media     Media[]
+  documents PropertyDocument[]
+  reviews   PropertyReview[]
+
   amenities PropertyAmenity[]
   bookings  Booking[]
 
-  // ✅ Availability Engine relations
   availabilitySettings PropertyAvailabilitySettings?
   calendarDays         PropertyCalendarDay[]
   holds                PropertyHold[]
+
+  securityDepositPolicy SecurityDepositPolicy?
+
+  securityDeposits SecurityDeposit[] @relation("SecurityDepositProperty")
+  ledgerEntries    LedgerEntry[]     @relation("LedgerEntryProperty")
+
+  serviceConfig PropertyServiceConfig?
+  opsTasks      OpsTask[]
+  maintenance   MaintenanceRequest[]
 
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
   cancellationPolicyConfig CancellationPolicyConfig?
 
   @@index([vendorId])
+  @@index([createdByAdminId])
   @@index([city])
   @@index([status])
   @@index([createdAt])
@@ -306,6 +579,9 @@ model Property {
   @@index([city, area])
   @@index([basePrice])
   @@index([bedrooms, bathrooms, maxGuests])
+  // ✅ Search performance indexes (NEW)
+  @@index([status, city, area], map: "idx_property_status_city_area")
+  @@index([status, lat, lng], map: "idx_property_status_lat_lng")
 }
 
 model Media {
@@ -317,10 +593,76 @@ model Media {
   alt       String?
   sortOrder Int     @default(0)
 
+  // ✅ NEW: photo categorization
+  category PropertyMediaCategory @default(OTHER)
+
   createdAt DateTime @default(now())
 
   @@index([propertyId])
   @@index([sortOrder])
+  @@index([propertyId, category])
+}
+
+model PropertyDocument {
+  id         String   @id @default(uuid())
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  type PropertyDocumentType
+
+  // ✅ uploader (vendor user)
+  uploadedByUserId String
+  uploadedByUser   User   @relation("PropertyDocumentUploadedByUser", fields: [uploadedByUserId], references: [id])
+
+  // ✅ reviewer (admin) — optional until reviewed
+  reviewedByAdminId String?
+  reviewedByAdmin   User?   @relation("PropertyDocumentReviewedByAdmin", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+
+  /**
+   * url is now an authenticated download endpoint (NOT a public /uploads path).
+   * This keeps frontend/backoffice simple: the API response can be used directly.
+   */
+  url String?
+
+  /**
+   * ✅ Storage fields (production safety)
+   * - storageKey is the filename on disk (uuid.ext)
+   * - originalName is for UX
+   * - mimeType helps set correct headers
+   */
+  storageKey   String?
+  originalName String?
+  mimeType     String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([uploadedByUserId])
+  @@index([reviewedByAdminId])
+}
+
+model PropertyReview {
+  id String @id @default(uuid())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  adminId String
+  admin   User   @relation("PropertyReviewedByAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+
+  decision PropertyReviewDecision
+  notes    String?
+
+  // Optional structured feedback (e.g., missing categories/docs)
+  checklistJson String?
+
+  createdAt DateTime @default(now())
+
+  @@index([propertyId])
+  @@index([adminId])
+  @@index([decision])
+  @@index([createdAt])
 }
 
 model Booking {
@@ -346,7 +688,6 @@ model Booking {
   totalAmount Int
   currency    String @default("PKR")
 
-  // 🔐 Idempotency
   idempotencyKey     String?
   idempotencyRecords BookingIdempotency[]
 
@@ -358,20 +699,27 @@ model Booking {
   expiresAt   DateTime?
   cancelledAt DateTime?
 
-  // ✅ Cancellation (Frank Porter policy + audit)
   cancellation BookingCancellation?
 
-  // Optional: useful for reporting even without joining cancellation
   cancelledBy        CancellationActor?
   cancellationReason CancellationReason?
 
+  securityDeposit SecurityDeposit?
+
+  ledgerEntries LedgerEntry[] @relation("LedgerEntryBooking")
+
   refunds Refund[]
+
+  opsTasks    OpsTask[]
+  maintenance MaintenanceRequest[]
 
   @@unique([customerId, idempotencyKey], map: "uniq_booking_idempotency_per_customer")
   @@index([customerId])
   @@index([propertyId])
   @@index([status])
   @@index([checkIn, checkOut])
+  // ✅ Availability-search overlap index (NEW)
+  @@index([propertyId, status, checkIn, checkOut], map: "idx_booking_property_status_dates")
 }
 
 model BookingIdempotency {
@@ -393,13 +741,15 @@ model Payment {
   bookingId String  @unique
   booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
 
-  provider PaymentProvider @default(STRIPE)
+  provider PaymentProvider @default(MANUAL)
   status   PaymentStatus   @default(REQUIRES_ACTION)
 
   amount   Int
   currency String @default("PKR")
 
   providerRef String?
+
+  ledgerEntries LedgerEntry[] @relation("LedgerEntryPayment")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -440,6 +790,8 @@ model PropertyCalendarDay {
 
   @@unique([propertyId, date])
   @@index([propertyId, date])
+  // ✅ Availability-search index (NEW): quickly find BLOCKED days in a date range
+  @@index([propertyId, status, date], map: "idx_calendar_property_status_date")
 }
 
 model PropertyHold {
@@ -450,11 +802,9 @@ model PropertyHold {
   status     HoldStatus @default(ACTIVE)
   expiresAt  DateTime
 
-  // ✅ NEW: enforce ownership (booking is CUSTOMER-only at API, but DB keeps creator)
   createdById String
   createdBy   User   @relation("HoldCreatedBy", fields: [createdById], references: [id], onDelete: Cascade)
 
-  // ✅ NEW: conversion tracking + one booking per hold
   bookingId   String?   @unique
   booking     Booking?
   convertedAt DateTime?
@@ -467,6 +817,8 @@ model PropertyHold {
   @@index([propertyId, status, expiresAt])
   @@index([propertyId, checkIn, checkOut])
   @@index([createdById])
+  // ✅ Availability-search overlap index (NEW)
+  @@index([propertyId, status, checkIn, checkOut, expiresAt], map: "idx_hold_property_status_dates_expires")
 }
 
 model PaymentEvent {
@@ -477,18 +829,12 @@ model PaymentEvent {
 
   type PaymentEventType
 
-  // Used for idempotency (authorize/capture/refund/webhook retries)
   idempotencyKey String?
-
-  // Provider correlation (Telr transaction ref, etc.)
-  providerRef String?
-
-  // Optional JSON payload snapshot (webhook body, provider response, etc.)
-  payloadJson String?
+  providerRef    String?
+  payloadJson    String?
 
   createdAt DateTime @default(now())
 
-  // Key safety rule: same action + same key for same payment should be a no-op
   @@unique([paymentId, type, idempotencyKey], name: "uniq_payment_event_idempotency", map: "uniq_payment_event_idempotency")
   @@index([paymentId])
   @@index([type])
@@ -531,27 +877,21 @@ model BookingCancellation {
 model CancellationPolicyConfig {
   id String @id @default(cuid())
 
-  // If propertyId is null => GLOBAL default policy
   propertyId String?   @unique
   property   Property? @relation(fields: [propertyId], references: [id], onDelete: Cascade)
 
-  // Versioning + activation
   version  String
   isActive Boolean @default(true)
 
-  // Cutoff windows (in hours)
-  freeCancelBeforeHours    Int @default(0) // e.g. 72 = free until 72h before check-in
-  partialRefundBeforeHours Int @default(0) // e.g. 48 = partial until 48h before check-in
-  noRefundWithinHours      Int @default(0) // e.g. 24 = no refund within 24h
+  freeCancelBeforeHours    Int @default(0)
+  partialRefundBeforeHours Int @default(0)
+  noRefundWithinHours      Int @default(0)
 
-  // Penalty model
   penaltyType  PenaltyType @default(PERCENT_OF_TOTAL)
-  penaltyValue Int         @default(0) // percent (0-100) or fixed amount depending on type
+  penaltyValue Int         @default(0)
 
-  // Hard vs Soft defaults
   defaultMode CancellationMode @default(SOFT)
 
-  // Optional: enforce min nights penalty behavior like “charge first night”
   chargeFirstNightOnLateCancel Boolean @default(false)
 
   createdAt DateTime @default(now())
@@ -576,10 +916,11 @@ model Refund {
   amount   Int
   currency String @default("PKR")
 
-  provider          PaymentProvider @default(STRIPE)
+  ledgerEntries LedgerEntry[] @relation("LedgerEntryRefund")
+
+  provider          PaymentProvider @default(MANUAL)
   providerRefundRef String?
 
-  // Telr hooks later: idempotency + webhook correlation
   idempotencyKey String?
 
   createdAt           DateTime             @default(now())
@@ -589,4 +930,391 @@ model Refund {
   @@index([status])
   @@index([provider])
   @@index([bookingId])
+}
+
+model SecurityDepositPolicy {
+  id String @id @default(uuid())
+
+  propertyId String   @unique
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  mode     SecurityDepositMode @default(NONE)
+  amount   Int                 @default(0)
+  currency String              @default("PKR")
+
+  // How long after checkout we keep the deposit before auto-release (if you later add automation)
+  holdDaysAfterCheckout Int @default(0)
+
+  isActive Boolean @default(true)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([isActive])
+}
+
+model SecurityDeposit {
+  id String @id @default(uuid())
+
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  propertyId String
+  property   Property @relation("SecurityDepositProperty", fields: [propertyId], references: [id], onDelete: Cascade)
+
+  customerId String
+  customer   User   @relation("SecurityDepositCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+
+  mode   SecurityDepositMode
+  status SecurityDepositStatus @default(REQUIRED)
+
+  amount   Int
+  currency String @default("PKR")
+
+  provider    PaymentProvider @default(MANUAL)
+  providerRef String?
+
+  authorizedAt DateTime?
+  capturedAt   DateTime?
+  releasedAt   DateTime?
+  claimedAt    DateTime?
+  cancelledAt  DateTime?
+
+  note     String?
+  metaJson String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([propertyId])
+  @@index([customerId])
+  @@index([status])
+}
+
+model VendorStatement {
+  id String @id @default(uuid())
+
+  vendorId String
+  vendor   User   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  periodStart DateTime
+  periodEnd   DateTime
+
+  currency String @default("PKR")
+
+  status VendorStatementStatus @default(DRAFT)
+
+  // Snapshot totals (immutably stored once finalized)
+  grossBookings  Int @default(0)
+  managementFees Int @default(0)
+  refunds        Int @default(0)
+  adjustments    Int @default(0)
+  netPayable     Int @default(0)
+
+  generatedAt DateTime  @default(now())
+  finalizedAt DateTime?
+  paidAt      DateTime?
+
+  metaJson String?
+
+  ledgerEntries LedgerEntry[]
+  payout        Payout?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([vendorId, periodStart, periodEnd], map: "uniq_vendor_statement_period")
+  @@index([vendorId])
+  @@index([status])
+  @@index([periodStart, periodEnd])
+}
+
+model Payout {
+  id String @id @default(uuid())
+
+  vendorId String
+  vendor   User   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  statementId String          @unique
+  statement   VendorStatement @relation(fields: [statementId], references: [id], onDelete: Cascade)
+
+  status PayoutStatus @default(PENDING)
+
+  amount   Int
+  currency String @default("PKR")
+
+  provider    PaymentProvider @default(MANUAL)
+  providerRef String?
+
+  scheduledAt   DateTime?
+  processedAt   DateTime?
+  failedAt      DateTime?
+  failureReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([vendorId])
+  @@index([status])
+  @@index([provider])
+}
+
+model LedgerEntry {
+  id String @id @default(cuid())
+
+  vendorId String
+  vendor   User   @relation(fields: [vendorId], references: [id], onDelete: Cascade)
+
+  propertyId String?
+  property   Property? @relation("LedgerEntryProperty", fields: [propertyId], references: [id], onDelete: SetNull)
+
+  bookingId String?
+  booking   Booking? @relation("LedgerEntryBooking", fields: [bookingId], references: [id], onDelete: SetNull)
+
+  paymentId String?
+  payment   Payment? @relation("LedgerEntryPayment", fields: [paymentId], references: [id], onDelete: SetNull)
+
+  refundId String?
+  refund   Refund? @relation("LedgerEntryRefund", fields: [refundId], references: [id], onDelete: SetNull)
+
+  statementId String?
+  statement   VendorStatement? @relation(fields: [statementId], references: [id], onDelete: SetNull)
+
+  type      LedgerEntryType
+  direction LedgerDirection
+
+  amount   Int
+  currency String @default("PKR")
+
+  occurredAt DateTime @default(now())
+
+  // idempotencyKey lets us safely re-run hooks (webhook retries, etc.)
+  idempotencyKey String?
+
+  metaJson String?
+
+  createdAt DateTime @default(now())
+
+  @@unique([vendorId, type, idempotencyKey], map: "uniq_ledger_idempotency")
+  @@index([vendorId])
+  @@index([type])
+  @@index([occurredAt])
+  @@index([statementId])
+  @@index([bookingId])
+  @@index([paymentId])
+}
+
+model NotificationEvent {
+  id String @id @default(cuid())
+
+  type    NotificationType
+  channel NotificationChannel @default(EMAIL)
+  status  NotificationStatus  @default(PENDING)
+
+  entityType String
+  entityId   String
+
+  recipientUserId String
+  recipientUser   User   @relation("NotificationRecipient", fields: [recipientUserId], references: [id], onDelete: Cascade)
+
+  payloadJson String
+
+  attempts  Int     @default(0)
+  lastError String?
+
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@unique([type, channel, entityType, entityId, recipientUserId], map: "uniq_notification_idempotency")
+  @@index([type])
+  @@index([status])
+  @@index([recipientUserId])
+  @@index([entityType, entityId])
+}
+
+model ServicePlan {
+  id String @id @default(uuid())
+
+  type ServicePlanType
+  code String          @unique
+
+  name        String
+  description String?
+
+  managementFeeBps Int
+
+  includesCleaning    Boolean @default(false)
+  includesLinen       Boolean @default(false)
+  includesInspection  Boolean @default(false)
+  includesRestock     Boolean @default(false)
+  includesMaintenance Boolean @default(false)
+
+  isActive Boolean @default(true)
+
+  agreements      VendorServiceAgreement[]
+  propertyConfigs PropertyServiceConfig[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([type])
+  @@index([isActive])
+}
+
+model VendorServiceAgreement {
+  id String @id @default(uuid())
+
+  vendorProfileId String
+  vendorProfile   VendorProfile @relation(fields: [vendorProfileId], references: [id], onDelete: Cascade)
+
+  servicePlanId String
+  servicePlan   ServicePlan @relation(fields: [servicePlanId], references: [id], onDelete: Restrict)
+
+  status VendorAgreementStatus @default(ACTIVE)
+
+  startDate DateTime  @default(now())
+  endDate   DateTime?
+
+  agreedManagementFeeBps Int
+
+  notes String?
+
+  approvedByAdminId String?
+  approvedByAdmin   User?     @relation("VendorAgreementApprovedBy", fields: [approvedByAdminId], references: [id], onDelete: SetNull)
+  approvedAt        DateTime?
+
+  createdAt              DateTime                @default(now())
+  updatedAt              DateTime                @updatedAt
+  propertyServiceConfigs PropertyServiceConfig[]
+
+  @@index([vendorProfileId, status, startDate])
+  @@index([servicePlanId])
+}
+
+model PropertyServiceConfig {
+  id String @id @default(uuid())
+
+  propertyId String   @unique
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  servicePlanId String
+  servicePlan   ServicePlan @relation(fields: [servicePlanId], references: [id], onDelete: Restrict)
+
+  vendorAgreementId String?
+  vendorAgreement   VendorServiceAgreement? @relation(fields: [vendorAgreementId], references: [id], onDelete: SetNull)
+
+  cleaningRequired    Boolean?
+  linenChangeRequired Boolean?
+  inspectionRequired  Boolean?
+  restockRequired     Boolean?
+  maintenanceIncluded Boolean?
+
+  guestCleaningFee Int?
+  linenFee         Int?
+  inspectionFee    Int?
+  restockFee       Int?
+
+  currency String @default("PKR")
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([servicePlanId])
+  @@index([vendorAgreementId])
+}
+
+model OpsTask {
+  id String @id @default(uuid())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  type   OpsTaskType
+  status OpsTaskStatus @default(PENDING)
+
+  scheduledFor DateTime
+  dueAt        DateTime?
+
+  assignedToUserId String?
+  assignedToUser   User?   @relation("OpsTaskAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  checklistJson String?
+  notes         String?
+
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([bookingId, type], map: "uniq_ops_task_per_booking_type")
+  @@index([propertyId, status, scheduledFor])
+  @@index([bookingId])
+  @@index([assignedToUserId])
+}
+
+model MaintenanceRequest {
+  id String @id @default(uuid())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  bookingId String?
+  booking   Booking? @relation(fields: [bookingId], references: [id], onDelete: SetNull)
+
+  createdByUserId String?
+  createdByUser   User?   @relation("MaintenanceCreatedBy", fields: [createdByUserId], references: [id], onDelete: SetNull)
+
+  title       String
+  description String?
+
+  priority MaintenancePriority @default(MEDIUM)
+  status   MaintenanceStatus   @default(OPEN)
+
+  metaJson String?
+
+  workOrders WorkOrder[]
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  resolvedAt DateTime?
+
+  @@index([propertyId, status])
+  @@index([priority])
+  @@index([bookingId])
+  @@index([createdByUserId])
+}
+
+model WorkOrder {
+  id String @id @default(uuid())
+
+  maintenanceRequestId String
+  maintenanceRequest   MaintenanceRequest @relation(fields: [maintenanceRequestId], references: [id], onDelete: Cascade)
+
+  status WorkOrderStatus @default(DRAFT)
+
+  assignedToUserId String?
+  assignedToUser   User?   @relation("WorkOrderAssignedTo", fields: [assignedToUserId], references: [id], onDelete: SetNull)
+
+  costEstimate Int?
+  actualCost   Int?
+  currency     String @default("PKR")
+
+  notes String?
+
+  startedAt   DateTime?
+  completedAt DateTime?
+  cancelledAt DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([maintenanceRequestId])
+  @@index([status])
+  @@index([assignedToUserId])
 }

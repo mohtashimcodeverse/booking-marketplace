@@ -5,5 +5,10 @@ packages:
 
 ignoredBuiltDependencies:
   - '@nestjs/core'
+  - '@prisma/client'
+  - '@prisma/engines'
+  - '@scarf/scarf'
+  - bcrypt
+  - prisma
   - sharp
   - unrs-resolver
