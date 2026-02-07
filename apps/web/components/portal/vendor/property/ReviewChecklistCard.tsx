@@ -14,8 +14,40 @@ type Gate = {
 
 const REQUIRED_CATEGORIES: MediaCategory[] = ["LIVING_ROOM", "BEDROOM", "BATHROOM", "KITCHEN"];
 
-function safeArray<T>(v: T[] | null | undefined): T[] {
-  return Array.isArray(v) ? v : [];
+function isRecord(v: unknown): v is Record<string, unknown> {
+  return typeof v === "object" && v !== null;
+}
+
+type MediaItem = { category: MediaCategory };
+
+function normalizeMedia(v: unknown): MediaItem[] {
+  if (!Array.isArray(v)) return [];
+  const out: MediaItem[] = [];
+
+  for (const item of v) {
+    if (!isRecord(item)) continue;
+    const cat = item["category"];
+    if (typeof cat !== "string") continue;
+    // We trust backend categories. This cast is safe for our app because MediaCategory is the known union.
+    out.push({ category: cat as MediaCategory });
+  }
+
+  return out;
+}
+
+function normalizeDocuments(v: unknown): VendorPropertyDocument[] {
+  if (!Array.isArray(v)) return [];
+  const out: VendorPropertyDocument[] = [];
+
+  for (const item of v) {
+    if (!isRecord(item)) continue;
+    const type = item["type"];
+    if (typeof type !== "string") continue;
+    // Trust backend contract; keep it typed
+    out.push(item as VendorPropertyDocument);
+  }
+
+  return out;
 }
 
 function hasOwnershipProof(docs: VendorPropertyDocument[]): boolean {
@@ -23,8 +55,10 @@ function hasOwnershipProof(docs: VendorPropertyDocument[]): boolean {
 }
 
 export function computeGates(p: VendorPropertyDetail): { gates: Gate[]; missingCategories: MediaCategory[] } {
-  const media = safeArray((p as unknown as { media?: unknown }).media as MediaCategory[] as never);
-  const documents = safeArray((p as unknown as { documents?: unknown }).documents as VendorPropertyDocument[] as never);
+  const raw = p as unknown as { media?: unknown; documents?: unknown };
+
+  const media = normalizeMedia(raw.media);
+  const documents = normalizeDocuments(raw.documents);
 
   const hasLoc = p.lat !== null && p.lng !== null;
 
@@ -32,9 +66,7 @@ export function computeGates(p: VendorPropertyDetail): { gates: Gate[]; missingC
   const hasPhotos = photoCount >= 4;
 
   const present = new Set<MediaCategory>();
-  for (const m of media as unknown as Array<{ category: MediaCategory }>) {
-    present.add(m.category);
-  }
+  for (const m of media) present.add(m.category);
 
   const missingCategories = REQUIRED_CATEGORIES.filter((c) => !present.has(c));
   const hasCategories = missingCategories.length === 0;
@@ -78,7 +110,9 @@ function Pill({ ok }: { ok: boolean }) {
     <span
       className={[
         "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
-        ok ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200" : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
+        ok
+          ? "bg-emerald-50 text-emerald-700 ring-1 ring-emerald-200"
+          : "bg-amber-50 text-amber-700 ring-1 ring-amber-200",
       ].join(" ")}
     >
       {ok ? "Done" : "Missing"}
