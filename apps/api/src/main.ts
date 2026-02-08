@@ -8,43 +8,63 @@ import express from 'express';
 import { join } from 'path';
 
 async function bootstrap() {
-  // ✅ Normal JSON parsing is fine since TELR-only mode: raw-body middleware not required
   const app = await NestFactory.create(AppModule);
 
-  // Global prefix
+  // Global API prefix
   app.setGlobalPrefix('api');
 
-  // ✅ Normal JSON parsing for all routes
+  // Body parsing
   app.use(express.json({ limit: '1mb' }));
   app.use(express.urlencoded({ extended: true, limit: '1mb' }));
 
-  // Security + cookies
+  // Cookies + security headers
   app.use(cookieParser());
   app.use(helmet());
 
   /**
-   * ✅ Public static assets
-   *
-   * IMPORTANT:
-   * - Public: property listing images (safe)
-   * - Private: ownership/verification documents (must NEVER be publicly served)
-   *
-   * Images are stored at: <apps/api>/uploads/properties/images/...
-   * Served at:            http://host/uploads/properties/images/...
+   * Public static assets
+   * - ONLY property images are public
+   * - Ownership / verification docs must NEVER be public
    */
   app.use(
     '/uploads/properties/images',
     express.static(join(process.cwd(), 'uploads', 'properties', 'images')),
   );
 
-  // CORS (single source of truth)
-  const corsOrigin = process.env.CORS_ORIGIN ?? 'http://localhost:3000';
+  /**
+   * ============================
+   * ✅ CORS (PRODUCTION SAFE)
+   * ============================
+   *
+   * Supports:
+   * - Vercel frontend
+   * - Local development
+   * - Multiple origins (comma-separated)
+   *
+   * IMPORTANT:
+   * - No trailing slashes
+   * - Exact match with browser Origin
+   */
+  const corsOriginsRaw =
+    process.env.CORS_ORIGINS ??
+    process.env.CORS_ORIGIN ??
+    'http://localhost:3000';
+
+  const corsOrigins = corsOriginsRaw
+    .split(',')
+    .map((o) => o.trim())
+    .filter(Boolean)
+    // Normalize: remove trailing slash to match browser Origin exactly
+    .map((o) => (o.endsWith('/') ? o.slice(0, -1) : o));
+
   app.enableCors({
-    origin: corsOrigin.split(',').map((s) => s.trim()),
+    origin: corsOrigins,
     credentials: true,
   });
 
-  // Validation (before routes run)
+  /**
+   * Validation
+   */
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true,
@@ -54,10 +74,12 @@ async function bootstrap() {
     }),
   );
 
-  // Swagger
+  /**
+   * Swagger
+   */
   const swaggerConfig = new DocumentBuilder()
     .setTitle('Booking Marketplace API')
-    .setDescription('API for booking marketplace (customer/vendor/admin)')
+    .setDescription('API for booking marketplace (customer / vendor / admin)')
     .setVersion('1.0.0')
     .addBearerAuth()
     .build();
@@ -68,8 +90,8 @@ async function bootstrap() {
   const port = Number(process.env.PORT ?? 3001);
   await app.listen(port);
 
-  console.log(`✅ API running: http://localhost:${port}/api`);
-  console.log(`📚 Swagger:     http://localhost:${port}/docs`);
+  console.log(`✅ API running on port ${port}`);
+  console.log(`📚 Swagger docs: /docs`);
 }
 
 void bootstrap();
