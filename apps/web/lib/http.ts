@@ -1,4 +1,3 @@
-// lib/http.ts
 import { ENV } from "./env";
 import { getAccessToken } from "@/lib/auth/tokenStore";
 
@@ -65,7 +64,7 @@ export async function apiFetch<T>(
     cache?: RequestCache;
     next?: { revalidate?: number };
     auth?: "auto" | "none"; // auto attaches Bearer if token exists
-    responseType?: ResponseType; // ✅ new (defaults to auto/json)
+    responseType?: ResponseType; // defaults to auto/json
   }
 ): Promise<HttpResult<T>> {
   const method = opts?.method ?? "GET";
@@ -111,13 +110,17 @@ export async function apiFetch<T>(
     }
   }
 
+  // ✅ IMPORTANT: default to cookie-friendly requests for auth refresh token cookie (HttpOnly)
+  // You can still override per-call by passing opts.credentials.
+  const credentials: RequestCredentials = opts?.credentials ?? "include";
+
   let res: Response;
   try {
     res = await fetch(url.toString(), {
       method,
       headers,
       body,
-      credentials: opts?.credentials,
+      credentials,
       cache: opts?.cache,
       next: opts?.next,
     });
@@ -158,19 +161,19 @@ export async function apiFetch<T>(
 
   const rt = opts?.responseType;
 
-  // ✅ Explicit blob
+  // Explicit blob
   if (rt === "blob") {
     const data = (await res.blob()) as unknown as T;
     return { ok: true, status, data };
   }
 
-  // ✅ Explicit text
+  // Explicit text
   if (rt === "text") {
     const text = (await res.text()) as unknown as T;
     return { ok: true, status, data: text };
   }
 
-  // ✅ Default behavior: json if json, else text
+  // Default: json if json, else text
   if (isJsonResponse(res)) {
     const data = (await res.json()) as T;
     return { ok: true, status, data };

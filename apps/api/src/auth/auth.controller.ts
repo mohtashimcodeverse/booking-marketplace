@@ -65,19 +65,32 @@ export class AuthController {
     return process.env.AUTH_COOKIE_NAME || 'rentpropertyuae_rt';
   }
 
+  /**
+   * IMPORTANT:
+   * - Production (Vercel → Render): SameSite=None + Secure
+   * - Development (localhost): SameSite=Lax
+   */
   private cookieOptions() {
-    const secure = (process.env.AUTH_COOKIE_SECURE || 'false') === 'true';
-    const sameSite = (process.env.AUTH_COOKIE_SAMESITE || 'lax') as
-      | 'lax'
-      | 'strict'
-      | 'none';
-    const domain = process.env.AUTH_COOKIE_DOMAIN || undefined;
+    const isProd = process.env.NODE_ENV === 'production';
+
+    const envSecure = process.env.AUTH_COOKIE_SECURE;
+    const envSameSite = process.env.AUTH_COOKIE_SAMESITE;
+    const envDomain = process.env.AUTH_COOKIE_DOMAIN;
+
+    const secure =
+      envSecure !== undefined ? envSecure === 'true' : isProd;
+
+    const sameSite = (envSameSite !== undefined
+      ? envSameSite
+      : isProd
+        ? 'none'
+        : 'lax') as 'lax' | 'strict' | 'none';
 
     return {
       httpOnly: true,
-      secure,
-      sameSite,
-      domain,
+      secure,        // REQUIRED when SameSite=None
+      sameSite,      // none in prod, lax in dev
+      domain: envDomain || undefined,
       path: '/',
     } as const;
   }
