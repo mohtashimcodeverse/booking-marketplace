@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { apiFetch } from "@/lib/http";
 import { clearAccessToken, setAccessToken } from "@/lib/auth/tokenStore";
@@ -28,6 +28,24 @@ function safePath(v: string | null): string {
 }
 
 export default function VendorLoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <main className="min-h-screen bg-white">
+          <div className="mx-auto max-w-md px-4 pb-24 pt-24 sm:px-6 lg:px-8">
+            <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm text-sm text-neutral-600">
+              Loading vendor login...
+            </div>
+          </div>
+        </main>
+      }
+    >
+      <VendorLoginContent />
+    </Suspense>
+  );
+}
+
+function VendorLoginContent() {
   const router = useRouter();
   const sp = useSearchParams();
 

@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateServicePlanDto } from '../dto/create-service-plan.dto';
 import { UpdateServicePlanDto } from '../dto/update-service-plan.dto';
@@ -10,6 +11,11 @@ import { UpdateServicePlanDto } from '../dto/update-service-plan.dto';
 @Injectable()
 export class ServicePlansService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private isUniqueConstraintError(err: unknown): boolean {
+    if (!(err instanceof Prisma.PrismaClientKnownRequestError)) return false;
+    return err.code === 'P2002';
+  }
 
   async list(params: { includeInactive?: boolean }) {
     const includeInactive = params.includeInactive ?? false;
@@ -46,8 +52,8 @@ export class ServicePlansService {
           isActive: dto.isActive ?? true,
         },
       });
-    } catch (e: any) {
-      if (e?.code === 'P2002') {
+    } catch (e: unknown) {
+      if (this.isUniqueConstraintError(e)) {
         throw new BadRequestException(
           'A service plan with this code already exists',
         );

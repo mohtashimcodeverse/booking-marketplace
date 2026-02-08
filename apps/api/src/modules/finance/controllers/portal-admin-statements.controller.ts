@@ -27,7 +27,8 @@ function normalizeStatus(v: unknown): VendorStatementStatus | null {
   const s = typeof v === 'string' ? v.trim() : '';
   if (!s) return null;
   const values = Object.values(VendorStatementStatus) as string[];
-  if (!values.includes(s)) throw new BadRequestException(`Invalid status: ${s}`);
+  if (!values.includes(s))
+    throw new BadRequestException(`Invalid status: ${s}`);
   return s as VendorStatementStatus;
 }
 
@@ -43,11 +44,13 @@ export class PortalAdminStatementsController {
    * GET /api/portal/admin/statements?page=1&pageSize=10&status=FINALIZED&vendorId=...
    */
   @Get()
-  async list(@Query() q: PaginationDto & { status?: string; vendorId?: string }) {
+  async list(
+    @Query() q: PaginationDto & { status?: string; vendorId?: string },
+  ) {
     const p = normalizePagination(q);
 
-    const status = normalizeStatus((q as any).status);
-    const vendorId = typeof (q as any).vendorId === 'string' ? (q as any).vendorId.trim() : '';
+    const status = normalizeStatus(q.status);
+    const vendorId = typeof q.vendorId === 'string' ? q.vendorId.trim() : '';
     const vendorIdOrNull = vendorId.length > 0 ? vendorId : null;
 
     return this.statements.adminListStatements({
@@ -67,9 +70,13 @@ export class PortalAdminStatementsController {
   }
 
   @Post('generate')
-  async generate(@CurrentUser() user: AuthedUser, @Body() dto: AdminGenerateStatementDto) {
+  async generate(
+    @CurrentUser() user: AuthedUser,
+    @Body() dto: AdminGenerateStatementDto,
+  ) {
     const adminUserId = typeof user?.id === 'string' ? user.id : '';
-    if (!adminUserId) throw new Error('Invalid auth user payload (missing user.id).');
+    if (!adminUserId)
+      throw new Error('Invalid auth user payload (missing user.id).');
 
     const currency = (dto.currency ?? '').trim() || null;
 
@@ -98,7 +105,8 @@ export class PortalAdminStatementsController {
     @Body() dto: AdminFinalizeStatementDto,
   ) {
     const adminUserId = typeof user?.id === 'string' ? user.id : '';
-    if (!adminUserId) throw new Error('Invalid auth user payload (missing user.id).');
+    if (!adminUserId)
+      throw new Error('Invalid auth user payload (missing user.id).');
 
     return this.statements.adminFinalizeStatement({
       adminUserId,

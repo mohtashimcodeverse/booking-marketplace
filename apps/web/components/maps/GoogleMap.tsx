@@ -5,6 +5,7 @@ import { ENV } from "@/lib/env";
 import type { MapPoint } from "@/lib/types/search";
 
 type LatLng = { lat: number; lng: number };
+type ViewportBounds = { north: number; south: number; east: number; west: number };
 
 type MapHandle = {
   map: google.maps.Map;
@@ -71,7 +72,21 @@ export default function GoogleMap(props: {
   points: MapPoint[];
   className?: string;
   onMarkerClick?: (slug: string) => void;
+  hoveredSlug?: string | null;
+  activeSlug?: string | null;
+  onViewportChanged?: (bounds: ViewportBounds) => void | Promise<void>;
+  viewportDebounceMs?: number;
 }) {
+  const {
+    center,
+    zoom,
+    points,
+    className,
+    onMarkerClick,
+    onViewportChanged,
+    viewportDebounceMs,
+  } = props;
+
   const elRef = useRef<HTMLDivElement | null>(null);
   const handleRef = useRef<MapHandle | null>(null);
 
@@ -79,7 +94,7 @@ export default function GoogleMap(props: {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const apiKey = ENV.googleMapsApiKey;
-  const safeClassName = props.className ?? "h-[520px] w-full rounded-2xl";
+  const safeClassName = className ?? "h-[520px] w-full rounded-2xl";
 
   const canInit = useMemo(() => Boolean(apiKey && apiKey.trim().length > 0), [apiKey]);
 
@@ -104,8 +119,8 @@ export default function GoogleMap(props: {
         }
 
         const map = new google.maps.Map(elRef.current, {
-          center: props.center,
-          zoom: props.zoom,
+          center,
+          zoom,
           disableDefaultUI: true,
           clickableIcons: false,
           gestureHandling: "greedy",
@@ -122,16 +137,15 @@ export default function GoogleMap(props: {
     return () => {
       cancelled = true;
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [canInit, apiKey]);
+  }, [apiKey, canInit, center, zoom]);
 
   // Update center/zoom
   useEffect(() => {
     const h = handleRef.current;
     if (!h || !ready) return;
-    h.map.setCenter(props.center);
-    h.map.setZoom(props.zoom);
-  }, [props.center, props.zoom, ready]);
+    h.map.setCenter(center);
+    h.map.setZoom(zoom);
+  }, [center, zoom, ready]);
 
   // Render markers when points change
   useEffect(() => {
@@ -140,7 +154,7 @@ export default function GoogleMap(props: {
 
     clearMarkers(h.markers);
 
-    for (const p of props.points) {
+    for (const p of points) {
       const marker = new google.maps.Marker({
         map: h.map,
         position: { lat: p.lat, lng: p.lng },
@@ -152,13 +166,51 @@ export default function GoogleMap(props: {
         },
       });
 
-      if (props.onMarkerClick) {
-        marker.addListener("click", () => props.onMarkerClick?.(p.slug));
+      const slug = p.slug;
+      if (onMarkerClick && slug) {
+        marker.addListener("click", () => onMarkerClick?.(slug));
       }
 
       h.markers.push(marker);
     }
-  }, [props.points, props.onMarkerClick, ready]);
+  }, [points, onMarkerClick, ready]);
+
+  // Emit viewport changes after pan/zoom settles.
+  useEffect(() => {
+    const h = handleRef.current;
+    if (!h || !ready || !onViewportChanged) return;
+
+    const debounceMs = viewportDebounceMs ?? 450;
+    let timer: ReturnType<typeof setTimeout> | null = null;
+
+    const emit = () => {
+      const bounds = h.map.getBounds();
+      if (!bounds) return;
+
+      const ne = bounds.getNorthEast();
+      const sw = bounds.getSouthWest();
+
+      const payload: ViewportBounds = {
+        north: ne.lat(),
+        south: sw.lat(),
+        east: ne.lng(),
+        west: sw.lng(),
+      };
+
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        void onViewportChanged?.(payload);
+      }, debounceMs);
+    };
+
+    const listener = h.map.addListener("idle", emit);
+    emit();
+
+    return () => {
+      listener.remove();
+      if (timer) clearTimeout(timer);
+    };
+  }, [onViewportChanged, viewportDebounceMs, ready]);
 
   if (!apiKey) {
     return (

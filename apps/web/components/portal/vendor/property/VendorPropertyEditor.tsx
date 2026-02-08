@@ -71,9 +71,13 @@ export default function VendorPropertyEditor(props: {
 
   const draft = useMemo(() => toDraftInput(property), [property]);
 
-  const safeAmenities = Array.isArray(property.amenities) ? property.amenities : [];
-
-  const selectedAmenityIds = useMemo(() => safeAmenities.map((a) => a.amenity.id), [safeAmenities]);
+  const selectedAmenityIds = useMemo(
+    () =>
+      (Array.isArray(property.amenities) ? property.amenities : []).map(
+        (a) => a.amenity.id
+      ),
+    [property.amenities]
+  );
 
   const readiness = useMemo(() => {
     const { gates } = computeGates({ ...property, media: Array.isArray(property.media) ? property.media : [], documents: Array.isArray(property.documents) ? property.documents : [], amenities: Array.isArray(property.amenities) ? property.amenities : [] });
@@ -251,11 +255,17 @@ export default function VendorPropertyEditor(props: {
       </div>
 
       {tab === "basics" ? (
-        <BasicsPanel value={draft} disabled={busy !== null} onSave={saveBasics} />
+        <BasicsPanel
+          key={`${property.id}:${property.updatedAt}`}
+          value={draft}
+          disabled={busy !== null}
+          onSave={saveBasics}
+        />
       ) : null}
 
       {tab === "location" ? (
         <LocationPanel
+          key={`${property.id}:${property.city ?? ""}:${property.area ?? ""}:${property.address ?? ""}:${property.lat ?? ""}:${property.lng ?? ""}`}
           value={{
             city: property.city ?? "",
             area: property.area ?? null,
@@ -427,8 +437,6 @@ function BasicsPanel(props: {
 }) {
   const [v, setV] = useState<VendorPropertyDraftInput>(props.value);
 
-  useEffect(() => setV(props.value), [props.value]);
-
   return (
     <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
@@ -599,14 +607,6 @@ function LocationPanel(props: {
   const [address, setAddress] = useState(props.value.address ?? "");
   const [lat, setLat] = useState(String(props.value.lat ?? ""));
   const [lng, setLng] = useState(String(props.value.lng ?? ""));
-
-  useEffect(() => {
-    setCity(props.value.city);
-    setArea(props.value.area ?? "");
-    setAddress(props.value.address ?? "");
-    setLat(String(props.value.lat ?? ""));
-    setLng(String(props.value.lng ?? ""));
-  }, [props.value]);
 
   const latNum = Number(lat);
   const lngNum = Number(lng);

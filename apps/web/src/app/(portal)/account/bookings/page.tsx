@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getUserBookings } from "@/lib/api/portal/user";
@@ -17,6 +17,20 @@ function toInt(v: string | null, fallback: number): number {
 }
 
 export default function AccountBookingsPage() {
+  return (
+    <Suspense
+      fallback={
+        <div className="space-y-6">
+          <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">Loading bookings…</div>
+        </div>
+      }
+    >
+      <AccountBookingsContent />
+    </Suspense>
+  );
+}
+
+function AccountBookingsContent() {
   const { status } = useAuth();
   const sp = useSearchParams();
 

@@ -128,12 +128,11 @@ export function ReviewQueueDrawer(props: {
   const [viewerKind, setViewerKind] = useState<"pdf" | "image" | "file">("file");
   const [viewerBusy, setViewerBusy] = useState<string | null>(null);
 
-  const media = props.item.media ?? [];
   const docs = props.item.documents ?? [];
 
   const mediaSorted = useMemo(() => {
-    return [...media].sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
-  }, [media]);
+    return [...(props.item.media ?? [])].sort((a, b) => (a.sortOrder ?? 9999) - (b.sortOrder ?? 9999));
+  }, [props.item.media]);
 
   const approveAllowed = canApprove(props.item.status);
 
@@ -392,7 +391,6 @@ export function ReviewQueueDrawer(props: {
                         try {
                           await downloadAdminPropertyDocument(props.item.id, d.id, d.originalName ?? null);
                         } catch (e) {
-                          // eslint-disable-next-line no-alert
                           alert(e instanceof Error ? e.message : "Download failed");
                         } finally {
                           setDownloadingDocId(null);

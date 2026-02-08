@@ -1,3 +1,4 @@
+import Link from "next/link";
 import HeroSplit from "@/components/tourm/home/HeroSplit";
 import HeroSearchBar from "@/components/tourm/search/HeroSearchBar";
 
@@ -122,13 +123,13 @@ export default async function HomePage() {
               </p>
 
               <div className="mt-4">
-                <a
+                <Link
                   href="/properties"
                   className="inline-flex items-center gap-2 rounded-full border border-stone bg-white px-5 py-3 text-sm font-extrabold text-midnight shadow-sm transition hover:bg-sand"
                 >
                   Browse stays
                   <span aria-hidden className="text-ink/60">→</span>
-                </a>
+                </Link>
               </div>
             </div>
           </div>

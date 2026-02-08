@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { DataTable, type Column } from "@/components/portal/ui/DataTable";
@@ -49,8 +49,7 @@ export default function AdminReviewQueuePage() {
   const [q, setQ] = useState("");
   const [state, setState] = useState<LoadState>({ kind: "loading" });
 
-  async function load() {
-    setState({ kind: "loading" });
+  const load = useCallback(async () => {
     try {
       const res = await getAdminReviewQueue({ status, page, pageSize });
       setState({
@@ -66,10 +65,32 @@ export default function AdminReviewQueuePage() {
         message: e instanceof Error ? e.message : "Failed to load review queue",
       });
     }
-  }
+  }, [status, page, pageSize]);
 
   useEffect(() => {
-    void load();
+    let alive = true;
+    (async () => {
+      try {
+        const res = await getAdminReviewQueue({ status, page, pageSize });
+        if (!alive) return;
+        setState({
+          kind: "ready",
+          items: res.items ?? [],
+          page: res.page,
+          pageSize: res.pageSize,
+          total: res.total,
+        });
+      } catch (e) {
+        if (!alive) return;
+        setState({
+          kind: "error",
+          message: e instanceof Error ? e.message : "Failed to load review queue",
+        });
+      }
+    })();
+    return () => {
+      alive = false;
+    };
   }, [status, page, pageSize]);
 
   const filteredItems = useMemo(() => {

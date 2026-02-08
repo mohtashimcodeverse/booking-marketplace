@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { ArrowRight, Building2, User2, Eye, EyeOff } from "lucide-react";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { signup } from "@/lib/auth/authApi";
@@ -34,6 +34,26 @@ type SignupDraft = {
 const DRAFT_KEY = "ll_signup_profile_draft_v1";
 
 export default function SignupPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard
+          title="Loading signup"
+          subtitle="Preparing registration..."
+          eyebrow="Create account"
+          showBackHome
+          width="xl"
+        >
+          <div className="h-20" />
+        </AuthCard>
+      }
+    >
+      <SignupPageContent />
+    </Suspense>
+  );
+}
+
+function SignupPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -302,7 +322,7 @@ function PasswordInput(props: {
   );
 }
 
-const rowVariant = {
+const rowVariant: Variants = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
 };

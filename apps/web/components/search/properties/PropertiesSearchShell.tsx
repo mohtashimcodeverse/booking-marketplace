@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import type { SearchResponse, MapPoint } from "@/lib/types/search";
 import type { PropertiesQuery } from "@/lib/search/params";
@@ -25,13 +25,15 @@ function clamp(n: number, min: number, max: number) {
 
 function defaultCenterFromItems(items: SearchResponse["items"]) {
   const first = items.find((x) => typeof x.location?.lat === "number" && typeof x.location?.lng === "number");
-  if (first?.location?.lat && first?.location?.lng) return { lat: first.location.lat, lng: first.location.lng };
+  if (typeof first?.location?.lat === "number" && typeof first?.location?.lng === "number") {
+    return { lat: first.location.lat, lng: first.location.lng };
+  }
   // Dubai-ish default (safe fallback)
   return { lat: 25.2048, lng: 55.2708 };
 }
 
 function defaultZoom(items: SearchResponse["items"]) {
-  const withCoords = items.filter((x) => x.location?.lat && x.location?.lng);
+  const withCoords = items.filter((x) => typeof x.location?.lat === "number" && typeof x.location?.lng === "number");
   return withCoords.length > 0 ? 11 : 10;
 }
 
@@ -47,7 +49,9 @@ export default function PropertiesSearchShell(props: Props) {
 
   // keep a ref to current query to avoid stale closures in viewport fetch
   const queryRef = useRef<PropertiesQuery>(props.query);
-  queryRef.current = props.query;
+  useEffect(() => {
+    queryRef.current = props.query;
+  }, [props.query]);
 
   const qKey = useMemo(() => stableStringifyQuery(props.query), [props.query]);
 
@@ -110,10 +114,8 @@ export default function PropertiesSearchShell(props: Props) {
         guests: q.guests,
         city: q.city,
         area: q.area,
-        q: q.q,
         minPrice: q.minPrice,
         maxPrice: q.maxPrice,
-        amenities: q.amenities,
       });
 
       if (!res.ok) {
@@ -143,7 +145,7 @@ export default function PropertiesSearchShell(props: Props) {
     return cardLookup.get(activeSlug) ?? null;
   }, [activeSlug, cardLookup]);
 
-  const totalPages = props.meta?.totalPages ?? 1;
+  const totalPages = props.meta ? Math.max(1, Math.ceil(props.meta.total / props.meta.limit)) : 1;
   const page = props.meta?.page ?? props.query.page;
 
   return (

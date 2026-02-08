@@ -7,7 +7,7 @@ export function documentFileFilter(
   cb: (error: Error | null, acceptFile: boolean) => void,
 ) {
   if (!file) {
-    return cb(new BadRequestException('No file uploaded.') as any, false);
+    return cb(new BadRequestException('No file uploaded.'), false);
   }
 
   const allowedMime = new Set([
@@ -21,7 +21,7 @@ export function documentFileFilter(
     return cb(
       new BadRequestException(
         'Invalid document type. Allowed: PDF, JPG, PNG, WEBP.',
-      ) as any,
+      ),
       false,
     );
   }

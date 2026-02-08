@@ -19,6 +19,7 @@ export function useBookingPoll(args: {
 
   const [state, setState] = useState<PollState>({ kind: "idle", booking: null });
   const [ticks, setTicks] = useState(0);
+  const [nowMs, setNowMs] = useState(0);
 
   const startAtRef = useRef<number | null>(null);
   const timerRef = useRef<number | null>(null);
@@ -30,9 +31,9 @@ export function useBookingPoll(args: {
     const t = new Date(b.expiresAt).getTime();
     if (Number.isNaN(t)) return null;
 
-    const ms = t - Date.now();
+    const ms = t - nowMs;
     return Math.max(0, ms);
-  }, [state.booking]);
+  }, [state.booking, nowMs]);
 
   useEffect(() => {
     // cleanup always
@@ -45,6 +46,8 @@ export function useBookingPoll(args: {
   }, []);
 
   useEffect(() => {
+    let deferredUpdateTimer: number | null = null;
+
     // stop polling
     if (!args.enabled) {
       if (timerRef.current != null) {
@@ -52,18 +55,30 @@ export function useBookingPoll(args: {
         timerRef.current = null;
       }
       startAtRef.current = null;
-      setState((prev) => ({ kind: "idle", booking: prev.booking ?? null }));
-      return;
+      deferredUpdateTimer = window.setTimeout(() => {
+        setNowMs(0);
+        setState((prev) => ({ kind: "idle", booking: prev.booking ?? null }));
+      }, 0);
+      return () => {
+        if (deferredUpdateTimer != null) {
+          window.clearTimeout(deferredUpdateTimer);
+        }
+      };
     }
 
     // start polling
     startAtRef.current = Date.now();
-    setState((prev) => ({ kind: "polling", booking: prev.booking ?? null }));
-    setTicks(0);
+    deferredUpdateTimer = window.setTimeout(() => {
+      setNowMs(startAtRef.current ?? 0);
+      setState((prev) => ({ kind: "polling", booking: prev.booking ?? null }));
+      setTicks(0);
+    }, 0);
 
     const tickOnce = async () => {
       try {
+        const now = Date.now();
         const b = await findUserBookingById({ bookingId: args.bookingId });
+        setNowMs(now);
         setState({ kind: "polling", booking: b });
         setTicks((t) => t + 1);
 
@@ -92,6 +107,9 @@ export function useBookingPoll(args: {
       if (timerRef.current != null) {
         window.clearInterval(timerRef.current);
         timerRef.current = null;
+      }
+      if (deferredUpdateTimer != null) {
+        window.clearTimeout(deferredUpdateTimer);
       }
     };
   }, [args.bookingId, args.enabled, intervalMs, maxMs]);

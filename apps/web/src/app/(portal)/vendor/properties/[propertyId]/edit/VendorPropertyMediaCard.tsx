@@ -5,8 +5,8 @@ import Image from "next/image";
 import type { MediaCategory, PropertyMedia } from "@/lib/types/property";
 import {
   uploadVendorPropertyMedia,
-  updateVendorMediaCategory,
-  reorderVendorMedia,
+  updateVendorPropertyMediaCategory,
+  reorderVendorPropertyMedia,
 } from "@/lib/api/portal/vendor";
 
 const REQUIRED: Array<{ key: MediaCategory; title: string; hint: string }> = [
@@ -72,14 +72,10 @@ export function VendorPropertyMediaCard(props: {
     try {
       // Upload sequentially (simple + stable)
       for (const file of Array.from(files)) {
-        const created = await uploadVendorPropertyMedia({ propertyId: props.propertyId, file });
+        const created = await uploadVendorPropertyMedia(props.propertyId, file);
         // Backend uploads as OTHER, so we immediately tag it to the section user chose
         if (created.category !== category) {
-          await updateVendorMediaCategory({
-            propertyId: props.propertyId,
-            mediaId: created.id,
-            category,
-          });
+          await updateVendorPropertyMediaCategory(props.propertyId, created.id, category);
         }
       }
       props.onChanged?.();
@@ -94,7 +90,7 @@ export function VendorPropertyMediaCard(props: {
     setErr(null);
     setBusy(true);
     try {
-      await updateVendorMediaCategory({ propertyId: props.propertyId, mediaId, category });
+      await updateVendorPropertyMediaCategory(props.propertyId, mediaId, category);
       props.onChanged?.();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to update category");
@@ -119,7 +115,7 @@ export function VendorPropertyMediaCard(props: {
 
     setBusy(true);
     try {
-      await reorderVendorMedia({ propertyId: props.propertyId, orderedMediaIds: next });
+      await reorderVendorPropertyMedia(props.propertyId, next);
       props.onChanged?.();
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to reorder");

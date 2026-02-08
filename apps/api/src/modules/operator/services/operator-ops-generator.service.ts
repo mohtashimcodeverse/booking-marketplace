@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
-import type { OpsTaskType } from '@prisma/client';
+import { OpsTaskStatus, type OpsTaskType } from '@prisma/client';
 
 @Injectable()
 export class OperatorOpsGeneratorService {
@@ -74,7 +74,8 @@ export class OperatorOpsGeneratorService {
         bookingId: booking.id,
         propertyId: booking.propertyId,
         type: t.type,
-        status: 'PENDING' as any,
+        status: OpsTaskStatus.PENDING,
+        scheduledFor: t.dueAt,
         dueAt: t.dueAt,
         notes: null,
       }));
@@ -82,7 +83,7 @@ export class OperatorOpsGeneratorService {
     if (createData.length === 0) return;
 
     await this.prisma.opsTask.createMany({
-      data: createData as any,
+      data: createData,
       skipDuplicates: true,
     });
   }
@@ -97,10 +98,16 @@ export class OperatorOpsGeneratorService {
     await this.prisma.opsTask.updateMany({
       where: {
         bookingId,
-        status: { in: ['PENDING', 'ASSIGNED', 'IN_PROGRESS'] as any },
+        status: {
+          in: [
+            OpsTaskStatus.PENDING,
+            OpsTaskStatus.ASSIGNED,
+            OpsTaskStatus.IN_PROGRESS,
+          ],
+        },
       },
       data: {
-        status: 'CANCELLED' as any,
+        status: OpsTaskStatus.CANCELLED,
         cancelledAt: new Date(),
       },
     });

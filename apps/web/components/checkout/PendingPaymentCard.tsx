@@ -80,8 +80,17 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
 
   const [redirecting, setRedirecting] = useState(false);
   const redirectOnceRef = useRef(false);
+  const baseStatus = latest?.status ?? props.status;
+  const isPendingForPolling = upper(baseStatus).includes("PENDING");
 
-  const status = latest?.status ?? props.status;
+  const poll = useBookingPoll({
+    bookingId: props.bookingId,
+    enabled: isPendingForPolling,
+    intervalMs: 5000,
+    maxMs: 2 * 60 * 1000,
+  });
+  const effectiveLatest = poll.state.booking ?? latest;
+  const status = effectiveLatest?.status ?? props.status;
   const s = upper(status);
 
   const isPending = s.includes("PENDING");
@@ -92,17 +101,6 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
   const canCancel = useMemo(() => {
     return !isCancelled && !isConfirmed && !isExpired;
   }, [isCancelled, isConfirmed, isExpired]);
-
-  const poll = useBookingPoll({
-    bookingId: props.bookingId,
-    enabled: isPending,
-    intervalMs: 5000,
-    maxMs: 2 * 60 * 1000,
-  });
-
-  useEffect(() => {
-    if (poll.state.booking) setLatest(poll.state.booking);
-  }, [poll.state.booking]);
 
   useEffect(() => {
     const b = poll.state.booking;
@@ -182,7 +180,7 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
     }
   }
 
-  const totalText = moneyFromCents(latest?.totalAmount ?? null, latest?.currency ?? null);
+  const totalText = moneyFromCents(effectiveLatest?.totalAmount ?? null, effectiveLatest?.currency ?? null);
 
   return (
     <div className="rounded-3xl border border-black/10 bg-[#f6f3ec] p-6">
@@ -226,9 +224,9 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
         </div>
       ) : null}
 
-      {latest?.expiresAt ? (
+      {effectiveLatest?.expiresAt ? (
         <div className="mt-1 text-xs text-slate-600">
-          Expires at: <span className="font-semibold">{fmtDate(latest.expiresAt)}</span>
+          Expires at: <span className="font-semibold">{fmtDate(effectiveLatest.expiresAt)}</span>
         </div>
       ) : null}
 

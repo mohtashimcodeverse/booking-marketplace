@@ -1,4 +1,4 @@
-import { Body, Controller, Headers, Post } from '@nestjs/common';
+import { Body, Controller, Post } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 
 import { PaymentsService } from './payments.service';
@@ -17,10 +17,7 @@ export class PaymentsWebhooksController {
    * - We verify against Telr gateway (server-to-server "check") inside PaymentsService
    */
   @Post('telr')
-  async telr(
-    @Body() body: TelrWebhookBody,
-    @Headers() _headers: Record<string, string | string[] | undefined>,
-  ) {
+  async telr(@Body() body: TelrWebhookBody) {
     const bookingId =
       (typeof body.cartid === 'string' && body.cartid) ||
       (typeof body.ivp_cart === 'string' && body.ivp_cart) ||

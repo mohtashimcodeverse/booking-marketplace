@@ -155,7 +155,9 @@ export class TelrPaymentsProvider {
    * Verify CAPTURED/PAID by calling Telr "check".
    * We never trust webhook payload alone.
    */
-  async verifyCapturedPayment(params: { providerRef: string }): Promise<TelrVerifiedPayment> {
+  async verifyCapturedPayment(params: {
+    providerRef: string;
+  }): Promise<TelrVerifiedPayment> {
     this.assertConfigured();
 
     const endpoint = 'https://secure.telr.com/gateway/order.json';
@@ -180,7 +182,9 @@ export class TelrPaymentsProvider {
     try {
       json = JSON.parse(text) as TelrGatewayCheckResponse;
     } catch {
-      throw new Error(`Telr check returned non-JSON response (HTTP ${res.status}).`);
+      throw new Error(
+        `Telr check returned non-JSON response (HTTP ${res.status}).`,
+      );
     }
 
     if (!res.ok) {
@@ -201,7 +205,8 @@ export class TelrPaymentsProvider {
     if (!bookingId) throw new Error('Telr check: missing order.cartid.');
     if (!currency) throw new Error('Telr check: missing order.currency.');
     if (!amountStr) throw new Error('Telr check: missing order.amount.');
-    if (!statusCode && !statusText) throw new Error('Telr check: missing order.status.');
+    if (!statusCode && !statusText)
+      throw new Error('Telr check: missing order.status.');
 
     if (orderRef !== params.providerRef) {
       throw new Error('Telr check: order.ref mismatch.');

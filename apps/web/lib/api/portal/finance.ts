@@ -93,6 +93,9 @@ export type Paginated<T> = {
   totalPages?: number;
 };
 
+type QueryValue = string | number | boolean | null | undefined;
+type QueryRecord = Record<string, QueryValue>;
+
 /* ----------------------------- Vendor endpoints ----------------------------- */
 
 export async function vendorListStatements(params?: {
@@ -128,7 +131,7 @@ export async function adminListStatements(params?: {
   status?: string;
   vendorId?: string;
 }): Promise<Paginated<VendorStatementListItem>> {
-  const query: Record<string, unknown> = {
+  const query: QueryRecord = {
     page: params?.page ?? 1,
     pageSize: params?.pageSize ?? 10,
   };
@@ -199,7 +202,7 @@ export async function adminListPayouts(params?: {
   status?: string;
   vendorId?: string;
 }): Promise<Paginated<PayoutRow>> {
-  const query: Record<string, unknown> = {
+  const query: QueryRecord = {
     page: params?.page ?? 1,
     pageSize: params?.pageSize ?? 10,
   };

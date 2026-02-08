@@ -65,12 +65,17 @@ export class PaymentsService {
     const provider: PaymentProvider =
       args.actor.role === 'CUSTOMER' ? PaymentProvider.TELR : requested;
 
-    if (provider !== PaymentProvider.TELR && provider !== PaymentProvider.MANUAL) {
+    if (
+      provider !== PaymentProvider.TELR &&
+      provider !== PaymentProvider.MANUAL
+    ) {
       throw new BadRequestException(`Provider ${provider} is not supported.`);
     }
 
     if (args.actor.role === 'CUSTOMER' && provider !== PaymentProvider.TELR) {
-      throw new BadRequestException('TELR is the only supported payment method.');
+      throw new BadRequestException(
+        'TELR is the only supported payment method.',
+      );
     }
 
     return this.prisma.$transaction(async (tx) => {
@@ -83,7 +88,10 @@ export class PaymentsService {
       });
       if (!booking) throw new NotFoundException('Booking not found.');
 
-      if (args.actor.role === 'CUSTOMER' && booking.customerId !== args.actor.id) {
+      if (
+        args.actor.role === 'CUSTOMER' &&
+        booking.customerId !== args.actor.id
+      ) {
         throw new ForbiddenException('You can only pay for your own booking.');
       }
 
@@ -107,7 +115,10 @@ export class PaymentsService {
 
       // If provider changed between retries, update payment.provider (safe)
       if (payment.provider !== provider) {
-        await tx.payment.update({ where: { id: payment.id }, data: { provider } });
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: { provider },
+        });
       }
 
       // ✅ Idempotency: AUTHORIZE
@@ -123,14 +134,24 @@ export class PaymentsService {
         });
 
         if (existingEvent) {
-          const refreshed = await tx.payment.findUnique({ where: { id: payment.id } });
+          const refreshed = await tx.payment.findUnique({
+            where: { id: payment.id },
+          });
           // In TELR authorize, redirectUrl is not persisted; the client can retry authorize if needed.
-          return { ok: true, reused: true, payment: refreshed, provider: payment.provider };
+          return {
+            ok: true,
+            reused: true,
+            payment: refreshed,
+            provider: payment.provider,
+          };
         }
       }
 
       // If already authorized/captured: idempotent no-op
-      if (payment.status === PaymentStatus.AUTHORIZED || payment.status === PaymentStatus.CAPTURED) {
+      if (
+        payment.status === PaymentStatus.AUTHORIZED ||
+        payment.status === PaymentStatus.CAPTURED
+      ) {
         await tx.paymentEvent.create({
           data: {
             paymentId: payment.id,
@@ -152,7 +173,10 @@ export class PaymentsService {
 
         const updated = await tx.payment.update({
           where: { id: payment.id },
-          data: { status: PaymentStatus.AUTHORIZED, providerRef: res.providerRef },
+          data: {
+            status: PaymentStatus.AUTHORIZED,
+            providerRef: res.providerRef,
+          },
         });
 
         await tx.paymentEvent.create({
@@ -310,7 +334,10 @@ export class PaymentsService {
             };
             if (refreshedBooking?.status === BookingStatus.CONFIRMED) {
               ops = await ensureOpsTasks(tx, booking.id);
-              await this.ensureSecurityDepositForConfirmedBooking(tx, booking.id);
+              await this.ensureSecurityDepositForConfirmedBooking(
+                tx,
+                booking.id,
+              );
               await this.ensureLedgerForCapturedBooking(tx, booking.id);
             }
 
@@ -393,7 +420,10 @@ export class PaymentsService {
 
         const ops = await ensureOpsTasks(tx, updatedBooking.id);
 
-        await this.ensureSecurityDepositForConfirmedBooking(tx, updatedBooking.id);
+        await this.ensureSecurityDepositForConfirmedBooking(
+          tx,
+          updatedBooking.id,
+        );
         await this.ensureLedgerForCapturedBooking(tx, updatedBooking.id);
 
         return {
@@ -566,7 +596,9 @@ export class PaymentsService {
     });
 
     if (verified.bookingId !== args.bookingId) {
-      throw new BadRequestException('Telr verification cartid does not match bookingId.');
+      throw new BadRequestException(
+        'Telr verification cartid does not match bookingId.',
+      );
     }
 
     const txResult = await this.prisma.$transaction(
@@ -579,7 +611,8 @@ export class PaymentsService {
           },
         });
         if (!booking) throw new NotFoundException('Booking not found.');
-        if (!booking.payment) throw new BadRequestException('No payment exists for booking.');
+        if (!booking.payment)
+          throw new BadRequestException('No payment exists for booking.');
 
         const payment = booking.payment;
 
@@ -590,16 +623,22 @@ export class PaymentsService {
         }
 
         if (payment.providerRef && payment.providerRef !== args.providerRef) {
-          throw new BadRequestException('providerRef mismatch for this booking/payment.');
+          throw new BadRequestException(
+            'providerRef mismatch for this booking/payment.',
+          );
         }
 
         if ((payment.currency ?? '').trim() !== verified.currency) {
-          throw new BadRequestException('Currency mismatch between payment and Telr verification.');
+          throw new BadRequestException(
+            'Currency mismatch between payment and Telr verification.',
+          );
         }
 
         // ✅ Compare minor units exactly (DB uses Int minor units)
         if (Number(payment.amount) !== Number(verified.amountMinor)) {
-          throw new BadRequestException('Amount mismatch between payment and Telr verification.');
+          throw new BadRequestException(
+            'Amount mismatch between payment and Telr verification.',
+          );
         }
 
         const existing = await tx.paymentEvent.findUnique({
@@ -613,11 +652,16 @@ export class PaymentsService {
         });
 
         if (existing) {
-          const ops = await this.ensureOpsTasksForConfirmedBooking(tx, booking.id);
+          const ops = await this.ensureOpsTasksForConfirmedBooking(
+            tx,
+            booking.id,
+          );
           await this.ensureSecurityDepositForConfirmedBooking(tx, booking.id);
           await this.ensureLedgerForCapturedBooking(tx, booking.id);
 
-          const refreshedBooking = await tx.booking.findUnique({ where: { id: booking.id } });
+          const refreshedBooking = await tx.booking.findUnique({
+            where: { id: booking.id },
+          });
 
           return {
             booking: refreshedBooking ?? booking,
@@ -632,7 +676,10 @@ export class PaymentsService {
         if (!alreadyCaptured) {
           await tx.payment.update({
             where: { id: payment.id },
-            data: { status: PaymentStatus.CAPTURED, providerRef: args.providerRef },
+            data: {
+              status: PaymentStatus.CAPTURED,
+              providerRef: args.providerRef,
+            },
           });
         }
 
@@ -652,17 +699,25 @@ export class PaymentsService {
             payloadJson: JSON.stringify({
               kind: 'TELR_VERIFIED',
               bookingId: booking.id,
-              telr: { statusCode: verified.statusCode, statusText: verified.statusText },
+              telr: {
+                statusCode: verified.statusCode,
+                statusText: verified.statusText,
+              },
             }),
           },
         });
 
-        const ops = await this.ensureOpsTasksForConfirmedBooking(tx, booking.id);
+        const ops = await this.ensureOpsTasksForConfirmedBooking(
+          tx,
+          booking.id,
+        );
 
         await this.ensureSecurityDepositForConfirmedBooking(tx, booking.id);
         await this.ensureLedgerForCapturedBooking(tx, booking.id);
 
-        const refreshedBooking = await tx.booking.findUnique({ where: { id: booking.id } });
+        const refreshedBooking = await tx.booking.findUnique({
+          where: { id: booking.id },
+        });
 
         return {
           booking: refreshedBooking ?? booking,
@@ -694,7 +749,8 @@ export class PaymentsService {
         include: { payment: true },
       });
       if (!booking) throw new NotFoundException('Booking not found.');
-      if (!booking.payment) throw new BadRequestException('No payment exists for booking.');
+      if (!booking.payment)
+        throw new BadRequestException('No payment exists for booking.');
 
       const payment = booking.payment;
 
@@ -722,7 +778,10 @@ export class PaymentsService {
           type: PaymentEventType.WEBHOOK,
           idempotencyKey: args.webhookEventId,
           providerRef: args.providerRef,
-          payloadJson: JSON.stringify({ kind: 'TELR_FAILED', bookingId: booking.id }),
+          payloadJson: JSON.stringify({
+            kind: 'TELR_FAILED',
+            bookingId: booking.id,
+          }),
         },
       });
 
@@ -914,7 +973,12 @@ export class PaymentsService {
         property: {
           select: {
             securityDepositPolicy: {
-              select: { isActive: true, mode: true, amount: true, currency: true },
+              select: {
+                isActive: true,
+                mode: true,
+                amount: true,
+                currency: true,
+              },
             },
           },
         },
@@ -969,7 +1033,9 @@ export class PaymentsService {
         status: true,
         currency: true,
         propertyId: true,
-        payment: { select: { id: true, status: true, amount: true, currency: true } },
+        payment: {
+          select: { id: true, status: true, amount: true, currency: true },
+        },
         property: {
           select: {
             vendorId: true,
@@ -1024,7 +1090,12 @@ export class PaymentsService {
         amount: gross,
         currency,
         idempotencyKey: grossIdemKey,
-        metaJson: JSON.stringify({ bookingId: booking.id, paymentId: payment.id, gross, bps }),
+        metaJson: JSON.stringify({
+          bookingId: booking.id,
+          paymentId: payment.id,
+          gross,
+          bps,
+        }),
       },
       update: {},
     });

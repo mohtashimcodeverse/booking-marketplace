@@ -1,12 +1,26 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { resetPassword } from "@/lib/auth/authApi";
 
 export default function ResetPasswordPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard title="Loading reset form" subtitle="Preparing password reset...">
+          <div className="h-20" />
+        </AuthCard>
+      }
+    >
+      <ResetPasswordContent />
+    </Suspense>
+  );
+}
+
+function ResetPasswordContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
 

@@ -3,7 +3,7 @@
 import React from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { cancelBooking, findUserBookingById, type BookingListItem } from "@/lib/api/bookings";
 
 type ViewState =

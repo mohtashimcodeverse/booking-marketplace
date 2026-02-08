@@ -142,7 +142,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
         ...draft,
         area: (draft.area ?? "").trim() || null,
         address: (draft.address ?? "").trim() || null,
-        description: (draft.description ?? "").trim() || null,
+        description: (draft.description ?? "").trim() || undefined,
         slug: (draft.slug ?? "").trim() || undefined,
         currency: (draft.currency ?? "").trim() || undefined,
       });

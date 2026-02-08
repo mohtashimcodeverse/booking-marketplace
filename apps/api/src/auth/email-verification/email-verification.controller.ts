@@ -25,8 +25,9 @@ export class EmailVerificationController {
   @Throttle({ default: { limit: 5, ttl: 60_000 } })
   async request(
     @Req() req: AccessRequest,
-    @Body() _dto: RequestEmailVerificationDto,
+    @Body() dto: RequestEmailVerificationDto,
   ) {
+    void dto;
     // V1 hardening: service ignores email override and only uses user's canonical email.
     return this.svc.requestOtp({
       userId: req.user.id,

@@ -9,7 +9,7 @@ type CacheEntry<T> = { expiresAt: number; value: T };
 
 // Simple in-memory TTL cache (safe fallback).
 // You can later replace this with Redis without changing API contracts.
-const memCache = new Map<string, CacheEntry<any>>();
+const memCache = new Map<string, CacheEntry<unknown>>();
 function cacheGet<T>(key: string): T | null {
   const entry = memCache.get(key);
   if (!entry) return null;
@@ -22,7 +22,7 @@ function cacheGet<T>(key: string): T | null {
 function cacheSet<T>(key: string, value: T, ttlMs: number) {
   memCache.set(key, { value, expiresAt: Date.now() + ttlMs });
 }
-function stableStringify(obj: any) {
+function stableStringify(obj: object) {
   return JSON.stringify(obj, Object.keys(obj).sort());
 }
 
@@ -43,17 +43,90 @@ function nightsBetween(checkIn: Date, checkOut: Date): number {
   return nights;
 }
 
-// NOTE: currently unused in this service, but kept (harmless) in case
-// you later add custom overlap logic in search layer.
-function overlaps(
-  rangeAStart: Date,
-  rangeAEnd: Date,
-  rangeBStart: Date,
-  rangeBEnd: Date,
-) {
-  // A overlaps B if start < otherEnd && end > otherStart
-  return rangeAStart < rangeBEnd && rangeAEnd > rangeBStart;
-}
+type SearchQueryLike = {
+  city?: string;
+  area?: string;
+  lat?: number;
+  lng?: number;
+  radiusKm?: number;
+  north?: number;
+  south?: number;
+  east?: number;
+  west?: number;
+  guests?: number;
+  minPrice?: number;
+  maxPrice?: number;
+  bedrooms?: number;
+  bathrooms?: number;
+  maxGuests?: number;
+  checkIn?: string;
+  checkOut?: string;
+};
+
+type SearchCard = {
+  id: string;
+  slug: string;
+  title: string;
+  location: {
+    city: string | null;
+    area: string | null;
+    address: string | null;
+    lat: number | null;
+    lng: number | null;
+  };
+  capacity: {
+    maxGuests: number;
+    bedrooms: number;
+    bathrooms: number;
+  };
+  coverImage: {
+    url: string;
+    alt: string | null;
+    category: string;
+  } | null;
+  pricing: {
+    nightly: number;
+    cleaningFee: number;
+    currency: string;
+    totalForStay?: number;
+    nights?: number;
+  };
+  flags: {
+    instantBook: boolean;
+  };
+};
+
+type SearchPoint = {
+  propertyId: string;
+  lat: number;
+  lng: number;
+  priceFrom: number;
+  currency: string;
+};
+
+type SearchPropertiesResult = {
+  ok: true;
+  query: SearchPropertiesQuery & { page: number; limit: number };
+  items: SearchCard[];
+  meta: {
+    page: number;
+    limit: number;
+    total: number;
+    hasMore: boolean;
+  };
+};
+
+type SearchMapResult = {
+  ok: true;
+  query: SearchMapQuery;
+  points: SearchPoint[];
+};
+
+type SearchMapViewportResult = {
+  ok: true;
+  query: SearchMapViewportQuery;
+  points: SearchPoint[];
+};
 
 @Injectable()
 export class SearchService {
@@ -188,14 +261,16 @@ export class SearchService {
   private buildCoreWhere(
     q: SearchPropertiesQuery | SearchMapQuery | SearchMapViewportQuery,
   ) {
+    const query: SearchQueryLike = q;
+
     const geo = this.buildGeoFilter({
-      lat: (q as any).lat,
-      lng: (q as any).lng,
-      radiusKm: (q as any).radiusKm,
-      north: (q as any).north,
-      south: (q as any).south,
-      east: (q as any).east,
-      west: (q as any).west,
+      lat: query.lat,
+      lng: query.lng,
+      radiusKm: query.radiusKm,
+      north: query.north,
+      south: query.south,
+      east: query.east,
+      west: query.west,
     });
 
     const where: Prisma.PropertyWhereInput = {
@@ -206,14 +281,14 @@ export class SearchService {
     if (q.area) where.area = q.area;
 
     // Guests filtering: require property.maxGuests >= requested
-    const guests = (q as any).guests;
+    const guests = query.guests;
     if (guests !== undefined) {
       where.maxGuests = { gte: guests };
     }
 
     // Optional filters (if provided)
-    const minPrice = (q as any).minPrice;
-    const maxPrice = (q as any).maxPrice;
+    const minPrice = query.minPrice;
+    const maxPrice = query.maxPrice;
     if (minPrice !== undefined || maxPrice !== undefined) {
       where.basePrice = {
         ...(minPrice !== undefined ? { gte: minPrice } : {}),
@@ -221,21 +296,21 @@ export class SearchService {
       };
     }
 
-    const bedrooms = (q as any).bedrooms;
+    const bedrooms = query.bedrooms;
     if (bedrooms !== undefined) where.bedrooms = { gte: bedrooms };
 
-    const bathrooms = (q as any).bathrooms;
+    const bathrooms = query.bathrooms;
     if (bathrooms !== undefined) where.bathrooms = { gte: bathrooms };
 
-    const maxGuests = (q as any).maxGuests;
+    const maxGuests = query.maxGuests;
     if (maxGuests !== undefined) where.maxGuests = { gte: maxGuests };
 
     const and: Prisma.PropertyWhereInput[] = [];
     if (geo) and.push(geo);
 
     // Dates availability
-    const checkInStr = (q as any).checkIn as string | undefined;
-    const checkOutStr = (q as any).checkOut as string | undefined;
+    const checkInStr = query.checkIn;
+    const checkOutStr = query.checkOut;
     if (checkInStr && checkOutStr) {
       const checkIn = parseISODateOnly(checkInStr);
       const checkOut = parseISODateOnly(checkOutStr);
@@ -306,7 +381,9 @@ export class SearchService {
     }
   }
 
-  async searchProperties(q: SearchPropertiesQuery) {
+  async searchProperties(
+    q: SearchPropertiesQuery,
+  ): Promise<SearchPropertiesResult> {
     const page = q.page ?? 1;
     const limit = q.limit ?? 20;
     const skip = (page - 1) * limit;
@@ -322,7 +399,7 @@ export class SearchService {
       page,
       limit,
     })}`;
-    const cached = cacheGet<any>(cacheKey);
+    const cached = cacheGet<SearchPropertiesResult>(cacheKey);
     if (cached) return cached;
 
     const where = this.buildCoreWhere(q);
@@ -414,7 +491,7 @@ export class SearchService {
       };
     });
 
-    const result = {
+    const result: SearchPropertiesResult = {
       ok: true,
       query: {
         ...q,
@@ -435,14 +512,14 @@ export class SearchService {
     return result;
   }
 
-  async searchMap(q: SearchMapQuery) {
+  async searchMap(q: SearchMapQuery): Promise<SearchMapResult> {
     // Map endpoints often need bigger limits than cards.
     // Still enforce safety to avoid insane payloads.
     const hasDates = Boolean(q.checkIn && q.checkOut);
     const ttlMs = hasDates ? 30_000 : 90_000;
 
     const cacheKey = `search:map:${stableStringify(q)}`;
-    const cached = cacheGet<any>(cacheKey);
+    const cached = cacheGet<SearchMapResult>(cacheKey);
     if (cached) return cached;
 
     const where = this.buildCoreWhere(q);
@@ -471,7 +548,7 @@ export class SearchService {
         currency: r.currency,
       }));
 
-    const result = {
+    const result: SearchMapResult = {
       ok: true,
       query: q,
       points,
@@ -485,7 +562,9 @@ export class SearchService {
    * ✅ Google Maps viewport markers (pan/zoom)
    * Returns markers only inside the visible bounds.
    */
-  async searchMapViewport(q: SearchMapViewportQuery) {
+  async searchMapViewport(
+    q: SearchMapViewportQuery,
+  ): Promise<SearchMapViewportResult> {
     this.validateViewportBounds(q);
 
     const hasDates = Boolean(q.checkIn && q.checkOut);
@@ -494,7 +573,7 @@ export class SearchService {
     const ttlMs = hasDates ? 20_000 : 45_000;
 
     const cacheKey = `search:map-viewport:${stableStringify(q)}`;
-    const cached = cacheGet<any>(cacheKey);
+    const cached = cacheGet<SearchMapViewportResult>(cacheKey);
     if (cached) return cached;
 
     const where = this.buildCoreWhere(q);
@@ -522,7 +601,7 @@ export class SearchService {
         currency: r.currency,
       }));
 
-    const result = {
+    const result: SearchMapViewportResult = {
       ok: true,
       query: q,
       points,

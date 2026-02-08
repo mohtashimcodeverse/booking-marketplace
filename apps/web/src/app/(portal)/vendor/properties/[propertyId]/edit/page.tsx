@@ -54,8 +54,7 @@ export default function VendorPropertyEditPage() {
 
   // load once
   if (state.kind === "idle") {
-    // eslint-disable-next-line @typescript-eslint/no-floating-promises
-    load();
+    void load();
   }
 
   return (

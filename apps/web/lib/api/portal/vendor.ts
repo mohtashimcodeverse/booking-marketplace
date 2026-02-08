@@ -171,6 +171,8 @@ export type VendorPropertyDraftInput = {
   city: string;
   area?: string | null;
   address?: string | null;
+  lat?: number | null;
+  lng?: number | null;
 
   maxGuests?: number;
   bedrooms?: number;

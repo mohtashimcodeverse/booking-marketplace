@@ -1,3 +1,4 @@
+import type { ComponentType } from "react";
 import {
   CigaretteOff,
   Users,
@@ -31,7 +32,7 @@ export type HouseRuleItem = {
 type RuleMeta = {
   key: HouseRuleKey;
   label: string;
-  Icon: (props: { className?: string }) => JSX.Element;
+  Icon: ComponentType<{ className?: string }>;
 };
 
 const RULES: Record<HouseRuleKey, RuleMeta> = {

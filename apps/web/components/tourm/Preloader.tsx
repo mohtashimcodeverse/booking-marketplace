@@ -39,10 +39,7 @@ export default function Preloader(props: PreloaderProps) {
   }, [oncePerSession]);
 
   useEffect(() => {
-    if (!shouldShow) {
-      setState("hide");
-      return;
-    }
+    if (!shouldShow) return;
 
     const start = performance.now();
 
@@ -72,7 +69,7 @@ export default function Preloader(props: PreloaderProps) {
     };
   }, [minDurationMs, oncePerSession, shouldShow]);
 
-  if (!shouldShow && state === "hide") return null;
+  if (!shouldShow) return null;
 
   return (
     <AnimatePresence>

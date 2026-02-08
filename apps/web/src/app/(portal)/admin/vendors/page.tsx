@@ -41,24 +41,30 @@ function fmtDate(value?: string | null) {
   return d.toLocaleDateString();
 }
 
+function pickVendorValue(vendor: VendorRow, keys: ReadonlyArray<string>): unknown {
+  for (const key of keys) {
+    const val = vendor[key];
+    if (val !== undefined && val !== null) return val;
+  }
+  return null;
+}
+
+function pickVendorString(vendor: VendorRow, keys: ReadonlyArray<string>): string | null {
+  const val = pickVendorValue(vendor, keys);
+  if (typeof val !== "string") return null;
+  const s = val.trim();
+  return s.length > 0 ? s : null;
+}
+
 function VendorDrawer(props: {
   vendor: VendorRow;
   onClose: () => void;
 }) {
-  const email =
-    (props.vendor as any).email ??
-    (props.vendor as any).ownerEmail ??
-    (props.vendor as any).userEmail ??
-    null;
-
-  const company =
-    (props.vendor as any).companyName ??
-    (props.vendor as any).displayName ??
-    (props.vendor as any).name ??
-    "—";
-
-  const status = (props.vendor as any).status ?? "UNKNOWN";
-  const createdAt = (props.vendor as any).createdAt ?? null;
+  const email = pickVendorString(props.vendor, ["email", "ownerEmail", "userEmail"]);
+  const company = pickVendorString(props.vendor, ["companyName", "displayName", "name"]) ?? "—";
+  const status = pickVendorString(props.vendor, ["status"]) ?? "UNKNOWN";
+  const createdAt = pickVendorString(props.vendor, ["createdAt"]);
+  const vendorId = pickVendorString(props.vendor, ["id"]) ?? "—";
 
   return (
     <div className="fixed inset-0 z-[80]">
@@ -72,7 +78,7 @@ function VendorDrawer(props: {
                 Vendor details
               </div>
               <div className="mt-1 text-xs text-slate-500">
-                ID: {(props.vendor as any).id ?? "—"}
+                ID: {vendorId}
               </div>
             </div>
             <button
@@ -212,23 +218,14 @@ export default function AdminVendorsPage() {
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {vendors.map((v) => {
-              const email =
-                (v as any).email ??
-                (v as any).ownerEmail ??
-                (v as any).userEmail ??
-                null;
-
-              const company =
-                (v as any).companyName ??
-                (v as any).displayName ??
-                (v as any).name ??
-                "—";
-
-              const status = (v as any).status ?? "UNKNOWN";
+              const email = pickVendorString(v, ["email", "ownerEmail", "userEmail"]);
+              const company = pickVendorString(v, ["companyName", "displayName", "name"]) ?? "—";
+              const status = pickVendorString(v, ["status"]) ?? "UNKNOWN";
+              const vendorId = pickVendorString(v, ["id"]) ?? company;
 
               return (
                 <button
-                  key={(v as any).id}
+                  key={vendorId}
                   onClick={() => setSelected(v)}
                   className="text-left rounded-3xl border border-black/5 bg-white p-5 shadow-sm hover:bg-slate-50/60 transition"
                 >

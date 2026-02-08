@@ -12,10 +12,6 @@ import {
   type MediaCategory,
 } from "@/lib/api/portal/admin";
 
-function cn(...xs: Array<string | false | null | undefined>) {
-  return xs.filter(Boolean).join(" ");
-}
-
 const ALL_MEDIA_CATEGORIES: MediaCategory[] = [
   "LIVING_ROOM",
   "BEDROOM",
