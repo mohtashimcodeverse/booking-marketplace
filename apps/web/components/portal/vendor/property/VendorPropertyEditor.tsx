@@ -4,12 +4,15 @@ import { useEffect, useMemo, useState } from "react";
 import type {
   AmenitiesCatalogResponse,
   UpdateVendorPropertyLocationInput,
+  VendorPropertyDeletionRequest,
   VendorPropertyDetail,
   VendorPropertyDraftInput,
 } from "@/lib/api/portal/vendor";
 import {
+  getVendorPropertyDeletionRequest,
   getAmenitiesCatalog,
   publishVendorProperty,
+  requestVendorPropertyDeletion,
   submitVendorPropertyForReview,
   unpublishVendorProperty,
   updateVendorPropertyAmenities,
@@ -63,11 +66,33 @@ export default function VendorPropertyEditor(props: {
 
   const [amenitiesCatalog, setAmenitiesCatalog] = useState<AmenitiesCatalogResponse | null>(null);
   const [amenitiesLoading, setAmenitiesLoading] = useState(false);
+  const [deletionRequest, setDeletionRequest] = useState<VendorPropertyDeletionRequest | null>(null);
+  const [deletionReason, setDeletionReason] = useState("");
 
   // keep local state in sync if parent refreshes
   useEffect(() => {
     setProperty(props.initial);
   }, [props.initial]);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadDeletionRequest() {
+      try {
+        const request = await getVendorPropertyDeletionRequest(property.id);
+        if (!alive) return;
+        setDeletionRequest(request);
+      } catch {
+        if (!alive) return;
+        setDeletionRequest(null);
+      }
+    }
+
+    void loadDeletionRequest();
+    return () => {
+      alive = false;
+    };
+  }, [property.id]);
 
   const draft = useMemo(() => toDraftInput(property), [property]);
 
@@ -193,6 +218,20 @@ export default function VendorPropertyEditor(props: {
       await props.onRefresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unpublish failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function submitDeletionRequest() {
+    setError(null);
+    setBusy("Submitting deletion request...");
+    try {
+      const created = await requestVendorPropertyDeletion(property.id, deletionReason);
+      setDeletionRequest(created);
+      setDeletionReason("");
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Deletion request failed");
     } finally {
       setBusy(null);
     }
@@ -403,6 +442,75 @@ export default function VendorPropertyEditor(props: {
                   Your listing is not ready yet. Complete the checklist above before submitting.
                 </div>
               ) : null}
+            </section>
+
+            <section className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-neutral-900">Deletion request</h3>
+                  <p className="mt-1 text-sm text-neutral-600">
+                    Vendors cannot delete listings instantly. Submit a request and wait for admin approval.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {deletionRequest ? (
+                  <div className="rounded-xl border border-black/10 bg-[#f6f3ec] p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-neutral-900">Request status</span>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                          deletionRequest.status === "APPROVED"
+                            ? "bg-emerald-100 text-emerald-800"
+                            : deletionRequest.status === "REJECTED"
+                            ? "bg-rose-100 text-rose-700"
+                            : "bg-amber-100 text-amber-800",
+                        )}
+                      >
+                        {deletionRequest.status}
+                      </span>
+                    </div>
+                    {deletionRequest.reason ? (
+                      <div className="mt-2 text-sm text-neutral-700">
+                        Reason: {deletionRequest.reason}
+                      </div>
+                    ) : null}
+                    {deletionRequest.adminNotes ? (
+                      <div className="mt-2 text-sm text-neutral-700">
+                        Admin note: {deletionRequest.adminNotes}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {!deletionRequest || deletionRequest.status === "REJECTED" ? (
+                  <div className="space-y-3 rounded-xl border border-black/10 p-4">
+                    <textarea
+                      value={deletionReason}
+                      onChange={(e) => setDeletionReason(e.target.value)}
+                      rows={3}
+                      placeholder="Optional reason for deletion request..."
+                      className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                      disabled={busy !== null}
+                    />
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => void submitDeletionRequest()}
+                      className={cn(
+                        "rounded-xl px-4 py-2 text-sm font-semibold",
+                        busy !== null
+                          ? "bg-neutral-200 text-neutral-500"
+                          : "bg-rose-600 text-white hover:bg-rose-700",
+                      )}
+                    >
+                      Request deletion approval
+                    </button>
+                  </div>
+                ) : null}
+              </div>
             </section>
           </div>
 

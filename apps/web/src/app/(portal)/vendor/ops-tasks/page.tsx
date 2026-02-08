@@ -73,7 +73,7 @@ export default function VendorOpsTasksPage() {
   }, [state]);
 
   return (
-    <PortalShell title="Vendor Ops Tasks" nav={nav}>
+    <PortalShell role="vendor" title="Vendor Ops Tasks" nav={nav}>
       {content}
     </PortalShell>
   );

@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getUserOverview } from "@/lib/api/portal/user";
+import { PortalShell } from "@/components/portal/PortalShell";
 
 type ViewState =
   | { kind: "loading" }
@@ -122,5 +123,13 @@ export default function AccountOverviewPage() {
     );
   }, [state, user?.email, user?.isEmailVerified]);
 
-  return <div className="space-y-6">{content}</div>;
+  return (
+    <PortalShell
+      role="customer"
+      title="My Account"
+      subtitle="Bookings, refunds, and account activity"
+    >
+      <div className="space-y-6">{content}</div>
+    </PortalShell>
+  );
 }

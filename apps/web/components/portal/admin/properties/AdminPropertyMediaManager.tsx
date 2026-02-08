@@ -5,6 +5,7 @@ import { useMemo, useRef, useState } from "react";
 import { ChevronDown, ChevronUp, GripVertical, UploadCloud } from "lucide-react";
 
 import {
+  deleteAdminPropertyMedia,
   reorderAdminPropertyMedia,
   updateAdminPropertyMediaCategory,
   uploadAdminPropertyMedia,
@@ -149,6 +150,22 @@ export function AdminPropertyMediaManager(props: {
       setNext(rows.sort((a, b) => a.sortOrder - b.sortOrder));
     } catch (e) {
       setError(e instanceof Error ? e.message : "Reorder failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove(mediaId: string) {
+    const confirmed = window.confirm("Delete this image permanently?");
+    if (!confirmed) return;
+
+    setError(null);
+    setBusy("Deleting image...");
+    try {
+      const rows = await deleteAdminPropertyMedia(props.propertyId, mediaId);
+      setNext(rows.sort((a, b) => a.sortOrder - b.sortOrder));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
     } finally {
       setBusy(null);
     }
@@ -305,6 +322,15 @@ export function AdminPropertyMediaManager(props: {
                     Down
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => void remove(m.id)}
+                  disabled={busy !== null}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                >
+                  Delete image
+                </button>
 
                 <div className="text-xs text-slate-500">
                   Tip: set at least one image as <span className="font-semibold">COVER</span>.

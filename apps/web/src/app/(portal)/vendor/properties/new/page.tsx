@@ -141,7 +141,7 @@ export default function VendorNewPropertyPage() {
   }
 
   return (
-    <PortalShell title="Create property" nav={nav}>
+    <PortalShell role="vendor" title="Create property" nav={nav}>
       <div className="space-y-6">
         {/* Header card (match edit-page feel) */}
         <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">

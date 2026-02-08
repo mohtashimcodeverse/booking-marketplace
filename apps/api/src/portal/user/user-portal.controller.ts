@@ -12,7 +12,7 @@ import {
   UserRole,
   type User,
 } from '@prisma/client';
-import { parsePageParams } from '../common/portal.utils';
+import { parseDateRange, parsePageParams } from '../common/portal.utils';
 
 @Controller('/portal/user')
 @UseGuards(JwtAccessGuard, RolesGuard)
@@ -53,6 +53,21 @@ export class UserPortalController {
       status: query.status,
       page,
       pageSize,
+    });
+  }
+
+  @Get('calendar')
+  calendar(
+    @CurrentUser() user: User,
+    @Query() query: { from?: string; to?: string; propertyId?: string },
+  ) {
+    const { from, to } = parseDateRange(query);
+    return this.service.getCalendar({
+      userId: user.id,
+      role: user.role,
+      from,
+      to,
+      propertyId: query.propertyId,
     });
   }
 }

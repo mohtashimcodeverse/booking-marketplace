@@ -3,6 +3,8 @@ import { ForbiddenException, Injectable } from '@nestjs/common';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import {
   BookingStatus,
+  CalendarDayStatus,
+  HoldStatus,
   OpsTaskStatus,
   PaymentStatus,
   PropertyStatus,
@@ -13,6 +15,9 @@ import {
 import type {
   ChartResponse,
   Paginated,
+  PortalCalendarEvent,
+  PortalCalendarProperty,
+  PortalCalendarResponse,
   TimeBucket,
 } from '../common/portal.types';
 import { formatLabel } from '../common/portal.utils';
@@ -217,6 +222,178 @@ export class AdminPortalService {
           points: labels.map((l) => cancMap.get(l) ?? 0),
         },
       ],
+    };
+  }
+
+  async getCalendar(params: {
+    userId: string;
+    role: UserRole;
+    from: Date;
+    to: Date;
+    propertyId?: string;
+  }): Promise<PortalCalendarResponse> {
+    this.assertAdmin(params.role);
+
+    const propertyRows = await this.prisma.property.findMany({
+      where: params.propertyId ? { id: params.propertyId } : undefined,
+      orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+      take: params.propertyId ? undefined : 200,
+      select: {
+        id: true,
+        title: true,
+        city: true,
+        status: true,
+      },
+    });
+
+    if (params.propertyId && propertyRows.length === 0) {
+      throw new ForbiddenException('Property not found.');
+    }
+
+    if (propertyRows.length === 0) {
+      return {
+        from: params.from.toISOString(),
+        to: params.to.toISOString(),
+        selectedPropertyId: null,
+        properties: [],
+        events: [],
+      };
+    }
+
+    const selectedPropertyId =
+      params.propertyId ?? propertyRows[0]?.id ?? null;
+    const propertyIds = selectedPropertyId ? [selectedPropertyId] : [];
+
+    const properties: PortalCalendarProperty[] = propertyRows.map((p) => ({
+      id: p.id,
+      title: p.title,
+      city: p.city,
+      status: p.status,
+    }));
+
+    const [bookings, holds, blockedDays] = await Promise.all([
+      this.prisma.booking.findMany({
+        where: {
+          propertyId: { in: propertyIds },
+          status: { not: BookingStatus.CANCELLED },
+          checkIn: { lt: params.to },
+          checkOut: { gt: params.from },
+        },
+        select: {
+          id: true,
+          propertyId: true,
+          checkIn: true,
+          checkOut: true,
+          status: true,
+          totalAmount: true,
+          currency: true,
+          property: { select: { title: true } },
+          customer: { select: { fullName: true, email: true } },
+        },
+        orderBy: [{ checkIn: 'asc' }, { createdAt: 'asc' }],
+      }),
+      this.prisma.propertyHold.findMany({
+        where: {
+          propertyId: { in: propertyIds },
+          status: HoldStatus.ACTIVE,
+          checkIn: { lt: params.to },
+          checkOut: { gt: params.from },
+        },
+        select: {
+          id: true,
+          propertyId: true,
+          checkIn: true,
+          checkOut: true,
+          status: true,
+          expiresAt: true,
+          property: { select: { title: true } },
+        },
+        orderBy: [{ checkIn: 'asc' }, { createdAt: 'asc' }],
+      }),
+      this.prisma.propertyCalendarDay.findMany({
+        where: {
+          propertyId: { in: propertyIds },
+          status: CalendarDayStatus.BLOCKED,
+          date: { gte: params.from, lt: params.to },
+        },
+        select: {
+          id: true,
+          propertyId: true,
+          date: true,
+          note: true,
+          property: { select: { title: true } },
+        },
+        orderBy: [{ date: 'asc' }],
+      }),
+    ]);
+
+    const bookingEvents: PortalCalendarEvent[] = bookings.map((b) => ({
+      type: 'BOOKING',
+      id: b.id,
+      bookingRef: b.id,
+      propertyId: b.propertyId,
+      propertyTitle: b.property.title,
+      start: b.checkIn.toISOString(),
+      end: b.checkOut.toISOString(),
+      status: b.status,
+      guestName: b.customer.fullName ?? b.customer.email ?? null,
+      guestDisplay: b.customer.fullName ?? b.customer.email ?? 'Guest',
+      currency: b.currency,
+      totalAmount: b.totalAmount,
+      note: null,
+    }));
+
+    const holdEvents: PortalCalendarEvent[] = holds.map((h) => ({
+      type: 'HOLD',
+      id: h.id,
+      bookingRef: null,
+      propertyId: h.propertyId,
+      propertyTitle: h.property.title,
+      start: h.checkIn.toISOString(),
+      end: h.checkOut.toISOString(),
+      status: h.status,
+      guestName: null,
+      guestDisplay: 'Temporary hold',
+      currency: null,
+      totalAmount: null,
+      note: null,
+      expiresAt: h.expiresAt.toISOString(),
+    }));
+
+    const blockedEvents: PortalCalendarEvent[] = blockedDays.map((d) => {
+      const end = new Date(d.date.getTime() + 24 * 60 * 60 * 1000);
+      return {
+        type: 'BLOCKED',
+        id: d.id,
+        bookingRef: null,
+        propertyId: d.propertyId,
+        propertyTitle: d.property.title,
+        start: d.date.toISOString(),
+        end: end.toISOString(),
+        status: 'BLOCKED',
+        guestName: null,
+        guestDisplay: 'Blocked day',
+        currency: null,
+        totalAmount: null,
+        note: d.note ?? null,
+      };
+    });
+
+    const events = [...bookingEvents, ...holdEvents, ...blockedEvents].sort(
+      (a, b) => {
+        const aStart = new Date(a.start).getTime();
+        const bStart = new Date(b.start).getTime();
+        if (aStart !== bStart) return aStart - bStart;
+        return a.type.localeCompare(b.type);
+      },
+    );
+
+    return {
+      from: params.from.toISOString(),
+      to: params.to.toISOString(),
+      selectedPropertyId,
+      properties,
+      events,
     };
   }
 

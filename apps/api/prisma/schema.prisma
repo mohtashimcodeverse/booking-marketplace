@@ -310,6 +310,12 @@ enum PropertyReviewDecision {
   REJECT
 }
 
+enum PropertyDeletionRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -351,6 +357,9 @@ model User {
 
   // ✅ Admin-created listings audit (optional)
   createdPropertiesAsAdmin Property[] @relation("PropertyCreatedByAdmin")
+
+  propertyDeletionRequestsAsVendor PropertyDeletionRequest[] @relation("PropertyDeletionRequestedByVendor")
+  propertyDeletionReviewsAsAdmin   PropertyDeletionRequest[] @relation("PropertyDeletionReviewedByAdmin")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -549,6 +558,7 @@ model Property {
   media     Media[]
   documents PropertyDocument[]
   reviews   PropertyReview[]
+  deletionRequests PropertyDeletionRequest[]
 
   amenities PropertyAmenity[]
   bookings  Booking[]
@@ -662,6 +672,35 @@ model PropertyReview {
   @@index([propertyId])
   @@index([adminId])
   @@index([decision])
+  @@index([createdAt])
+}
+
+model PropertyDeletionRequest {
+  id String @id @default(uuid())
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  propertyTitleSnapshot String
+  propertyCitySnapshot  String?
+
+  requestedByVendorId String
+  requestedByVendor   User @relation("PropertyDeletionRequestedByVendor", fields: [requestedByVendorId], references: [id], onDelete: Cascade)
+
+  status PropertyDeletionRequestStatus @default(PENDING)
+  reason String?
+
+  reviewedByAdminId String?
+  reviewedByAdmin   User? @relation("PropertyDeletionReviewedByAdmin", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime?
+  adminNotes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([requestedByVendorId])
+  @@index([status])
   @@index([createdAt])
 }
 

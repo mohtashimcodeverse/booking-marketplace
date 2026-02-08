@@ -304,7 +304,7 @@ export default function AdminPaymentsPage() {
   }, [state, filters, rows, providers, statuses, selected]);
 
   return (
-    <PortalShell title="Admin Payments" nav={nav}>
+    <PortalShell role="admin" title="Admin Payments" nav={nav}>
       {content}
     </PortalShell>
   );

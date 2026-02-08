@@ -1,27 +1,58 @@
 "use client";
 
+import Link from "next/link";
 import { Suspense, useEffect, useMemo, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { PortalShell } from "@/components/portal/PortalShell";
+import { CardList, type CardListItem } from "@/components/portal/ui/CardList";
+import { StatusPill } from "@/components/portal/ui/StatusPill";
+import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getUserRefunds } from "@/lib/api/portal/user";
+
+function toInt(value: string | null, fallback: number): number {
+  const numeric = value ? Number(value) : Number.NaN;
+  return Number.isFinite(numeric) && numeric > 0 ? Math.floor(numeric) : fallback;
+}
+
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
+}
+
+function formatMoney(amount: number, currency?: string | null): string {
+  if (!currency) return String(amount);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${amount} ${currency}`;
+  }
+}
 
 type ViewState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "ready"; data: Awaited<ReturnType<typeof getUserRefunds>> };
 
-function toInt(v: string | null, fallback: number): number {
-  const n = v ? Number(v) : NaN;
-  return Number.isFinite(n) && n > 0 ? Math.floor(n) : fallback;
-}
-
 export default function AccountRefundsPage() {
   return (
     <Suspense
       fallback={
-        <div className="space-y-6">
-          <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">Loading refunds…</div>
-        </div>
+        <PortalShell role="customer" title="Refunds" subtitle="Track refund states and payouts">
+          <div className="space-y-3">
+            <SkeletonBlock className="h-24" />
+            <SkeletonBlock className="h-24" />
+          </div>
+        </PortalShell>
       }
     >
       <AccountRefundsContent />
@@ -30,143 +61,124 @@ export default function AccountRefundsPage() {
 }
 
 function AccountRefundsContent() {
-  const { status } = useAuth();
-  const sp = useSearchParams();
+  const { status: authStatus } = useAuth();
+  const searchParams = useSearchParams();
 
-  const page = toInt(sp.get("page"), 1);
-  const pageSize = toInt(sp.get("pageSize"), 10);
+  const page = toInt(searchParams.get("page"), 1);
+  const pageSize = toInt(searchParams.get("pageSize"), 10);
 
   const [state, setState] = useState<ViewState>({ kind: "loading" });
 
   useEffect(() => {
     let alive = true;
 
-    async function run() {
-      if (status === "loading") return;
+    async function load() {
+      if (authStatus === "loading") return;
 
       setState({ kind: "loading" });
       try {
         const data = await getUserRefunds({ page, pageSize });
         if (!alive) return;
         setState({ kind: "ready", data });
-      } catch (err) {
+      } catch (error) {
         if (!alive) return;
-        const message = err instanceof Error ? err.message : "Failed to load refunds";
-        setState({ kind: "error", message });
+        setState({
+          kind: "error",
+          message: error instanceof Error ? error.message : "Failed to load refunds",
+        });
       }
     }
 
-    void run();
+    void load();
     return () => {
       alive = false;
     };
-  }, [status, page, pageSize]);
+  }, [authStatus, page, pageSize]);
 
-  const content = useMemo(() => {
-    if (state.kind === "loading") {
-      return (
-        <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">
-          Loading refunds…
+  const listItems = useMemo<CardListItem[]>(() => {
+    if (state.kind !== "ready") return [];
+
+    return state.data.items.map((refund) => ({
+      id: refund.id,
+      title: `Refund ${refund.id.slice(0, 8)}`,
+      subtitle: `Booking ${refund.bookingId.slice(0, 8)} - ${formatDate(refund.createdAt)}`,
+      status: <StatusPill status={refund.status}>{refund.status}</StatusPill>,
+      meta: (
+        <div className="text-xs font-semibold text-slate-700">
+          Amount: {formatMoney(refund.amount, refund.currency)}
         </div>
-      );
-    }
-
-    if (state.kind === "error") {
-      return (
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm font-semibold text-slate-900">Could not load refunds</div>
-          <div className="mt-2 text-sm text-slate-600">{state.message}</div>
-        </div>
-      );
-    }
-
-    const data = state.data;
-    const totalPages = Math.max(1, Math.ceil(data.total / data.pageSize));
-
-    return (
-      <div className="space-y-6">
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-lg font-semibold text-slate-900">Refunds</div>
-          <div className="mt-1 text-sm text-slate-600">
-            Refund records associated with your bookings.
-          </div>
-        </div>
-
-        <div className="rounded-2xl border bg-white overflow-hidden">
-          <div className="grid grid-cols-5 gap-3 border-b bg-slate-50 px-5 py-3 text-xs font-semibold text-slate-600">
-            <div className="col-span-2">Refund</div>
-            <div>Status</div>
-            <div className="text-right">Amount</div>
-            <div className="text-right">Date</div>
-          </div>
-
-          {data.items.length === 0 ? (
-            <div className="p-6 text-sm text-slate-600">No refunds yet.</div>
-          ) : (
-            <div className="divide-y">
-              {data.items.map((r) => (
-                <div key={r.id} className="grid grid-cols-5 gap-3 px-5 py-4 text-sm">
-                  <div className="col-span-2">
-                    <div className="font-medium text-slate-900">
-                      Refund #{r.id.slice(0, 8)}
-                    </div>
-                    <div className="text-xs text-slate-600">
-                      Booking: {r.bookingId.slice(0, 8)}
-                    </div>
-                  </div>
-
-                  <div className="font-medium text-slate-900">{r.status}</div>
-
-                  <div className="text-right font-semibold text-slate-900">
-                    {r.amount}
-                    {r.currency ? ` ${r.currency}` : ""}
-                  </div>
-
-                  <div className="text-right text-slate-700">
-                    {new Date(r.createdAt).toLocaleDateString()}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-slate-600">
-            Page {data.page} of {totalPages}
-          </div>
-
-          <div className="flex items-center gap-2">
-            <a
-              href={`/account/refunds?page=${Math.max(1, data.page - 1)}&pageSize=${data.pageSize}`}
-              aria-disabled={data.page <= 1}
-              className={[
-                "rounded-xl border px-3 py-2 text-sm font-medium",
-                data.page <= 1
-                  ? "pointer-events-none opacity-50 text-slate-500"
-                  : "text-slate-900 hover:bg-slate-50",
-              ].join(" ")}
-            >
-              Prev
-            </a>
-
-            <a
-              href={`/account/refunds?page=${Math.min(totalPages, data.page + 1)}&pageSize=${data.pageSize}`}
-              aria-disabled={data.page >= totalPages}
-              className={[
-                "rounded-xl border px-3 py-2 text-sm font-medium",
-                data.page >= totalPages
-                  ? "pointer-events-none opacity-50 text-slate-500"
-                  : "text-slate-900 hover:bg-slate-50",
-              ].join(" ")}
-            >
-              Next
-            </a>
-          </div>
-        </div>
-      </div>
-    );
+      ),
+    }));
   }, [state]);
 
-  return <div className="space-y-6">{content}</div>;
+  const pageMeta = useMemo(() => {
+    if (state.kind !== "ready") return null;
+    const totalPages = Math.max(1, Math.ceil(state.data.total / state.data.pageSize));
+    return {
+      totalPages,
+      currentPage: state.data.page,
+      pageSize: state.data.pageSize,
+    };
+  }, [state]);
+
+  return (
+    <PortalShell role="customer" title="Refunds" subtitle="Track statuses for refund operations">
+      {state.kind === "loading" ? (
+        <div className="space-y-3">
+          <SkeletonBlock className="h-24" />
+          <SkeletonBlock className="h-24" />
+        </div>
+      ) : state.kind === "error" ? (
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+          {state.message}
+        </div>
+      ) : (
+        <div className="space-y-5">
+          <CardList
+            title="Refund records"
+            subtitle="Private, backend-driven refund data"
+            items={listItems}
+            emptyTitle="No refunds yet"
+            emptyDescription="Refunds created from booking operations will appear here."
+          />
+
+          {pageMeta ? (
+            <div className="flex items-center justify-between">
+              <div className="text-sm text-slate-600">
+                Page {pageMeta.currentPage} of {pageMeta.totalPages}
+              </div>
+
+              <div className="flex items-center gap-2">
+                <Link
+                  href={`/account/refunds?page=${Math.max(1, pageMeta.currentPage - 1)}&pageSize=${pageMeta.pageSize}`}
+                  aria-disabled={pageMeta.currentPage <= 1}
+                  className={cn(
+                    "rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm",
+                    pageMeta.currentPage <= 1 && "pointer-events-none opacity-50",
+                  )}
+                >
+                  Prev
+                </Link>
+
+                <Link
+                  href={`/account/refunds?page=${Math.min(pageMeta.totalPages, pageMeta.currentPage + 1)}&pageSize=${pageMeta.pageSize}`}
+                  aria-disabled={pageMeta.currentPage >= pageMeta.totalPages}
+                  className={cn(
+                    "rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm",
+                    pageMeta.currentPage >= pageMeta.totalPages && "pointer-events-none opacity-50",
+                  )}
+                >
+                  Next
+                </Link>
+              </div>
+            </div>
+          ) : null}
+        </div>
+      )}
+    </PortalShell>
+  );
+}
+
+function cn(...xs: Array<string | false | null | undefined>) {
+  return xs.filter(Boolean).join(" ");
 }

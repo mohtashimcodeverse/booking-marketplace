@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -22,6 +23,7 @@ import {
   ReorderMediaDto,
   UpdateMediaCategoryDto,
   UploadPropertyDocumentDto,
+  RequestPropertyDeletionDto,
   SetPropertyAmenitiesDto,
 } from './vendor-properties.dto';
 import { FileInterceptor } from '@nestjs/platform-express';
@@ -167,6 +169,25 @@ export class VendorPropertiesController {
     return this.service.unpublish(req.user.id, id);
   }
 
+  @Get(':id/deletion-request')
+  async getDeletionRequest(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    this.assertVendor(req.user);
+    return this.service.getDeletionRequest(req.user.id, id);
+  }
+
+  @Post(':id/deletion-request')
+  async requestDeletion(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: RequestPropertyDeletionDto,
+  ) {
+    this.assertVendor(req.user);
+    return this.service.requestDeletion(req.user.id, id, dto.reason);
+  }
+
   @Post(':id/media')
   @UseInterceptors(
     FileInterceptor('file', {
@@ -209,6 +230,16 @@ export class VendorPropertiesController {
   ) {
     this.assertVendor(req.user);
     return this.service.reorderMedia(req.user.id, id, dto);
+  }
+
+  @Delete(':propertyId/media/:mediaId')
+  async deleteMedia(
+    @Req() req: { user: JwtUser },
+    @Param('propertyId', new ParseUUIDPipe()) propertyId: string,
+    @Param('mediaId', new ParseUUIDPipe()) mediaId: string,
+  ) {
+    this.assertVendor(req.user);
+    return this.service.deleteMedia(req.user.id, propertyId, mediaId);
   }
 
   @Post(':id/documents')

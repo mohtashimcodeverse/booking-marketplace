@@ -5,9 +5,10 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { join } from 'path';
-import { existsSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 import {
   Prisma,
+  PropertyDeletionRequestStatus,
   PropertyDocumentType,
   PropertyMediaCategory,
   PropertyStatus,
@@ -492,6 +493,18 @@ export class VendorPropertiesService {
       missingLines.push(`- Upload document: OWNERSHIP_PROOF.`);
     }
 
+    const hasOwnerId = docs.some((d) => d.type === PropertyDocumentType.OWNER_ID);
+    if (!hasOwnerId) {
+      missingLines.push(`- Upload document: OWNER_ID.`);
+    }
+
+    const hasAuthorizationProof = docs.some(
+      (d) => d.type === PropertyDocumentType.AUTHORIZATION_PROOF,
+    );
+    if (!hasAuthorizationProof) {
+      missingLines.push(`- Upload document: AUTHORIZATION_PROOF.`);
+    }
+
     if (missingLines.length > 0) {
       throw new BadRequestException(
         `Cannot submit for review. Please complete:\n${missingLines.join('\n')}`,
@@ -535,6 +548,45 @@ export class VendorPropertiesService {
     return this.prisma.property.update({
       where: { id: propertyId },
       data: { status: PropertyStatus.DRAFT },
+    });
+  }
+
+  async getDeletionRequest(vendorUserId: string, propertyId: string) {
+    await this.assertOwnership(vendorUserId, propertyId);
+
+    return this.prisma.propertyDeletionRequest.findFirst({
+      where: { propertyId, requestedByVendorId: vendorUserId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async requestDeletion(
+    vendorUserId: string,
+    propertyId: string,
+    reason?: string,
+  ) {
+    const prop = await this.assertOwnership(vendorUserId, propertyId);
+
+    const existingPending = await this.prisma.propertyDeletionRequest.findFirst({
+      where: {
+        propertyId,
+        requestedByVendorId: vendorUserId,
+        status: PropertyDeletionRequestStatus.PENDING,
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    if (existingPending) return existingPending;
+
+    return this.prisma.propertyDeletionRequest.create({
+      data: {
+        propertyId,
+        propertyTitleSnapshot: prop.title,
+        propertyCitySnapshot: prop.city,
+        requestedByVendorId: vendorUserId,
+        reason: reason?.trim() || null,
+        status: PropertyDeletionRequestStatus.PENDING,
+      },
     });
   }
 
@@ -622,6 +674,62 @@ export class VendorPropertiesService {
         }),
       ),
     );
+
+    if (this.shouldResetToDraftOnVendorEdit(prop.status)) {
+      await this.prisma.property.update({
+        where: { id: propertyId },
+        data: { status: PropertyStatus.DRAFT },
+      });
+    }
+
+    return this.prisma.media.findMany({
+      where: { propertyId },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async deleteMedia(vendorUserId: string, propertyId: string, mediaId: string) {
+    const prop = await this.assertOwnership(vendorUserId, propertyId);
+
+    const media = await this.prisma.media.findUnique({ where: { id: mediaId } });
+    if (!media || media.propertyId !== propertyId) {
+      throw new NotFoundException('Media not found.');
+    }
+
+    await this.prisma.media.delete({ where: { id: mediaId } });
+
+    const remaining = await this.prisma.media.findMany({
+      where: { propertyId },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true, sortOrder: true },
+    });
+
+    await this.prisma.$transaction(
+      remaining.map((row, index) =>
+        this.prisma.media.update({
+          where: { id: row.id },
+          data: { sortOrder: index },
+        }),
+      ),
+    );
+
+    const filename = media.url.split('/').pop();
+    if (filename) {
+      const absolute = join(
+        process.cwd(),
+        'uploads',
+        'properties',
+        'images',
+        filename,
+      );
+      if (existsSync(absolute)) {
+        try {
+          unlinkSync(absolute);
+        } catch {
+          // ignore best-effort cleanup failures
+        }
+      }
+    }
 
     if (this.shouldResetToDraftOnVendorEdit(prop.status)) {
       await this.prisma.property.update({

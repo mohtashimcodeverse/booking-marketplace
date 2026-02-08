@@ -309,7 +309,7 @@ export default function AdminPayoutsPage() {
   }
 
   return (
-    <PortalShell title="Admin Payouts" nav={nav}>
+    <PortalShell role="admin" title="Admin Payouts" nav={nav}>
       {state.kind === "loading" ? (
         <div className="space-y-4">
           <Toolbar

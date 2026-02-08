@@ -158,7 +158,7 @@ export default function VendorStatementsPage() {
   }, []);
 
   return (
-    <PortalShell title="Statements" nav={nav}>
+    <PortalShell role="vendor" title="Statements" nav={nav}>
       {state.kind === "loading" ? (
         <div className="space-y-4">
           <Toolbar

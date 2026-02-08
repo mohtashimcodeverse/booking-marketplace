@@ -15,45 +15,15 @@ type ViewState =
   | { kind: "error"; message: string }
   | { kind: "ready"; data: AdminAnalyticsResponse };
 
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== "object" || value === null) return null;
-  return value as Record<string, unknown>;
-}
-
-function getString(obj: unknown, key: string): string | null {
-  const rec = asRecord(obj);
-  if (!rec) return null;
-  const v = rec[key];
-  return typeof v === "string" ? v : null;
-}
-
-function getNumber(obj: unknown, key: string): number | null {
-  const rec = asRecord(obj);
-  if (!rec) return null;
-  const v = rec[key];
-  return typeof v === "number" && Number.isFinite(v) ? v : null;
-}
-
-function toBarPoints(series: Array<Record<string, unknown>> | undefined): BarPoint[] {
-  if (!series) return [];
-  const out: BarPoint[] = [];
-  for (const row of series) {
-    const label =
-      getString(row, "label") ??
-      getString(row, "date") ??
-      getString(row, "day") ??
-      getString(row, "month") ??
-      null;
-
-    const value =
-      getNumber(row, "value") ??
-      getNumber(row, "count") ??
-      getNumber(row, "total") ??
-      null;
-
-    if (label && value !== null) out.push({ label, value });
-  }
-  return out.slice(0, 14);
+function toBarPoints(
+  labels: string[] | undefined,
+  series: Array<{ key: string; points: number[] }> | undefined
+): BarPoint[] {
+  if (!labels || labels.length === 0 || !series || series.length === 0) return [];
+  const primary = series[0];
+  return labels
+    .map((label, index) => ({ label, value: primary.points[index] ?? 0 }))
+    .slice(-14);
 }
 
 export default function AdminAnalyticsPage() {
@@ -82,21 +52,6 @@ export default function AdminAnalyticsPage() {
     };
   }, [range]);
 
-  const nav = useMemo(
-    () => [
-      { href: "/admin", label: "Overview" },
-      { href: "/admin/analytics", label: "Analytics" },
-      { href: "/admin/review-queue", label: "Review Queue" },
-      { href: "/admin/vendors", label: "Vendors" },
-      { href: "/admin/properties", label: "Properties" },
-      { href: "/admin/bookings", label: "Bookings" },
-      { href: "/admin/payments", label: "Payments" },
-      { href: "/admin/refunds", label: "Refunds" },
-      { href: "/admin/ops-tasks", label: "Ops Tasks" },
-    ],
-    [],
-  );
-
   const content = useMemo(() => {
     if (state.kind === "loading") {
       return (
@@ -120,7 +75,7 @@ export default function AdminAnalyticsPage() {
     }
 
     const kpis = state.data.kpis ?? {};
-    const points = toBarPoints(state.data.series);
+    const points = toBarPoints(state.data.labels, state.data.series);
 
     return (
       <div className="space-y-6">
@@ -136,13 +91,17 @@ export default function AdminAnalyticsPage() {
           </div>
         )}
 
-        <SimpleBarChart title={`Platform trend (${range})`} points={points} />
+        <SimpleBarChart
+          title={`Platform trend (${range})`}
+          subtitle={state.data.series?.[0]?.key ?? "Primary platform metric"}
+          points={points}
+        />
       </div>
     );
   }, [state, range]);
 
   return (
-    <PortalShell title="Admin Analytics" nav={nav}>
+    <PortalShell role="admin" title="Admin Analytics" subtitle="Platform KPIs, volume trends, and operations insight">
       <div className="space-y-5">
         <Toolbar
           title="Analytics"

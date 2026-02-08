@@ -3,11 +3,10 @@
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import { PortalShell } from "@/components/portal/PortalShell";
-import { Toolbar } from "@/components/portal/ui/Toolbar";
-import { DataTable, type Column } from "@/components/portal/ui/DataTable";
+import { CardList, type CardListItem } from "@/components/portal/ui/CardList";
+import { Modal } from "@/components/portal/ui/Modal";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
-import { DateText } from "@/components/portal/ui/DateText";
-import { SkeletonTable } from "@/components/portal/ui/Skeleton";
+import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
 import { getVendorProperties, type VendorPropertyListItem } from "@/lib/api/portal/vendor";
 
 type ViewState =
@@ -15,179 +14,225 @@ type ViewState =
   | { kind: "error"; message: string }
   | { kind: "ready"; items: VendorPropertyListItem[]; page: number; pageSize: number; total: number };
 
-function safeInt(v: unknown, fallback: number): number {
-  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+function formatDate(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
+}
+
+function normalize(value: string | null | undefined): string {
+  return (value ?? "").trim().toLowerCase();
 }
 
 export default function VendorPropertiesPage() {
   const [state, setState] = useState<ViewState>({ kind: "loading" });
-  const [q, setQ] = useState("");
+  const [query, setQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
-  const pageSize = 10;
-
-  const nav = useMemo(
-    () => [
-      { href: "/vendor", label: "Overview" },
-      { href: "/vendor/analytics", label: "Analytics" },
-      { href: "/vendor/properties", label: "Properties" },
-      { href: "/vendor/bookings", label: "Bookings" },
-      { href: "/vendor/calendar", label: "Calendar" },
-      { href: "/vendor/ops-tasks", label: "Ops Tasks" },
-    ],
-    []
-  );
+  const [selected, setSelected] = useState<VendorPropertyListItem | null>(null);
 
   useEffect(() => {
     let alive = true;
 
-    async function run() {
+    async function load() {
       setState({ kind: "loading" });
       try {
-        const res = await getVendorProperties({ page, pageSize });
-
-        const items = Array.isArray(res.items) ? res.items : [];
-        const resolvedPage = safeInt(res.page, page);
-        const resolvedPageSize = safeInt(res.pageSize, pageSize);
-        const resolvedTotal = safeInt(res.total, items.length);
-
+        const response = await getVendorProperties({ page, pageSize: 10 });
         if (!alive) return;
-        setState({ kind: "ready", items, page: resolvedPage, pageSize: resolvedPageSize, total: resolvedTotal });
-      } catch (e) {
+        setState({
+          kind: "ready",
+          items: response.items ?? [],
+          page: response.page,
+          pageSize: response.pageSize,
+          total: response.total,
+        });
+      } catch (error) {
         if (!alive) return;
-        setState({ kind: "error", message: e instanceof Error ? e.message : "Failed to load properties" });
+        setState({
+          kind: "error",
+          message: error instanceof Error ? error.message : "Failed to load properties",
+        });
       }
     }
 
-    void run();
+    void load();
     return () => {
       alive = false;
     };
   }, [page]);
 
-  const columns = useMemo<Array<Column<VendorPropertyListItem>>>(() => {
-    return [
-      {
-        key: "title",
-        header: "Property",
-        className: "col-span-5",
-        render: (row) => (
-          <div>
-            <div className="font-semibold text-slate-900">{row.title ?? "Untitled"}</div>
-            <div className="mt-1 text-xs text-slate-600">{row.slug ?? "—"}</div>
-          </div>
-        ),
-      },
-      {
-        key: "status",
-        header: "Status",
-        className: "col-span-2",
-        render: (row) => <StatusPill status={String(row.status ?? "UNKNOWN")} />,
-      },
-      {
-        key: "city",
-        header: "Location",
-        className: "col-span-3",
-        render: (row) => (
-          <div className="text-slate-700">
-            {(row.city ?? "—")}{row.area ? ` · ${row.area}` : ""}
-          </div>
-        ),
-      },
-      {
-        key: "updatedAt",
-        header: "Updated",
-        className: "col-span-2",
-        render: (row) => <DateText value={row.updatedAt ?? row.createdAt} />,
-      },
-    ];
-  }, []);
+  const derived = useMemo(() => {
+    if (state.kind !== "ready") return null;
 
-  const filtered = useMemo(() => {
-    if (state.kind !== "ready") return [];
-    const qq = q.trim().toLowerCase();
-    if (!qq) return state.items;
+    const statuses = Array.from(new Set(state.items.map((item) => item.status))).sort((a, b) => a.localeCompare(b));
+    const q = query.trim().toLowerCase();
 
-    return state.items.filter((r) => {
-      const title = (r.title ?? "").toLowerCase();
-      const slug = (r.slug ?? "").toLowerCase();
-      const city = (r.city ?? "").toLowerCase();
-      return title.includes(qq) || slug.includes(qq) || city.includes(qq);
-    });
-  }, [state, q]);
+    const filtered = state.items
+      .filter((item) => (statusFilter === "ALL" ? true : item.status === statusFilter))
+      .filter((item) => {
+        if (!q) return true;
+        return [normalize(item.title), normalize(item.slug), normalize(item.city), normalize(item.area)].join(" | ").includes(q);
+      });
 
-  const canPrev = state.kind === "ready" ? state.page > 1 : false;
-  const canNext = state.kind === "ready" ? state.page * state.pageSize < state.total : false;
+    const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
+    return { filtered, statuses, totalPages };
+  }, [query, state, statusFilter]);
 
-  const right = (
-    <Link
-      href="/vendor/properties/new"
-      className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
-    >
-      + Create property
-    </Link>
-  );
+  const listItems = useMemo<CardListItem[]>(() => {
+    if (!derived) return [];
+
+    return derived.filtered.map((property) => ({
+      id: property.id,
+      title: property.title || "Untitled property",
+      subtitle: `${property.city ?? "-"}${property.area ? ` - ${property.area}` : ""}`,
+      status: <StatusPill status={property.status}>{property.status}</StatusPill>,
+      meta: (
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+            Slug: {property.slug || "-"}
+          </span>
+          <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+            Updated: {formatDate(property.updatedAt ?? property.createdAt)}
+          </span>
+        </div>
+      ),
+      onClick: () => setSelected(property),
+    }));
+  }, [derived]);
 
   return (
-    <PortalShell title="Properties" nav={nav}>
+    <PortalShell role="vendor" title="Properties" subtitle="Draft, review, and publish your listings">
       {state.kind === "loading" ? (
-        <div className="space-y-4">
-          <Toolbar title="Your properties" subtitle="Create, edit, and submit listings for approval." onSearch={setQ} right={right} />
-          <SkeletonTable rows={8} />
+        <div className="space-y-3">
+          <SkeletonBlock className="h-24" />
+          <SkeletonBlock className="h-24" />
+          <SkeletonBlock className="h-24" />
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm font-semibold text-slate-900">Could not load properties</div>
-          <div className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">{state.message}</div>
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+          {state.message}
         </div>
       ) : (
-        <div className="space-y-4">
-          <Toolbar
-            title="Your properties"
-            subtitle="Create, edit, and submit listings for approval."
-            searchPlaceholder="Search by title, slug, city…"
-            onSearch={setQ}
-            right={right}
-          />
+        <div className="space-y-5">
+          <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
+            <div className="grid gap-3 lg:grid-cols-[1fr_220px_auto] lg:items-center">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search by title, slug, city..."
+                className="h-11 rounded-2xl border border-black/10 bg-white px-4 text-sm text-slate-900 outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+              />
 
-          <DataTable
-            title="Properties"
-            subtitle="Click Edit to continue the listing workflow."
-            rows={filtered}
-            columns={columns}
-            empty="No properties yet."
-            rowActions={(row) => (
-              <Link
-                href={`/vendor/properties/${encodeURIComponent(row.id)}/edit`}
-                className="rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="h-11 rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold text-slate-900"
               >
-                Edit
+                <option value="ALL">All statuses</option>
+                {(derived?.statuses ?? []).map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+
+              <Link
+                href="/vendor/properties/new"
+                className="inline-flex h-11 items-center justify-center rounded-2xl bg-slate-900 px-4 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+              >
+                Create property
               </Link>
-            )}
+            </div>
+          </div>
+
+          <CardList
+            title="My properties"
+            subtitle="Click any listing for centered details and edit actions"
+            items={listItems}
+            emptyTitle="No properties yet"
+            emptyDescription="Create your first listing to start the review and publishing workflow."
           />
 
           <div className="flex items-center justify-between">
-            <button
-              type="button"
-              disabled={!canPrev}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
-            >
-              Prev
-            </button>
             <div className="text-sm text-slate-600">
-              Page {state.page} {state.total ? `· ${state.total} total` : ""}
+              Page {state.page} of {derived?.totalPages ?? 1}
             </div>
-            <button
-              type="button"
-              disabled={!canNext}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
-            >
-              Next
-            </button>
+
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                disabled={state.page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm disabled:opacity-50"
+              >
+                Prev
+              </button>
+
+              <button
+                type="button"
+                disabled={state.page >= (derived?.totalPages ?? 1)}
+                onClick={() => setPage((current) => current + 1)}
+                className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm disabled:opacity-50"
+              >
+                Next
+              </button>
+            </div>
           </div>
+
+          <Modal
+            open={selected !== null}
+            onClose={() => setSelected(null)}
+            title={selected?.title ?? "Property detail"}
+            subtitle={selected ? `Listing ${selected.slug}` : undefined}
+            size="lg"
+          >
+            {selected ? (
+              <div className="space-y-4">
+                <div className="flex flex-wrap items-center gap-2">
+                  <StatusPill status={selected.status}>{selected.status}</StatusPill>
+                  <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+                    Updated: {formatDate(selected.updatedAt ?? selected.createdAt)}
+                  </span>
+                </div>
+
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Info label="City" value={selected.city || "-"} />
+                  <Info label="Area" value={selected.area || "-"} />
+                  <Info label="Slug" value={selected.slug || "-"} mono />
+                  <Info label="Listing id" value={selected.id} mono />
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  <Link
+                    href={`/vendor/properties/${encodeURIComponent(selected.id)}/edit`}
+                    className="inline-flex rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+                  >
+                    Open editor
+                  </Link>
+
+                  <Link
+                    href="/vendor/calendar"
+                    className="inline-flex rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                  >
+                    Open calendar
+                  </Link>
+                </div>
+              </div>
+            ) : null}
+          </Modal>
         </div>
       )}
     </PortalShell>
+  );
+}
+
+function Info(props: { label: string; value: string; mono?: boolean }) {
+  return (
+    <div className="rounded-2xl border border-black/10 bg-[#f6f3ec] p-4">
+      <div className="text-xs font-semibold text-slate-500">{props.label}</div>
+      <div className={`mt-1 text-sm font-semibold text-slate-900 ${props.mono ? "font-mono" : ""}`}>
+        {props.value}
+      </div>
+    </div>
   );
 }

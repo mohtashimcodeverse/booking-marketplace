@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 
@@ -17,7 +17,7 @@ type PreloaderProps = {
   oncePerSession?: boolean;
 };
 
-type LoaderState = "show" | "hide";
+type LoaderState = "show" | "hide" | "disabled";
 
 const SESSION_KEY = "ll_preloader_seen_v1";
 
@@ -32,14 +32,13 @@ export default function Preloader(props: PreloaderProps) {
   const [state, setState] = useState<LoaderState>("show");
   const [progress, setProgress] = useState<number>(0);
 
-  const shouldShow = useMemo(() => {
-    if (!oncePerSession) return true;
-    if (typeof window === "undefined") return true;
-    return sessionStorage.getItem(SESSION_KEY) !== "1";
-  }, [oncePerSession]);
-
   useEffect(() => {
-    if (!shouldShow) return;
+    const alreadySeen = oncePerSession && sessionStorage.getItem(SESSION_KEY) === "1";
+    if (alreadySeen) {
+      // Keep initial SSR/client render identical, then disable on mount.
+      setState("disabled");
+      return;
+    }
 
     const start = performance.now();
 
@@ -67,9 +66,9 @@ export default function Preloader(props: PreloaderProps) {
       window.cancelAnimationFrame(raf);
       window.clearTimeout(timeout);
     };
-  }, [minDurationMs, oncePerSession, shouldShow]);
+  }, [minDurationMs, oncePerSession]);
 
-  if (!shouldShow) return null;
+  if (state === "disabled") return null;
 
   return (
     <AnimatePresence>

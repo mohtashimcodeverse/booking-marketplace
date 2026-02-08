@@ -245,3 +245,10 @@ export class SetPropertyAmenitiesDto {
   @IsString({ each: true })
   amenityIds!: string[];
 }
+
+export class RequestPropertyDeletionDto {
+  @IsOptional()
+  @IsString()
+  @MaxLength(500)
+  reason?: string;
+}

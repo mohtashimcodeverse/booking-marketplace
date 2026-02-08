@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/http";
 import type { HttpResult } from "@/lib/http";
+import type { PortalCalendarResponse } from "@/lib/api/portal/calendar";
 
 function unwrap<T>(res: HttpResult<T>): T {
   if (!res.ok) throw new Error(res.message);
@@ -27,12 +28,12 @@ export type UserPortalOverviewResponse = {
 export type UserPortalBookingsResponse = {
   items: Array<{
     id: string;
-    propertyId: string;
+    propertyId?: string;
     propertyTitle?: string | null;
     propertySlug?: string | null;
     checkIn: string;
     checkOut: string;
-    nights: number;
+    nights?: number;
     status: string;
     totalAmount: number;
     currency?: string | null;
@@ -93,6 +94,24 @@ export async function getUserRefunds(params?: {
     query: {
       page: params?.page ?? 1,
       pageSize: params?.pageSize ?? 10,
+    },
+  });
+  return unwrap(res);
+}
+
+export async function getUserCalendar(params?: {
+  from?: string;
+  to?: string;
+  propertyId?: string;
+}): Promise<PortalCalendarResponse> {
+  const res = await apiFetch<PortalCalendarResponse>("/portal/user/calendar", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    query: {
+      from: params?.from ?? "",
+      to: params?.to ?? "",
+      propertyId: params?.propertyId ?? "",
     },
   });
   return unwrap(res);

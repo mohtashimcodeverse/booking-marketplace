@@ -316,7 +316,7 @@ export default function AdminRefundsPage() {
   }, [state, derived, filters.status, page, selected]);
 
   return (
-    <PortalShell title="Admin Refunds" nav={nav}>
+    <PortalShell role="admin" title="Admin Refunds" nav={nav}>
       {content}
     </PortalShell>
   );

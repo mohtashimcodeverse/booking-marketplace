@@ -1,5 +1,6 @@
 import { apiFetch } from "@/lib/http";
 import type { HttpResult } from "@/lib/http";
+import type { PortalCalendarResponse } from "@/lib/api/portal/calendar";
 
 function unwrap<T>(res: HttpResult<T>): T {
   if (!res.ok) throw new Error(res.message);
@@ -12,8 +13,12 @@ export type AdminOverviewResponse = {
 };
 
 export type AdminAnalyticsResponse = {
+  from?: string;
+  to?: string;
+  bucket?: string;
+  labels?: string[];
   kpis?: Record<string, number>;
-  series?: Array<Record<string, unknown>>;
+  series?: Array<{ key: string; points: number[] }>;
 };
 
 export type AdminListResponse = {
@@ -69,6 +74,24 @@ export async function getAdminBookings(params?: { page?: number; pageSize?: numb
     credentials: "include",
     cache: "no-store",
     query: { page: params?.page ?? 1, pageSize: params?.pageSize ?? 10 },
+  });
+  return unwrap(res);
+}
+
+export async function getAdminCalendar(params?: {
+  from?: string;
+  to?: string;
+  propertyId?: string;
+}): Promise<PortalCalendarResponse> {
+  const res = await apiFetch<PortalCalendarResponse>("/portal/admin/calendar", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    query: {
+      from: params?.from ?? "",
+      to: params?.to ?? "",
+      propertyId: params?.propertyId ?? "",
+    },
   });
   return unwrap(res);
 }
@@ -166,6 +189,55 @@ export type AdminMediaItem = {
   alt?: string | null;
   sortOrder: number;
   category: MediaCategory;
+};
+
+export type AdminAmenitiesCatalogResponse = {
+  amenitiesGrouped: Array<{
+    group: { id: string; name: string } | null;
+    amenities: Array<{
+      id: string;
+      key: string;
+      name: string;
+      icon: string | null;
+      groupId: string | null;
+    }>;
+  }>;
+};
+
+export type AdminPropertyDeletionRequest = {
+  id: string;
+  propertyId: string | null;
+  propertyTitleSnapshot: string;
+  propertyCitySnapshot: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reason: string | null;
+  reviewedAt: string | null;
+  adminNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  property?: {
+    id: string;
+    title: string;
+    city: string | null;
+    status: string;
+  } | null;
+  requestedByVendor?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+  } | null;
+  reviewedByAdmin?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+  } | null;
+};
+
+export type AdminPropertyDeletionRequestListResponse = {
+  page: number;
+  pageSize: number;
+  total: number;
+  items: AdminPropertyDeletionRequest[];
 };
 
 export type AdminPropertyDetail = Record<string, unknown> & {
@@ -266,5 +338,110 @@ export async function reorderAdminPropertyMedia(propertyId: string, orderedIds: 
     cache: "no-store",
     body: { orderedIds },
   });
+  return unwrap(res);
+}
+
+export async function deleteAdminPropertyMedia(
+  propertyId: string,
+  mediaId: string
+): Promise<AdminMediaItem[]> {
+  const res = await apiFetch<AdminMediaItem[]>(
+    `/admin/properties/${encodeURIComponent(propertyId)}/media/${encodeURIComponent(mediaId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
+export async function getAdminAmenitiesCatalog(): Promise<AdminAmenitiesCatalogResponse> {
+  const res = await apiFetch<AdminAmenitiesCatalogResponse>("/admin/properties/amenities/catalog", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+  return unwrap(res);
+}
+
+export async function updateAdminPropertyAmenities(
+  propertyId: string,
+  amenityIds: string[]
+): Promise<AdminPropertyDetail> {
+  const res = await apiFetch<AdminPropertyDetail>(
+    `/admin/properties/${encodeURIComponent(propertyId)}/amenities`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: { amenityIds },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function getAdminPropertyDeletionRequests(params?: {
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminPropertyDeletionRequestListResponse> {
+  const res = await apiFetch<AdminPropertyDeletionRequestListResponse>(
+    "/admin/properties/deletion-requests",
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      query: {
+        status: params?.status ?? "",
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 20,
+      },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function approveAdminPropertyDeletionRequest(
+  requestId: string,
+  notes?: string
+): Promise<AdminPropertyDeletionRequest> {
+  const res = await apiFetch<AdminPropertyDeletionRequest>(
+    `/admin/properties/deletion-requests/${encodeURIComponent(requestId)}/approve`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: { notes: notes?.trim() || undefined },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function rejectAdminPropertyDeletionRequest(
+  requestId: string,
+  notes?: string
+): Promise<AdminPropertyDeletionRequest> {
+  const res = await apiFetch<AdminPropertyDeletionRequest>(
+    `/admin/properties/deletion-requests/${encodeURIComponent(requestId)}/reject`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: { notes: notes?.trim() || undefined },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function deleteAdminOwnedProperty(propertyId: string): Promise<{ ok: true; id: string }> {
+  const res = await apiFetch<{ ok: true; id: string }>(
+    `/admin/properties/${encodeURIComponent(propertyId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
   return unwrap(res);
 }

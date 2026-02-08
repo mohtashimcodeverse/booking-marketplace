@@ -2,6 +2,7 @@
 import { apiFetch } from "@/lib/http";
 import type { HttpResult } from "@/lib/http";
 import type { MediaCategory } from "@/lib/types/property";
+import type { PortalCalendarResponse } from "@/lib/api/portal/calendar";
 
 function unwrap<T>(res: HttpResult<T>): T {
   if (!res.ok) {
@@ -19,20 +20,31 @@ export type VendorOverviewResponse = {
 };
 
 export type VendorAnalyticsResponse = {
+  from?: string;
+  to?: string;
+  bucket?: string;
+  labels?: string[];
   kpis?: Record<string, number>;
-  series?: Array<Record<string, unknown>>;
+  series?: Array<{ key: string; points: number[] }>;
 };
 
 export type VendorBookingsResponse = {
-  items: Array<Record<string, unknown>>;
+  items: Array<{
+    id: string;
+    status: string;
+    checkIn: string;
+    checkOut: string;
+    totalAmount: number;
+    currency: string;
+    propertyTitle: string;
+    createdAt: string;
+  }>;
   page: number;
   pageSize: number;
   total: number;
 };
 
-export type VendorCalendarResponse = {
-  data: Record<string, unknown>;
-};
+export type VendorCalendarResponse = PortalCalendarResponse;
 
 export type VendorOpsTasksResponse = {
   items: Array<Record<string, unknown>>;
@@ -78,7 +90,13 @@ export type VendorPropertyMedia = {
   createdAt: string;
 };
 
-export type PropertyDocumentType = "OWNERSHIP_PROOF" | "OTHER";
+export type PropertyDocumentType =
+  | "OWNERSHIP_PROOF"
+  | "AUTHORIZATION_PROOF"
+  | "OWNER_ID"
+  | "ADDRESS_PROOF"
+  | "HOLIDAY_HOME_PERMIT"
+  | "OTHER";
 
 export type VendorPropertyDocument = {
   id: string;
@@ -88,6 +106,21 @@ export type VendorPropertyDocument = {
   storageKey: string | null;
   originalName: string | null;
   mimeType: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type VendorPropertyDeletionRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export type VendorPropertyDeletionRequest = {
+  id: string;
+  propertyId: string | null;
+  propertyTitleSnapshot: string;
+  propertyCitySnapshot: string | null;
+  status: VendorPropertyDeletionRequestStatus;
+  reason: string | null;
+  reviewedAt: string | null;
+  adminNotes: string | null;
   createdAt: string;
   updatedAt: string;
 };
@@ -232,12 +265,20 @@ export async function getVendorBookings(params?: {
   return unwrap(res);
 }
 
-export async function getVendorCalendar(params?: { month?: string }): Promise<VendorCalendarResponse> {
+export async function getVendorCalendar(params?: {
+  from?: string;
+  to?: string;
+  propertyId?: string;
+}): Promise<VendorCalendarResponse> {
   const res = await apiFetch<VendorCalendarResponse>("/portal/vendor/calendar", {
     method: "GET",
     credentials: "include",
     cache: "no-store",
-    query: { month: params?.month ?? "" },
+    query: {
+      from: params?.from ?? "",
+      to: params?.to ?? "",
+      propertyId: params?.propertyId ?? "",
+    },
   });
   return unwrap(res);
 }
@@ -423,6 +464,21 @@ export async function reorderVendorPropertyMedia(
   return unwrap(res);
 }
 
+export async function deleteVendorPropertyMedia(
+  propertyId: string,
+  mediaId: string
+): Promise<VendorPropertyMedia[]> {
+  const res = await apiFetch<VendorPropertyMedia[]>(
+    `/vendor/properties/${encodeURIComponent(propertyId)}/media/${encodeURIComponent(mediaId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
 /**
  * POST /vendor/properties/:id/documents (multipart)
  * fields: type, file
@@ -513,6 +569,36 @@ export async function unpublishVendorProperty(propertyId: string): Promise<Vendo
       method: "POST",
       credentials: "include",
       cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
+export async function getVendorPropertyDeletionRequest(
+  propertyId: string
+): Promise<VendorPropertyDeletionRequest | null> {
+  const res = await apiFetch<VendorPropertyDeletionRequest | null>(
+    `/vendor/properties/${encodeURIComponent(propertyId)}/deletion-request`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
+export async function requestVendorPropertyDeletion(
+  propertyId: string,
+  reason?: string
+): Promise<VendorPropertyDeletionRequest> {
+  const res = await apiFetch<VendorPropertyDeletionRequest>(
+    `/vendor/properties/${encodeURIComponent(propertyId)}/deletion-request`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: { reason: reason?.trim() || undefined },
     }
   );
   return unwrap(res);

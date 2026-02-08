@@ -2,19 +2,19 @@
 
 import { PortalShell } from "@/components/portal/PortalShell";
 import { PortalAvailabilityCalendar } from "@/components/portal/calendar/PortalAvailabilityCalendar";
-import { getVendorCalendar } from "@/lib/api/portal/vendor";
+import { getAdminCalendar } from "@/lib/api/portal/admin";
 
-export default function VendorCalendarPage() {
+export default function AdminCalendarPage() {
   return (
     <PortalShell
-      role="vendor"
+      role="admin"
       title="Calendar"
-      subtitle="Monthly booking visibility for your listings"
+      subtitle="Inspect booking blocks and operational availability by property"
     >
       <PortalAvailabilityCalendar
-        role="vendor"
+        role="admin"
         loadData={async ({ from, to, propertyId }) =>
-          getVendorCalendar({ from, to, propertyId })
+          getAdminCalendar({ from, to, propertyId })
         }
       />
     </PortalShell>

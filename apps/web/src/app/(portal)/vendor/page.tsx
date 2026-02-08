@@ -102,7 +102,7 @@ export default function VendorDashboardPage() {
   }, [state]);
 
   return (
-    <PortalShell title="Vendor Portal" nav={nav}>
+    <PortalShell role="vendor" title="Vendor Portal" nav={nav}>
       {content}
     </PortalShell>
   );

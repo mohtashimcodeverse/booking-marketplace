@@ -68,7 +68,7 @@ export class VendorPortalController {
   @Get('calendar')
   calendar(
     @CurrentUser() user: User,
-    @Query() query: { from?: string; to?: string },
+    @Query() query: { from?: string; to?: string; propertyId?: string },
   ) {
     const { from, to } = parseDateRange(query);
     return this.service.getCalendar({
@@ -76,6 +76,7 @@ export class VendorPortalController {
       role: user.role,
       from,
       to,
+      propertyId: query.propertyId,
     });
   }
 

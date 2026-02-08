@@ -1,9 +1,18 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { Prisma, PropertyReviewDecision, PropertyStatus } from '@prisma/client';
+import { existsSync, unlinkSync } from 'fs';
+import { join } from 'path';
+import {
+  BookingStatus,
+  Prisma,
+  PropertyDeletionRequestStatus,
+  PropertyReviewDecision,
+  PropertyStatus,
+} from '@prisma/client';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import { AdminCreatePropertyDto } from './dto/admin-create-property.dto';
 import { AdminUpdatePropertyDto } from './dto/admin-update-property.dto';
@@ -75,6 +84,127 @@ export class AdminPropertiesService {
     });
     if (!prop) throw new NotFoundException('Property not found.');
     return prop;
+  }
+
+  private async mustFindAdminOwnedProperty(propertyId: string) {
+    const prop = await this.mustFindProperty(propertyId);
+    if (!prop.createdByAdminId) {
+      throw new ForbiddenException(
+        'Admin cannot edit vendor property content. Moderation actions are allowed.',
+      );
+    }
+    return prop;
+  }
+
+  async getOneByAdmin(propertyId: string) {
+    const item = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      include: {
+        media: { orderBy: { sortOrder: 'asc' } },
+        documents: { orderBy: { createdAt: 'desc' } },
+        amenities: {
+          include: {
+            amenity: {
+              include: { group: true },
+            },
+          },
+        },
+        vendor: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+          },
+        },
+      },
+    });
+
+    if (!item) throw new NotFoundException('Property not found.');
+    return item;
+  }
+
+  async listAmenitiesCatalog() {
+    const amenities = await this.prisma.amenity.findMany({
+      orderBy: [{ groupId: 'asc' }, { name: 'asc' }],
+      include: { group: true },
+    });
+
+    const grouped = new Map<
+      string,
+      {
+        group: { id: string; name: string } | null;
+        amenities: Array<{
+          id: string;
+          key: string;
+          name: string;
+          icon: string | null;
+          groupId: string | null;
+        }>;
+      }
+    >();
+
+    for (const amenity of amenities) {
+      const key = amenity.group ? amenity.group.id : '__none__';
+      const payload = {
+        id: amenity.id,
+        key: amenity.key,
+        name: amenity.name,
+        icon: amenity.icon ?? null,
+        groupId: amenity.groupId ?? null,
+      };
+
+      const existing = grouped.get(key);
+      if (existing) existing.amenities.push(payload);
+      else {
+        grouped.set(key, {
+          group: amenity.group
+            ? { id: amenity.group.id, name: amenity.group.name }
+            : null,
+          amenities: [payload],
+        });
+      }
+    }
+
+    const amenitiesGrouped = Array.from(grouped.values()).sort((a, b) => {
+      const left = a.group?.name ?? 'Other';
+      const right = b.group?.name ?? 'Other';
+      return left.localeCompare(right);
+    });
+
+    return { amenitiesGrouped };
+  }
+
+  async setAmenitiesByAdmin(
+    _adminId: string,
+    propertyId: string,
+    amenityIds: string[],
+  ) {
+    await this.mustFindAdminOwnedProperty(propertyId);
+
+    const uniqueIds = Array.from(
+      new Set((amenityIds ?? []).map((id) => String(id).trim()).filter(Boolean)),
+    );
+
+    const existing = await this.prisma.amenity.findMany({
+      where: { id: { in: uniqueIds } },
+      select: { id: true },
+    });
+    if (existing.length !== uniqueIds.length) {
+      throw new BadRequestException('One or more amenities are invalid.');
+    }
+
+    await this.prisma.$transaction([
+      this.prisma.propertyAmenity.deleteMany({ where: { propertyId } }),
+      ...(uniqueIds.length > 0
+        ? [
+            this.prisma.propertyAmenity.createMany({
+              data: uniqueIds.map((amenityId) => ({ propertyId, amenityId })),
+            }),
+          ]
+        : []),
+    ]);
+
+    return this.getOneByAdmin(propertyId);
   }
 
   // -------------------------
@@ -162,7 +292,7 @@ export class AdminPropertiesService {
     propertyId: string,
     dto: AdminUpdatePropertyDto,
   ) {
-    await this.mustFindProperty(propertyId);
+    await this.mustFindAdminOwnedProperty(propertyId);
 
     let slug: string | undefined;
     if (dto.slug?.trim()) {
@@ -259,7 +389,7 @@ export class AdminPropertiesService {
     file: Express.Multer.File,
   ) {
     if (!file) throw new BadRequestException('File upload failed.');
-    await this.mustFindProperty(propertyId);
+    await this.mustFindAdminOwnedProperty(propertyId);
 
     const last = await this.prisma.media.findFirst({
       where: { propertyId },
@@ -283,7 +413,7 @@ export class AdminPropertiesService {
     mediaId: string,
     dto: UpdateMediaCategoryDto,
   ) {
-    await this.mustFindProperty(propertyId);
+    await this.mustFindAdminOwnedProperty(propertyId);
 
     const media = await this.prisma.media.findUnique({
       where: { id: mediaId },
@@ -303,7 +433,7 @@ export class AdminPropertiesService {
     propertyId: string,
     dto: ReorderMediaDto,
   ) {
-    await this.mustFindProperty(propertyId);
+    await this.mustFindAdminOwnedProperty(propertyId);
 
     await this.prisma.$transaction(
       dto.orderedMediaIds.map((id, index) =>
@@ -318,6 +448,191 @@ export class AdminPropertiesService {
       where: { propertyId },
       orderBy: { sortOrder: 'asc' },
     });
+  }
+
+  async deleteMediaByAdmin(
+    _adminId: string,
+    propertyId: string,
+    mediaId: string,
+  ) {
+    await this.mustFindAdminOwnedProperty(propertyId);
+
+    const media = await this.prisma.media.findUnique({ where: { id: mediaId } });
+    if (!media || media.propertyId !== propertyId) {
+      throw new NotFoundException('Media not found.');
+    }
+
+    await this.prisma.media.delete({ where: { id: mediaId } });
+
+    const remaining = await this.prisma.media.findMany({
+      where: { propertyId },
+      orderBy: { sortOrder: 'asc' },
+      select: { id: true },
+    });
+
+    await this.prisma.$transaction(
+      remaining.map((row, index) =>
+        this.prisma.media.update({
+          where: { id: row.id },
+          data: { sortOrder: index },
+        }),
+      ),
+    );
+
+    const filename = media.url.split('/').pop();
+    if (filename) {
+      const absolute = join(
+        process.cwd(),
+        'uploads',
+        'properties',
+        'images',
+        filename,
+      );
+      if (existsSync(absolute)) {
+        try {
+          unlinkSync(absolute);
+        } catch {
+          // best-effort cleanup
+        }
+      }
+    }
+
+    return this.prisma.media.findMany({
+      where: { propertyId },
+      orderBy: { sortOrder: 'asc' },
+    });
+  }
+
+  async listDeletionRequests(params?: {
+    status?: PropertyDeletionRequestStatus;
+    page?: number;
+    pageSize?: number;
+  }) {
+    const page = params?.page && params.page > 0 ? params.page : 1;
+    const pageSize = params?.pageSize && params.pageSize > 0 ? params.pageSize : 20;
+
+    const where = params?.status ? { status: params.status } : {};
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.propertyDeletionRequest.count({ where }),
+      this.prisma.propertyDeletionRequest.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          property: {
+            select: { id: true, title: true, city: true, status: true },
+          },
+          requestedByVendor: {
+            select: { id: true, email: true, fullName: true },
+          },
+          reviewedByAdmin: {
+            select: { id: true, email: true, fullName: true },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      page,
+      pageSize,
+      total,
+      items,
+    };
+  }
+
+  async approveDeletionRequest(adminId: string, requestId: string, notes?: string) {
+    const request = await this.prisma.propertyDeletionRequest.findUnique({
+      where: { id: requestId },
+      include: {
+        property: {
+          select: { id: true },
+        },
+      },
+    });
+
+    if (!request) throw new NotFoundException('Deletion request not found.');
+    if (request.status !== PropertyDeletionRequestStatus.PENDING) {
+      throw new BadRequestException('Deletion request is not pending.');
+    }
+
+    if (request.propertyId) {
+      const activeBookings = await this.prisma.booking.count({
+        where: {
+          propertyId: request.propertyId,
+          status: {
+            in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED],
+          },
+        },
+      });
+
+      if (activeBookings > 0) {
+        throw new BadRequestException(
+          'Cannot delete property with active bookings. Resolve stays first.',
+        );
+      }
+    }
+
+    return this.prisma.$transaction(async (tx) => {
+      if (request.propertyId) {
+        await tx.property.delete({ where: { id: request.propertyId } });
+      }
+
+      return tx.propertyDeletionRequest.update({
+        where: { id: requestId },
+        data: {
+          status: PropertyDeletionRequestStatus.APPROVED,
+          reviewedByAdminId: adminId,
+          reviewedAt: new Date(),
+          adminNotes: notes?.trim() || null,
+        },
+      });
+    });
+  }
+
+  async rejectDeletionRequest(adminId: string, requestId: string, notes?: string) {
+    const request = await this.prisma.propertyDeletionRequest.findUnique({
+      where: { id: requestId },
+      select: { id: true, status: true },
+    });
+
+    if (!request) throw new NotFoundException('Deletion request not found.');
+    if (request.status !== PropertyDeletionRequestStatus.PENDING) {
+      throw new BadRequestException('Deletion request is not pending.');
+    }
+
+    return this.prisma.propertyDeletionRequest.update({
+      where: { id: requestId },
+      data: {
+        status: PropertyDeletionRequestStatus.REJECTED,
+        reviewedByAdminId: adminId,
+        reviewedAt: new Date(),
+        adminNotes: notes?.trim() || null,
+      },
+    });
+  }
+
+  async deleteAdminOwnedPropertyNow(adminId: string, propertyId: string) {
+    await this.mustFindAdminOwnedProperty(propertyId);
+
+    const activeBookings = await this.prisma.booking.count({
+      where: {
+        propertyId,
+        status: {
+          in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED],
+        },
+      },
+    });
+
+    if (activeBookings > 0) {
+      throw new BadRequestException(
+        'Cannot delete property with active bookings. Resolve stays first.',
+      );
+    }
+
+    await this.prisma.property.delete({ where: { id: propertyId } });
+    return { ok: true, id: propertyId, deletedBy: adminId };
   }
 
   // -------------------------

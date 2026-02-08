@@ -12,6 +12,9 @@ import {
 import type {
   ChartResponse,
   Paginated,
+  PortalCalendarEvent,
+  PortalCalendarProperty,
+  PortalCalendarResponse,
   TimeBucket,
 } from '../common/portal.types';
 import { formatLabel } from '../common/portal.utils';
@@ -46,44 +49,6 @@ type VendorOverview = {
     propertyTitle: string;
     createdAt: string;
   }>;
-};
-
-type VendorCalendarEvent =
-  | {
-      type: 'BOOKING';
-      id: string;
-      propertyId: string;
-      propertyTitle: string;
-      start: string;
-      end: string;
-      status: BookingStatus;
-      totalAmount: number;
-      currency: string;
-    }
-  | {
-      type: 'HOLD';
-      id: string;
-      propertyId: string;
-      propertyTitle: string;
-      start: string;
-      end: string;
-      status: HoldStatus;
-      expiresAt: string;
-    }
-  | {
-      type: 'BLOCKED';
-      id: string; // calendar day id
-      propertyId: string;
-      propertyTitle: string;
-      start: string; // day start ISO
-      end: string; // day end ISO (start + 1 day)
-      note: string | null;
-    };
-
-type VendorCalendarResponse = {
-  from: string;
-  to: string;
-  events: VendorCalendarEvent[];
 };
 
 @Injectable()
@@ -499,10 +464,46 @@ export class VendorPortalService {
     role: UserRole;
     from: Date;
     to: Date;
-  }): Promise<VendorCalendarResponse> {
+    propertyId?: string;
+  }): Promise<PortalCalendarResponse> {
     this.assertVendor(params.role);
 
-    const propertyIds = await this.getVendorPropertyIds(params.userId);
+    const propertyRows = await this.prisma.property.findMany({
+      where: { vendorId: params.userId },
+      orderBy: { title: 'asc' },
+      select: {
+        id: true,
+        title: true,
+        city: true,
+        status: true,
+      },
+    });
+
+    if (propertyRows.length === 0) {
+      return {
+        from: params.from.toISOString(),
+        to: params.to.toISOString(),
+        selectedPropertyId: null,
+        properties: [],
+        events: [],
+      };
+    }
+
+    const allPropertyIds = propertyRows.map((p) => p.id);
+    if (params.propertyId && !allPropertyIds.includes(params.propertyId)) {
+      throw new ForbiddenException('Property is not owned by this vendor.');
+    }
+
+    const selectedPropertyId =
+      params.propertyId ?? propertyRows[0]?.id ?? null;
+    const propertyIds = selectedPropertyId ? [selectedPropertyId] : [];
+
+    const properties: PortalCalendarProperty[] = propertyRows.map((p) => ({
+      id: p.id,
+      title: p.title,
+      city: p.city,
+      status: p.status,
+    }));
 
     // Overlap rule for ranges: start < to AND end > from
     const [bookings, holds, blockedDays] = await Promise.all([
@@ -522,6 +523,7 @@ export class VendorPortalService {
           totalAmount: true,
           currency: true,
           property: { select: { title: true } },
+          customer: { select: { fullName: true, email: true } },
         },
         orderBy: [{ checkIn: 'asc' }, { createdAt: 'asc' }],
       }),
@@ -560,40 +562,56 @@ export class VendorPortalService {
       }),
     ]);
 
-    const blockedEvents: VendorCalendarEvent[] = blockedDays.map((d) => {
+    const blockedEvents: PortalCalendarEvent[] = blockedDays.map((d) => {
       const start = d.date;
       const end = new Date(d.date.getTime() + 24 * 60 * 60 * 1000);
       return {
         type: 'BLOCKED',
         id: d.id,
+        bookingRef: null,
         propertyId: d.propertyId,
         propertyTitle: d.property.title,
         start: start.toISOString(),
         end: end.toISOString(),
+        status: 'BLOCKED',
+        guestName: null,
+        guestDisplay: 'Blocked day',
+        currency: null,
+        totalAmount: null,
         note: d.note ?? null,
       };
     });
 
-    const bookingEvents: VendorCalendarEvent[] = bookings.map((b) => ({
+    const bookingEvents: PortalCalendarEvent[] = bookings.map((b) => ({
       type: 'BOOKING',
       id: b.id,
+      bookingRef: b.id,
       propertyId: b.propertyId,
       propertyTitle: b.property.title,
       start: b.checkIn.toISOString(),
       end: b.checkOut.toISOString(),
       status: b.status,
+      guestName: b.customer.fullName ?? b.customer.email ?? null,
+      guestDisplay: b.customer.fullName ?? b.customer.email ?? 'Guest',
+      note: null,
       totalAmount: b.totalAmount,
       currency: b.currency,
     }));
 
-    const holdEvents: VendorCalendarEvent[] = holds.map((h) => ({
+    const holdEvents: PortalCalendarEvent[] = holds.map((h) => ({
       type: 'HOLD',
       id: h.id,
+      bookingRef: null,
       propertyId: h.propertyId,
       propertyTitle: h.property.title,
       start: h.checkIn.toISOString(),
       end: h.checkOut.toISOString(),
       status: h.status,
+      guestName: null,
+      guestDisplay: 'Temporary hold',
+      currency: null,
+      totalAmount: null,
+      note: null,
       expiresAt: h.expiresAt.toISOString(),
     }));
 
@@ -610,6 +628,8 @@ export class VendorPortalService {
     return {
       from: params.from.toISOString(),
       to: params.to.toISOString(),
+      selectedPropertyId,
+      properties,
       events,
     };
   }

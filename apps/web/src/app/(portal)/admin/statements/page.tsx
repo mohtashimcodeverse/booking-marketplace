@@ -282,7 +282,7 @@ export default function AdminStatementsPage() {
   }
 
   return (
-    <PortalShell title="Admin Statements" nav={nav}>
+    <PortalShell role="admin" title="Admin Statements" nav={nav}>
       {state.kind === "loading" ? (
         <div className="space-y-4">
           <Toolbar

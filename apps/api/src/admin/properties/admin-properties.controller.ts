@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   ForbiddenException,
   Get,
   Param,
@@ -27,7 +28,9 @@ import { imageUploadStorage } from '../../common/upload/multer.config';
 import {
   UpdateMediaCategoryDto,
   ReorderMediaDto,
+  SetPropertyAmenitiesDto,
 } from '../../vendor/vendor-properties.dto';
+import { PropertyDeletionRequestStatus } from '@prisma/client';
 
 type JwtUser = {
   id: string;
@@ -60,6 +63,12 @@ export class AdminPropertiesController {
   ) {
     this.assertAdmin(req.user);
     return this.service.createByAdmin(req.user.id, dto);
+  }
+
+  @Get('amenities/catalog')
+  async listAmenitiesCatalog(@Req() req: { user: JwtUser }) {
+    this.assertAdmin(req.user);
+    return this.service.listAmenitiesCatalog();
   }
 
   /**
@@ -142,6 +151,60 @@ export class AdminPropertiesController {
     return this.service.reorderMediaByAdmin(req.user.id, id, dto);
   }
 
+  @Delete(':propertyId/media/:mediaId')
+  async deleteMedia(
+    @Req() req: { user: JwtUser },
+    @Param('propertyId', new ParseUUIDPipe()) propertyId: string,
+    @Param('mediaId', new ParseUUIDPipe()) mediaId: string,
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.deleteMediaByAdmin(req.user.id, propertyId, mediaId);
+  }
+
+  @Post(':id/amenities')
+  async setAmenities(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: SetPropertyAmenitiesDto,
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.setAmenitiesByAdmin(req.user.id, id, dto.amenityIds);
+  }
+
+  @Get('deletion-requests')
+  async listDeletionRequests(
+    @Req() req: { user: JwtUser },
+    @Query()
+    query: { status?: PropertyDeletionRequestStatus; page?: string; pageSize?: string },
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.listDeletionRequests({
+      status: query.status,
+      page: query.page ? Number(query.page) : 1,
+      pageSize: query.pageSize ? Number(query.pageSize) : 20,
+    });
+  }
+
+  @Post('deletion-requests/:requestId/approve')
+  async approveDeletionRequest(
+    @Req() req: { user: JwtUser },
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+    @Body() dto: { notes?: string },
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.approveDeletionRequest(req.user.id, requestId, dto?.notes);
+  }
+
+  @Post('deletion-requests/:requestId/reject')
+  async rejectDeletionRequest(
+    @Req() req: { user: JwtUser },
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+    @Body() dto: { notes?: string },
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.rejectDeletionRequest(req.user.id, requestId, dto?.notes);
+  }
+
   // -------------------------
   // Existing review workflow
   // -------------------------
@@ -183,5 +246,23 @@ export class AdminPropertiesController {
   ) {
     this.assertAdmin(req.user);
     return this.service.reject(req.user.id, id, dto);
+  }
+
+  @Get(':id')
+  async getOne(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.getOneByAdmin(id);
+  }
+
+  @Delete(':id')
+  async deleteAdminOwnedNow(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.deleteAdminOwnedPropertyNow(req.user.id, id);
   }
 }

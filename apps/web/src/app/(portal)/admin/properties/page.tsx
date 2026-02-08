@@ -27,6 +27,8 @@ import { DataTable, type Column } from "@/components/portal/ui/DataTable";
 
 import {
   createAdminProperty,
+  deleteAdminOwnedProperty,
+  deleteAdminPropertyMedia,
   getAdminProperties,
   getAdminPropertyDetail,
   publishAdminProperty,
@@ -238,11 +240,17 @@ function DrawerShell(props: {
   );
 }
 
-function Tabs(props: { value: "DETAILS" | "MEDIA"; onChange: (v: "DETAILS" | "MEDIA") => void }) {
-  const items: Array<{ key: "DETAILS" | "MEDIA"; label: string }> = [
-    { key: "DETAILS", label: "Details" },
-    { key: "MEDIA", label: "Media" },
-  ];
+function Tabs(props: {
+  value: "DETAILS" | "MEDIA";
+  onChange: (v: "DETAILS" | "MEDIA") => void;
+  allowMedia?: boolean;
+}) {
+  const items: Array<{ key: "DETAILS" | "MEDIA"; label: string }> = props.allowMedia
+    ? [
+        { key: "DETAILS", label: "Details" },
+        { key: "MEDIA", label: "Media" },
+      ]
+    : [{ key: "DETAILS", label: "Details" }];
 
   return (
     <div className="flex items-center gap-2 rounded-2xl border border-black/10 bg-white p-1">
@@ -423,6 +431,22 @@ function MediaManagerAdmin(props: {
     }
   }
 
+  async function remove(mediaId: string) {
+    const confirmed = window.confirm("Delete this image permanently?");
+    if (!confirmed) return;
+
+    setError(null);
+    setBusy("Deleting image...");
+    try {
+      const rows = await deleteAdminPropertyMedia(props.propertyId, mediaId);
+      props.onMediaChanged(rows.sort((a, b) => a.sortOrder - b.sortOrder));
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   const [dragId, setDragId] = useState<string | null>(null);
 
   async function dropOn(targetId: string) {
@@ -572,6 +596,15 @@ function MediaManagerAdmin(props: {
                     Down
                   </button>
                 </div>
+
+                <button
+                  type="button"
+                  onClick={() => void remove(m.id)}
+                  disabled={busy !== null}
+                  className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700 shadow-sm hover:bg-rose-100 disabled:opacity-50"
+                >
+                  Delete image
+                </button>
 
                 <div className="text-xs text-slate-500">
                   You can set multiple images as <span className="font-semibold">COVER</span>.
@@ -838,6 +871,7 @@ function PropertyDetailDrawer(props: {
   const city = safeCity(merged);
   const area = safeArea(merged);
   const vendor = safeVendor(merged);
+  const canEditContent = Boolean(getString(merged, "createdByAdminId"));
   const updatedAt = safeUpdatedAt(merged);
   const hero = primaryImageUrl(merged);
 
@@ -902,7 +936,14 @@ function PropertyDetailDrawer(props: {
           </div>
 
           <div className="flex items-center gap-2">
-            <Tabs value={tab} onChange={setTab} />
+            <Tabs
+              value={tab}
+              onChange={(next) => {
+                if (next === "MEDIA" && !canEditContent) return;
+                setTab(next);
+              }}
+              allowMedia={canEditContent}
+            />
             <button
               type="button"
               onClick={() => void togglePublish()}
@@ -946,6 +987,11 @@ function PropertyDetailDrawer(props: {
                 Listing source
               </div>
               <div className="mt-2 text-sm font-semibold text-slate-900">{sourceLabel(merged)}</div>
+              {!canEditContent ? (
+                <div className="mt-2 text-xs text-slate-600">
+                  Vendor listing content is read-only for admin. Use moderation actions only.
+                </div>
+              ) : null}
             </div>
 
             <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
@@ -974,7 +1020,7 @@ function PropertyDetailDrawer(props: {
               <div className="mt-2 text-sm font-semibold text-slate-900">{fmtDate(getString(merged, "updatedAt"))}</div>
             </div>
           </div>
-        ) : (
+        ) : canEditContent ? (
           <MediaManagerAdmin
             propertyId={id}
             media={media}
@@ -983,6 +1029,10 @@ function PropertyDetailDrawer(props: {
               props.onRowPatched({ media: next });
             }}
           />
+        ) : (
+          <div className="rounded-3xl border border-black/10 bg-[#f6f3ec] p-5 text-sm text-slate-700">
+            Admin media editing is restricted for vendor-owned listings.
+          </div>
         )}
       </div>
     </DrawerShell>
@@ -1187,6 +1237,28 @@ export default function AdminPropertiesPage() {
     }
   }
 
+  async function quickDeleteAdminOwned(row: AdminPropertyRow) {
+    const id = safeId(row);
+    if (!id) return;
+    if (sourceLabel(row) !== "Admin") return;
+
+    const confirmed = window.confirm(
+      "Delete this admin-owned property now? This cannot be undone.",
+    );
+    if (!confirmed) return;
+
+    try {
+      await deleteAdminOwnedProperty(id);
+      setSelected((current) => {
+        if (!current) return current;
+        return safeId(current) === id ? null : current;
+      });
+      await reload(page);
+    } catch (e) {
+      alert(e instanceof Error ? e.message : "Delete failed");
+    }
+  }
+
   return (
     <PortalShell role="admin" title="Properties" subtitle="Admin-created listings, vendor listings, media quality, and publish control." nav={nav}>
       <div className="space-y-6">
@@ -1294,6 +1366,7 @@ export default function AdminPropertiesPage() {
               rowActions={(row) => {
                 const status = safeStatus(row);
                 const id = safeId(row);
+                const adminOwned = sourceLabel(row) === "Admin";
 
                 return (
                   <>
@@ -1305,13 +1378,15 @@ export default function AdminPropertiesPage() {
                       Details
                     </button>
 
-                    <button
-                      type="button"
-                      onClick={() => setSelected(row)}
-                      className="inline-flex h-9 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
-                    >
-                      Media
-                    </button>
+                    {adminOwned ? (
+                      <button
+                        type="button"
+                        onClick={() => setSelected(row)}
+                        className="inline-flex h-9 items-center justify-center rounded-xl border border-black/10 bg-white px-3 text-xs font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                      >
+                        Media
+                      </button>
+                    ) : null}
 
                     <button
                       type="button"
@@ -1324,6 +1399,17 @@ export default function AdminPropertiesPage() {
                     >
                       {isPublished(status) ? "Unpublish" : "Publish"}
                     </button>
+
+                    {adminOwned ? (
+                      <button
+                        type="button"
+                        disabled={!id}
+                        onClick={() => void quickDeleteAdminOwned(row)}
+                        className="inline-flex h-9 items-center justify-center rounded-xl bg-rose-600 px-3 text-xs font-semibold text-white shadow-sm hover:bg-rose-700"
+                      >
+                        Delete
+                      </button>
+                    ) : null}
                   </>
                 );
               }}

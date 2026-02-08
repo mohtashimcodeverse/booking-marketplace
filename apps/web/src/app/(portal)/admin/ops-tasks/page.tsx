@@ -324,7 +324,7 @@ export default function AdminOpsTasksPage() {
   }, [state, derived, filters.status, filters.type, page, selected]);
 
   return (
-    <PortalShell title="Admin Ops Tasks" nav={nav}>
+    <PortalShell role="admin" title="Admin Ops Tasks" nav={nav}>
       {content}
     </PortalShell>
   );

@@ -11,15 +11,16 @@ type ViewState =
   | { kind: "error"; message: string }
   | { kind: "ready"; data: Awaited<ReturnType<typeof getVendorAnalytics>> };
 
-function toBarPoints(series: Array<Record<string, unknown>> | undefined): BarPoint[] {
-  if (!series) return [];
-  const out: BarPoint[] = [];
-  for (const row of series) {
-    const label = typeof row.label === "string" ? row.label : typeof row.date === "string" ? row.date : null;
-    const value = typeof row.value === "number" && Number.isFinite(row.value) ? row.value : null;
-    if (label && value !== null) out.push({ label, value });
-  }
-  return out.slice(0, 12);
+function toBarPoints(
+  labels: string[] | undefined,
+  series: Array<{ key: string; points: number[] }> | undefined
+): BarPoint[] {
+  if (!labels || labels.length === 0 || !series || series.length === 0) return [];
+  const primary = series[0];
+
+  return labels
+    .map((label, index) => ({ label, value: primary.points[index] ?? 0 }))
+    .slice(-12);
 }
 
 export default function VendorAnalyticsPage() {
@@ -42,18 +43,6 @@ export default function VendorAnalyticsPage() {
     return () => { alive = false; };
   }, []);
 
-  const nav = useMemo(
-    () => [
-      { href: "/vendor", label: "Overview" },
-      { href: "/vendor/analytics", label: "Analytics" },
-      { href: "/vendor/properties", label: "Properties" },
-      { href: "/vendor/bookings", label: "Bookings" },
-      { href: "/vendor/calendar", label: "Calendar" },
-      { href: "/vendor/ops-tasks", label: "Ops Tasks" },
-    ],
-    []
-  );
-
   const content = useMemo(() => {
     if (state.kind === "loading") {
       return <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">Loading analytics…</div>;
@@ -69,7 +58,7 @@ export default function VendorAnalyticsPage() {
 
     const kpis = state.data.kpis ?? {};
     const kpiEntries = Object.entries(kpis).slice(0, 6);
-    const points = toBarPoints(state.data.series);
+    const points = toBarPoints(state.data.labels, state.data.series);
 
     return (
       <div className="space-y-6">
@@ -81,7 +70,7 @@ export default function VendorAnalyticsPage() {
 
         <SimpleBarChart
           title="30-day trend"
-          subtitle="Backend-provided series (first 12 points)"
+          subtitle={state.data.series?.[0]?.key ?? "Backend-provided trend"}
           points={points}
         />
       </div>
@@ -89,7 +78,7 @@ export default function VendorAnalyticsPage() {
   }, [state]);
 
   return (
-    <PortalShell title="Vendor Analytics" nav={nav}>
+    <PortalShell role="vendor" title="Vendor Analytics" subtitle="Bookings, revenue trend, and operational performance">
       {content}
     </PortalShell>
   );

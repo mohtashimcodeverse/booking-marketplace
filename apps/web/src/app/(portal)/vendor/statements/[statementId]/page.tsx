@@ -251,7 +251,7 @@ export default function VendorStatementDetailPage({
   }, [state, columns]);
 
   return (
-    <PortalShell title="Statement detail" nav={nav}>
+    <PortalShell role="vendor" title="Statement detail" nav={nav}>
       {content}
     </PortalShell>
   );

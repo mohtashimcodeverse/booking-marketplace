@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import Image from "next/image";
 import type { VendorPropertyDetail, VendorPropertyMedia } from "@/lib/api/portal/vendor";
 import {
+  deleteVendorPropertyMedia,
   reorderVendorPropertyMedia,
   updateVendorPropertyMediaCategory,
   uploadVendorPropertyMedia,
@@ -163,6 +164,23 @@ export function MediaManager({ property, onChanged }: Props) {
       onChanged({ ...property, media: rows });
     } catch (e) {
       setError(e instanceof Error ? e.message : "Reorder failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function removeMedia(mediaId: string) {
+    const confirmed = window.confirm("Delete this photo? This action cannot be undone.");
+    if (!confirmed) return;
+
+    setError(null);
+    setBusy("Deleting photo...");
+
+    try {
+      const rows = await deleteVendorPropertyMedia(property.id, mediaId);
+      onChanged({ ...property, media: rows });
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Delete failed");
     } finally {
       setBusy(null);
     }
@@ -380,6 +398,15 @@ export function MediaManager({ property, onChanged }: Props) {
                       Down
                     </button>
                   </div>
+
+                  <button
+                    type="button"
+                    onClick={() => void removeMedia(m.id)}
+                    disabled={busy !== null}
+                    className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                  >
+                    Delete photo
+                  </button>
 
                   <p className="text-xs text-slate-500">
                     Tip: set your best image as <span className="font-medium">Cover</span>.

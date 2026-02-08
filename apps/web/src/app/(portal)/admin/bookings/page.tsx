@@ -2,317 +2,256 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { PortalShell } from "@/components/portal/PortalShell";
+import { CardList, type CardListItem } from "@/components/portal/ui/CardList";
+import { Modal } from "@/components/portal/ui/Modal";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
-import { SkeletonTable } from "@/components/portal/ui/Skeleton";
-import { Toolbar } from "@/components/portal/ui/Toolbar";
+import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
 import { getAdminBookings } from "@/lib/api/portal/admin";
 
-type AdminBookingsResponse = Awaited<ReturnType<typeof getAdminBookings>>;
-type AdminBookingRow = AdminBookingsResponse["items"][number];
+type AdminBooking = Awaited<ReturnType<typeof getAdminBookings>>["items"][number];
 
 type ViewState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; data: AdminBookingsResponse };
+  | { kind: "ready"; data: Awaited<ReturnType<typeof getAdminBookings>> };
 
-type FilterState = {
-  q: string;
-  status: string;
-};
-
-function asRecord(value: unknown): Record<string, unknown> | null {
-  if (typeof value !== "object" || value === null) return null;
-  return value as Record<string, unknown>;
+function readString(value: unknown): string {
+  return typeof value === "string" ? value : "";
 }
 
-function getString(obj: unknown, key: string): string | null {
-  const rec = asRecord(obj);
-  if (!rec) return null;
-  const v = rec[key];
-  return typeof v === "string" ? v : null;
+function readNumber(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) ? value : null;
 }
 
-function fmtDate(value: string | null): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString();
+function formatDate(value: unknown): string {
+  const raw = readString(value);
+  if (!raw) return "-";
+  const date = new Date(raw);
+  if (Number.isNaN(date.getTime())) return raw;
+  return date.toLocaleString();
 }
 
-function safeLower(v: string | null | undefined): string {
-  return (v ?? "").toLowerCase();
-}
-
-function toneForBookingStatus(s: string | null): "neutral" | "success" | "warning" | "danger" {
-  const v = (s ?? "").toUpperCase();
-  if (v.includes("CONFIRM")) return "success";
-  if (v.includes("CANCEL")) return "danger";
-  if (v.includes("PENDING") || v.includes("HOLD")) return "warning";
-  return "neutral";
-}
-
-function Drawer(props: {
-  open: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!props.open) return null;
-  return (
-    <div className="fixed inset-0 z-[90]">
-      <button
-        type="button"
-        aria-label="Close drawer"
-        onClick={props.onClose}
-        className="absolute inset-0 bg-black/40"
-      />
-      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-900 truncate">{props.title}</div>
-            <div className="mt-1 text-xs text-slate-500">Booking snapshot</div>
-          </div>
-          <button
-            type="button"
-            onClick={props.onClose}
-            className="rounded-xl border bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
-          >
-            Close
-          </button>
-        </div>
-        <div className="h-[calc(100%-65px)] overflow-auto p-5">{props.children}</div>
-      </div>
-    </div>
-  );
+function formatMoney(amount: number | null, currency: string): string {
+  if (amount === null) return "-";
+  if (!currency) return String(amount);
+  try {
+    return new Intl.NumberFormat(undefined, {
+      style: "currency",
+      currency,
+      maximumFractionDigits: 0,
+    }).format(amount);
+  } catch {
+    return `${amount} ${currency}`;
+  }
 }
 
 export default function AdminBookingsPage() {
   const [state, setState] = useState<ViewState>({ kind: "loading" });
-
-  const [page, setPage] = useState<number>(1);
-  const [pageSize] = useState<number>(20);
-
-  const [filters, setFilters] = useState<FilterState>({ q: "", status: "ALL" });
-  const [selected, setSelected] = useState<AdminBookingRow | null>(null);
+  const [page, setPage] = useState(1);
+  const [statusFilter, setStatusFilter] = useState("ALL");
+  const [query, setQuery] = useState("");
+  const [selected, setSelected] = useState<AdminBooking | null>(null);
 
   useEffect(() => {
     let alive = true;
-    async function run() {
+
+    async function load() {
       setState({ kind: "loading" });
       try {
-        const data = await getAdminBookings({ page, pageSize });
+        const data = await getAdminBookings({ page, pageSize: 20 });
         if (!alive) return;
         setState({ kind: "ready", data });
-      } catch (err) {
+      } catch (error) {
         if (!alive) return;
         setState({
           kind: "error",
-          message: err instanceof Error ? err.message : "Failed to load bookings",
+          message: error instanceof Error ? error.message : "Failed to load bookings",
         });
       }
     }
-    void run();
+
+    void load();
     return () => {
       alive = false;
     };
-  }, [page, pageSize]);
-
-  const nav = useMemo(
-    () => [
-      { href: "/admin", label: "Overview" },
-      { href: "/admin/analytics", label: "Analytics" },
-      { href: "/admin/review-queue", label: "Review Queue" },
-      { href: "/admin/vendors", label: "Vendors" },
-      { href: "/admin/properties", label: "Properties" },
-      { href: "/admin/bookings", label: "Bookings" },
-      { href: "/admin/payments", label: "Payments" },
-      { href: "/admin/refunds", label: "Refunds" },
-      { href: "/admin/ops-tasks", label: "Ops Tasks" },
-    ],
-    [],
-  );
+  }, [page]);
 
   const derived = useMemo(() => {
     if (state.kind !== "ready") return null;
 
-    const items = state.data.items ?? [];
-
     const statuses = Array.from(
-      new Set(items.map((r) => getString(r, "status")).filter((v): v is string => Boolean(v))),
+      new Set(state.data.items.map((item) => readString((item as Record<string, unknown>).status)).filter(Boolean)),
     ).sort((a, b) => a.localeCompare(b));
 
-    const q = filters.q.trim().toLowerCase();
+    const q = query.trim().toLowerCase();
 
-    const filtered = items
-      .filter((r) => (filters.status === "ALL" ? true : getString(r, "status") === filters.status))
-      .filter((r) => {
+    const filtered = state.data.items
+      .filter((item) => {
+        if (statusFilter === "ALL") return true;
+        const status = readString((item as Record<string, unknown>).status);
+        return status === statusFilter;
+      })
+      .filter((item) => {
         if (!q) return true;
-        const blob = [
-          safeLower(getString(r, "id")),
-          safeLower(getString(r, "status")),
-          safeLower(getString(r, "propertyId")),
-          safeLower(getString(r, "propertyTitle")),
-          safeLower(getString(r, "customerEmail")),
-          safeLower(getString(r, "customerName")),
-        ].join(" | ");
-        return blob.includes(q);
+        return JSON.stringify(item).toLowerCase().includes(q);
       });
 
-    const total =
-      typeof (state.data as unknown as { total?: number }).total === "number"
-        ? (state.data as unknown as { total: number }).total
-        : filtered.length;
+    const totalPages = Math.max(1, Math.ceil(state.data.total / state.data.pageSize));
 
-    const totalPages =
-      typeof (state.data as unknown as { totalPages?: number }).totalPages === "number"
-        ? (state.data as unknown as { totalPages: number }).totalPages
-        : Math.max(1, Math.ceil(total / pageSize));
+    return { statuses, filtered, totalPages };
+  }, [query, state, statusFilter]);
 
-    return { filtered, statuses, total, totalPages };
-  }, [state, filters, pageSize]);
+  const items = useMemo<CardListItem[]>(() => {
+    if (!derived) return [];
 
-  const content = useMemo(() => {
-    if (state.kind === "loading") return <SkeletonTable rows={10} />;
+    return derived.filtered.map((booking) => {
+      const row = booking as Record<string, unknown>;
+      const id = readString(row.id);
+      const propertyTitle =
+        readString(row.propertyTitle) || readString(row.propertyName) || readString(row.propertyId) || "Property";
+      const status = readString(row.status) || "UNKNOWN";
+      const customer = readString(row.customerEmail) || readString(row.customerName) || "Guest";
 
-    if (state.kind === "error") {
-      return (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800 whitespace-pre-wrap">
+      return {
+        id: id || Math.random().toString(16),
+        title: propertyTitle,
+        subtitle: `${formatDate(row.checkIn)} - ${formatDate(row.checkOut)}`,
+        status: <StatusPill status={status}>{status}</StatusPill>,
+        meta: (
+          <div className="flex flex-wrap items-center gap-2 text-xs">
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+              Booking: {id.slice(0, 8)}
+            </span>
+            <span className="rounded-full bg-slate-100 px-3 py-1 font-semibold text-slate-700">
+              Guest: {customer}
+            </span>
+          </div>
+        ),
+        onClick: () => setSelected(booking),
+      };
+    });
+  }, [derived]);
+
+  return (
+    <PortalShell role="admin" title="Bookings" subtitle="Platform booking operations and status visibility">
+      {state.kind === "loading" ? (
+        <div className="space-y-3">
+          <SkeletonBlock className="h-24" />
+          <SkeletonBlock className="h-24" />
+          <SkeletonBlock className="h-24" />
+        </div>
+      ) : state.kind === "error" ? (
+        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
           {state.message}
         </div>
-      );
-    }
+      ) : (
+        <div className="space-y-5">
+          <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
+            <div className="grid gap-3 md:grid-cols-[1fr_240px]">
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search booking id, property, guest..."
+                className="h-11 rounded-2xl border border-black/10 bg-white px-4 text-sm text-slate-900 outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+              />
 
-    if (!derived) return null;
-
-    return (
-      <div className="space-y-5">
-        <Toolbar
-          title="Bookings"
-          subtitle="All customer bookings across the platform."
-          searchPlaceholder="Search booking id, property, customer…"
-          onSearch={(q) => setFilters((p) => ({ ...p, q }))}
-          right={
-            <select
-              value={filters.status}
-              onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}
-              className="h-10 rounded-xl border bg-white px-3 text-sm font-semibold text-slate-900"
-            >
-              <option value="ALL">All statuses</option>
-              {derived.statuses.map((s) => (
-                <option key={s} value={s}>
-                  {s}
-                </option>
-              ))}
-            </select>
-          }
-        />
-
-        <div className="rounded-2xl border bg-white overflow-hidden">
-          <div className="border-b bg-slate-50 px-5 py-3">
-            <div className="text-xs font-semibold text-slate-600">Bookings</div>
-            <div className="mt-1 text-xs text-slate-500">
-              Showing <span className="font-semibold text-slate-900">{derived.filtered.length}</span> of{" "}
-              <span className="font-semibold text-slate-900">{derived.total}</span>
+              <select
+                value={statusFilter}
+                onChange={(event) => setStatusFilter(event.target.value)}
+                className="h-11 rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold text-slate-900"
+              >
+                <option value="ALL">All statuses</option>
+                {(derived?.statuses ?? []).map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
 
-          {derived.filtered.length === 0 ? (
-            <div className="p-6 text-sm text-slate-600">No bookings match this filter.</div>
-          ) : (
-            <div className="overflow-auto">
-              <table className="min-w-[1100px] w-full">
-                <thead className="bg-white text-xs font-semibold text-slate-600 border-b">
-                  <tr className="[&>th]:px-5 [&>th]:py-3 [&>th]:text-left">
-                    <th>Booking</th>
-                    <th>Status</th>
-                    <th>Property</th>
-                    <th>Guest</th>
-                    <th>Check-in</th>
-                    <th>Check-out</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-sm text-slate-800">
-                  {derived.filtered.map((row, idx) => {
-                    const id = getString(row, "id") ?? String(idx);
-                    const status = getString(row, "status");
-                    const property =
-                      getString(row, "propertyTitle") ??
-                      getString(row, "propertyName") ??
-                      getString(row, "propertyId") ??
-                      "—";
-                    const guest =
-                      getString(row, "customerName") ??
-                      getString(row, "customerEmail") ??
-                      "—";
-                    const checkIn = getString(row, "checkInDate");
-                    const checkOut = getString(row, "checkOutDate");
+          <CardList
+            title="Platform bookings"
+            subtitle="Click a booking to open centered details"
+            items={items}
+            emptyTitle="No bookings"
+            emptyDescription="No records match the current filters."
+          />
 
-                    return (
-                      <tr
-                        key={id}
-                        className="cursor-pointer hover:bg-slate-50/60 [&>td]:px-5 [&>td]:py-3"
-                        onClick={() => setSelected(row)}
-                      >
-                        <td className="font-semibold text-slate-900">{id}</td>
-                        <td>
-                          <StatusPill tone={toneForBookingStatus(status)}>
-                            {status ?? "—"}
-                          </StatusPill>
-                        </td>
-                        <td className="text-slate-900">{property}</td>
-                        <td className="text-slate-700">{guest}</td>
-                        <td className="text-slate-700">{fmtDate(checkIn)}</td>
-                        <td className="text-slate-700">{fmtDate(checkOut)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+          <div className="flex items-center justify-between">
+            <div className="text-sm text-slate-600">
+              Page {state.data.page} of {derived?.totalPages ?? 1}
             </div>
-          )}
 
-          <div className="flex items-center justify-between border-t bg-white px-4 py-3">
-            <div className="text-xs text-slate-600">
-              Page <span className="font-semibold text-slate-900">{page}</span> of{" "}
-              <span className="font-semibold text-slate-900">{derived.totalPages}</span>
-            </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="rounded-xl border px-3 py-1.5 text-xs font-semibold text-slate-700 disabled:opacity-50"
+                disabled={state.data.page <= 1}
+                onClick={() => setPage((current) => Math.max(1, current - 1))}
+                className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm disabled:opacity-50"
               >
                 Prev
               </button>
+
               <button
                 type="button"
-                onClick={() => setPage((p) => Math.min(derived.totalPages, p + 1))}
-                disabled={page >= derived.totalPages}
-                className="rounded-xl border px-3 py-1.5 text-xs font-semibold text-slate-700 disabled:opacity-50"
+                disabled={state.data.page >= (derived?.totalPages ?? 1)}
+                onClick={() => setPage((current) => current + 1)}
+                className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm disabled:opacity-50"
               >
                 Next
               </button>
             </div>
           </div>
-        </div>
 
-        <Drawer
-          open={selected !== null}
-          title={selected ? `Booking ${getString(selected, "id") ?? ""}`.trim() : "Booking"}
-          onClose={() => setSelected(null)}
-        >
-          <pre className="text-xs text-slate-900 whitespace-pre-wrap break-words">
-            {selected ? JSON.stringify(selected, null, 2) : ""}
-          </pre>
-        </Drawer>
-      </div>
-    );
-  }, [state, derived, filters.status, page, selected]);
+          <Modal
+            open={selected !== null}
+            onClose={() => setSelected(null)}
+            size="lg"
+            title={selected ? readString((selected as Record<string, unknown>).propertyTitle) || "Booking detail" : "Booking detail"}
+            subtitle={selected ? `Booking ref: ${readString((selected as Record<string, unknown>).id)}` : undefined}
+          >
+            {selected ? (
+              <BookingDetail booking={selected} />
+            ) : null}
+          </Modal>
+        </div>
+      )}
+    </PortalShell>
+  );
+}
+
+function BookingDetail(props: { booking: AdminBooking }) {
+  const row = props.booking as Record<string, unknown>;
+  const status = readString(row.status) || "UNKNOWN";
+  const amount = readNumber(row.totalAmount) ?? readNumber(row.amount);
+  const currency = readString(row.currency);
 
   return (
-    <PortalShell title="Admin Bookings" nav={nav}>
-      {content}
-    </PortalShell>
+    <div className="space-y-4">
+      <div className="flex flex-wrap items-center gap-2">
+        <StatusPill status={status}>{status}</StatusPill>
+        <span className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-700">
+          Total: {formatMoney(amount, currency)}
+        </span>
+      </div>
+
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Info label="Guest" value={readString(row.customerEmail) || readString(row.customerName) || "-"} />
+        <Info label="Property" value={readString(row.propertyTitle) || readString(row.propertyId) || "-"} />
+        <Info label="Check-in" value={formatDate(row.checkIn)} />
+        <Info label="Check-out" value={formatDate(row.checkOut)} />
+        <Info label="Created" value={formatDate(row.createdAt)} />
+      </div>
+    </div>
+  );
+}
+
+function Info(props: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-black/10 bg-[#f6f3ec] p-4">
+      <div className="text-xs font-semibold text-slate-500">{props.label}</div>
+      <div className="mt-1 text-sm font-semibold text-slate-900">{props.value}</div>
+    </div>
   );
 }

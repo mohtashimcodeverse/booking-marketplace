@@ -97,6 +97,21 @@ export class AdminPortalController {
     });
   }
 
+  @Get('calendar')
+  calendar(
+    @CurrentUser() user: User,
+    @Query() query: { from?: string; to?: string; propertyId?: string },
+  ) {
+    const { from, to } = parseDateRange(query);
+    return this.service.getCalendar({
+      userId: user.id,
+      role: user.role,
+      from,
+      to,
+      propertyId: query.propertyId,
+    });
+  }
+
   @Get('payments')
   payments(
     @CurrentUser() user: User,
