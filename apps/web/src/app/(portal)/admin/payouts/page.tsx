@@ -32,10 +32,6 @@ function safeInt(v: unknown, fallback: number): number {
   return typeof v === "number" && Number.isFinite(v) ? v : fallback;
 }
 
-function cn(...xs: Array<string | false | null | undefined>) {
-  return xs.filter(Boolean).join(" ");
-}
-
 function Drawer(props: { open: boolean; title: string; subtitle?: string; onClose: () => void; children: React.ReactNode }) {
   if (!props.open) return null;
   return (

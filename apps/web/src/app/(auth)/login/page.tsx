@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { motion } from "framer-motion";
+import { motion, type Variants } from "framer-motion";
 import { Eye, EyeOff, ArrowRight, Building2, User2 } from "lucide-react";
 import { AuthCard } from "@/components/auth/AuthCard";
 import { login } from "@/lib/auth/authApi";
@@ -23,6 +23,25 @@ function readRole(raw: string | null): UiRole {
 }
 
 export default function LoginPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard
+          title="Loading login"
+          subtitle="Preparing sign-in..."
+          eyebrow="Secure access"
+          showBackHome
+        >
+          <div className="h-20" />
+        </AuthCard>
+      }
+    >
+      <LoginPageContent />
+    </Suspense>
+  );
+}
+
+function LoginPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { refresh } = useAuth();
@@ -167,7 +186,7 @@ export default function LoginPage() {
   );
 }
 
-const fieldVariant = {
+const fieldVariant: Variants = {
   hidden: { opacity: 0, y: 10 },
   show: { opacity: 1, y: 0, transition: { duration: 0.35, ease: "easeOut" } },
 };

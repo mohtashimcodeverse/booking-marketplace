@@ -19,7 +19,7 @@ export type HttpOk<T> = {
 
 export type HttpResult<T> = HttpOk<T> | HttpError;
 
-type Json = Record<string, unknown> | unknown[] | string | number | boolean | null;
+type Json = object | unknown[] | string | number | boolean | null;
 type ResponseType = "json" | "text" | "blob";
 
 function isJsonResponse(res: Response): boolean {

@@ -32,9 +32,13 @@ export type MapViewportParams = {
   south: number;
   east: number;
   west: number;
+  city?: string;
+  area?: string;
   checkIn?: string;
   checkOut?: string;
   guests?: number;
+  minPrice?: number;
+  maxPrice?: number;
 };
 
 function normalizeSort(sort: SearchParams["sort"]): BackendSort {

@@ -32,13 +32,6 @@ function getString(obj: unknown, key: string): string | null {
   return typeof v === "string" ? v : null;
 }
 
-function getNumber(obj: unknown, key: string): number | null {
-  const rec = asRecord(obj);
-  if (!rec) return null;
-  const v = rec[key];
-  return typeof v === "number" && Number.isFinite(v) ? v : null;
-}
-
 function fmtDate(value: string | null): string {
   if (!value) return "—";
   const d = new Date(value);

@@ -24,7 +24,8 @@ function normalizePayoutStatus(v: unknown): PayoutStatus | null {
   const s = typeof v === 'string' ? v.trim() : '';
   if (!s) return null;
   const values = Object.values(PayoutStatus) as string[];
-  if (!values.includes(s)) throw new BadRequestException(`Invalid status: ${s}`);
+  if (!values.includes(s))
+    throw new BadRequestException(`Invalid status: ${s}`);
   return s as PayoutStatus;
 }
 
@@ -40,11 +41,13 @@ export class PortalAdminPayoutsController {
    * GET /api/portal/admin/payouts?page=1&pageSize=10&status=PENDING&vendorId=...
    */
   @Get()
-  async list(@Query() q: PaginationDto & { status?: string; vendorId?: string }) {
+  async list(
+    @Query() q: PaginationDto & { status?: string; vendorId?: string },
+  ) {
     const p = normalizePagination(q);
 
-    const status = normalizePayoutStatus((q as any).status);
-    const vendorId = typeof (q as any).vendorId === 'string' ? (q as any).vendorId.trim() : '';
+    const status = normalizePayoutStatus(q.status);
+    const vendorId = typeof q.vendorId === 'string' ? q.vendorId.trim() : '';
     const vendorIdOrNull = vendorId.length > 0 ? vendorId : null;
 
     return this.payouts.adminListPayouts({
@@ -64,7 +67,10 @@ export class PortalAdminPayoutsController {
   }
 
   @Post('from-statement/:statementId')
-  async createFromStatement(@Param('statementId') statementId: string, @Body() dto: AdminCreatePayoutDto) {
+  async createFromStatement(
+    @Param('statementId') statementId: string,
+    @Body() dto: AdminCreatePayoutDto,
+  ) {
     const provider = dto.provider ?? PaymentProvider.MANUAL;
     return this.payouts.adminCreatePayoutFromStatement({
       statementId,
@@ -74,7 +80,10 @@ export class PortalAdminPayoutsController {
   }
 
   @Post(':payoutId/mark-processing')
-  async markProcessing(@Param('payoutId') payoutId: string, @Body() dto: AdminMarkPayoutDto) {
+  async markProcessing(
+    @Param('payoutId') payoutId: string,
+    @Body() dto: AdminMarkPayoutDto,
+  ) {
     return this.payouts.adminMarkProcessing({
       payoutId,
       providerRef: dto.providerRef ?? null,
@@ -82,7 +91,10 @@ export class PortalAdminPayoutsController {
   }
 
   @Post(':payoutId/mark-succeeded')
-  async markSucceeded(@Param('payoutId') payoutId: string, @Body() dto: AdminMarkPayoutDto) {
+  async markSucceeded(
+    @Param('payoutId') payoutId: string,
+    @Body() dto: AdminMarkPayoutDto,
+  ) {
     return this.payouts.adminMarkSucceeded({
       payoutId,
       providerRef: dto.providerRef ?? null,
@@ -90,7 +102,10 @@ export class PortalAdminPayoutsController {
   }
 
   @Post(':payoutId/mark-failed')
-  async markFailed(@Param('payoutId') payoutId: string, @Body() dto: AdminMarkPayoutDto) {
+  async markFailed(
+    @Param('payoutId') payoutId: string,
+    @Body() dto: AdminMarkPayoutDto,
+  ) {
     return this.payouts.adminMarkFailed({
       payoutId,
       failureReason: dto.failureReason ?? null,
@@ -99,7 +114,10 @@ export class PortalAdminPayoutsController {
   }
 
   @Post(':payoutId/cancel')
-  async cancel(@Param('payoutId') payoutId: string, @Body() dto: AdminMarkPayoutDto) {
+  async cancel(
+    @Param('payoutId') payoutId: string,
+    @Body() dto: AdminMarkPayoutDto,
+  ) {
     return this.payouts.adminCancel({
       payoutId,
       reason: dto.failureReason ?? dto.providerRef ?? null,

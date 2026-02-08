@@ -3,6 +3,7 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateVendorServiceAgreementDto } from '../dto/create-vendor-service-agreement.dto';
 import { UpdateVendorServiceAgreementStatusDto } from '../dto/update-vendor-service-agreement-status.dto';
@@ -12,7 +13,7 @@ export class VendorServiceAgreementsService {
   constructor(private readonly prisma: PrismaService) {}
 
   async list(params: { vendorId?: string; includeTerminated?: boolean }) {
-    const where: any = {};
+    const where: Prisma.VendorServiceAgreementWhereInput = {};
     if (params.vendorId) where.vendorProfileId = params.vendorId;
     if (!params.includeTerminated) where.status = { not: 'TERMINATED' };
 

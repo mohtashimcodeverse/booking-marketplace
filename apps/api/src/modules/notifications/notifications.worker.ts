@@ -43,6 +43,7 @@ export class NotificationsWorker {
 
       try {
         const payload = this.safeJson(event.payloadJson);
+        const channel = String(event.channel);
 
         // Deliver based on channel
         if (event.channel === NotificationChannel.EMAIL) {
@@ -54,8 +55,10 @@ export class NotificationsWorker {
           });
         } else {
           // V1: only EMAIL is implemented; others fallback to log-only
+          const entityType = event.entityType ?? 'unknown';
+          const entityId = event.entityId ?? 'unknown';
           this.logger.log(
-            `DELIVER (noop) notification id=${event.id} type=${event.type} channel=${event.channel} recipient=${event.recipientUserId} entity=${event.entityType}:${event.entityId}`,
+            `DELIVER (noop) notification id=${event.id} type=${event.type} channel=${channel} recipient=${event.recipientUserId} entity=${entityType}:${entityId}`,
           );
         }
 
@@ -278,7 +281,25 @@ export class NotificationsWorker {
       (_m, key: string) => {
         const value = this.getNested(payload, key);
         if (value === null || value === undefined) return '';
-        return String(value);
+        if (
+          typeof value === 'string' ||
+          typeof value === 'number' ||
+          typeof value === 'boolean' ||
+          typeof value === 'bigint'
+        ) {
+          return String(value);
+        }
+        if (value instanceof Date) {
+          return value.toISOString();
+        }
+        if (Array.isArray(value) || this.isObject(value)) {
+          try {
+            return JSON.stringify(value);
+          } catch {
+            return '';
+          }
+        }
+        return '';
       },
     );
   }

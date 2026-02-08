@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { motion } from "framer-motion";
 import DateRangePicker, { type DateRangeValue } from "./DateRangePicker";
 import { quote, reserve } from "@/lib/api/properties";
@@ -92,6 +92,7 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
       return;
     }
     setUi({ kind: "quoted", quote: res.data });
+    setMobileOpen(true);
   }
 
   async function runReserve() {
@@ -99,6 +100,7 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
     if (!dates.from || !dates.to) return;
 
     setUi({ kind: "reserving", quote: ui.quote });
+    setMobileOpen(true);
     const res = await reserve(propertyId, { checkIn: dates.from, checkOut: dates.to, guests });
 
     if (!res.ok) {
@@ -106,15 +108,10 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
       return;
     }
     setUi({ kind: "reserved", reserved: res.data });
+    setMobileOpen(true);
   }
 
   const breakdown = ui.kind === "quoted" || ui.kind === "reserving" ? ui.quote.breakdown : null;
-
-  useEffect(() => {
-    if (ui.kind === "quoted" || ui.kind === "reserved" || ui.kind === "reserving") {
-      setMobileOpen(true);
-    }
-  }, [ui.kind]);
 
   const hold = ui.kind === "reserved" ? ui.reserved.hold : null;
   const checkoutHref = hold?.id

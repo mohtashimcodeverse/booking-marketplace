@@ -32,7 +32,6 @@ import {
   publishAdminProperty,
   reorderAdminPropertyMedia,
   unpublishAdminProperty,
-  updateAdminProperty,
   updateAdminPropertyMediaCategory,
   uploadAdminPropertyMedia,
   type AdminPropertyCreateInput,
@@ -1184,7 +1183,6 @@ export default function AdminPropertiesPage() {
       });
     } catch (e) {
       const msg = e instanceof Error ? e.message : "Action failed";
-      // eslint-disable-next-line no-alert
       alert(msg);
     }
   }

@@ -69,7 +69,12 @@ export class VendorStatementsService {
    */
   private async upsertDraftForPeriod(
     tx: Prisma.TransactionClient,
-    args: { vendorId: string; periodStart: Date; periodEnd: Date; currency: string },
+    args: {
+      vendorId: string;
+      periodStart: Date;
+      periodEnd: Date;
+      currency: string;
+    },
   ) {
     const currency = (args.currency ?? '').trim() || 'PKR';
 
@@ -115,18 +120,28 @@ export class VendorStatementsService {
     let adjustments = 0;
 
     for (const e of entries) {
-      if (e.type === LedgerEntryType.BOOKING_CAPTURED && e.direction === LedgerDirection.CREDIT) {
+      if (
+        e.type === LedgerEntryType.BOOKING_CAPTURED &&
+        e.direction === LedgerDirection.CREDIT
+      ) {
         grossBookings += e.amount;
-      } else if (e.type === LedgerEntryType.MANAGEMENT_FEE && e.direction === LedgerDirection.DEBIT) {
+      } else if (
+        e.type === LedgerEntryType.MANAGEMENT_FEE &&
+        e.direction === LedgerDirection.DEBIT
+      ) {
         managementFees += e.amount;
       } else if (e.type === LedgerEntryType.REFUND) {
         refunds += e.direction === LedgerDirection.DEBIT ? e.amount : -e.amount;
       } else if (e.type === LedgerEntryType.ADJUSTMENT) {
-        adjustments += e.direction === LedgerDirection.CREDIT ? e.amount : -e.amount;
+        adjustments +=
+          e.direction === LedgerDirection.CREDIT ? e.amount : -e.amount;
       }
     }
 
-    const netPayable = Math.max(0, grossBookings - managementFees - refunds + adjustments);
+    const netPayable = Math.max(
+      0,
+      grossBookings - managementFees - refunds + adjustments,
+    );
 
     if (entries.length > 0) {
       await tx.ledgerEntry.updateMany({
@@ -150,7 +165,11 @@ export class VendorStatementsService {
       },
     });
 
-    return { statement: updated, skipped: false as const, entryCount: entries.length };
+    return {
+      statement: updated,
+      skipped: false as const,
+      entryCount: entries.length,
+    };
   }
 
   async adminGenerateMonthlyStatement(args: AdminGenerateMonthlyStatementArgs) {
@@ -181,7 +200,9 @@ export class VendorStatementsService {
     );
   }
 
-  async adminGenerateMonthlyStatementsForAll(args: AdminGenerateMonthlyStatementsForAllArgs) {
+  async adminGenerateMonthlyStatementsForAll(
+    args: AdminGenerateMonthlyStatementsForAllArgs,
+  ) {
     const year = args.year;
     const month = args.month;
 
@@ -238,7 +259,9 @@ export class VendorStatementsService {
 
     return this.prisma.$transaction(
       async (tx) => {
-        const st = await tx.vendorStatement.findUnique({ where: { id: args.statementId } });
+        const st = await tx.vendorStatement.findUnique({
+          where: { id: args.statementId },
+        });
         if (!st) throw new NotFoundException('Statement not found.');
 
         if (st.status === VendorStatementStatus.PAID) {
@@ -250,7 +273,9 @@ export class VendorStatementsService {
         }
 
         if (st.status !== VendorStatementStatus.DRAFT) {
-          throw new BadRequestException(`Cannot finalize from status ${st.status}.`);
+          throw new BadRequestException(
+            `Cannot finalize from status ${st.status}.`,
+          );
         }
 
         const updated = await tx.vendorStatement.update({
@@ -267,7 +292,11 @@ export class VendorStatementsService {
           },
         });
 
-        return { ok: true as const, reused: false as const, statement: updated };
+        return {
+          ok: true as const,
+          reused: false as const,
+          statement: updated,
+        };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -284,7 +313,9 @@ export class VendorStatementsService {
 
     return this.prisma.$transaction(
       async (tx) => {
-        const st = await tx.vendorStatement.findUnique({ where: { id: args.statementId } });
+        const st = await tx.vendorStatement.findUnique({
+          where: { id: args.statementId },
+        });
         if (!st) throw new NotFoundException('Statement not found.');
 
         if (st.status === VendorStatementStatus.PAID) {
@@ -295,8 +326,13 @@ export class VendorStatementsService {
           return { ok: true as const, reused: true as const, statement: st };
         }
 
-        if (st.status !== VendorStatementStatus.DRAFT && st.status !== VendorStatementStatus.FINALIZED) {
-          throw new BadRequestException(`Cannot void from status ${st.status}.`);
+        if (
+          st.status !== VendorStatementStatus.DRAFT &&
+          st.status !== VendorStatementStatus.FINALIZED
+        ) {
+          throw new BadRequestException(
+            `Cannot void from status ${String(st.status)}.`,
+          );
         }
 
         await tx.ledgerEntry.updateMany({
@@ -316,7 +352,11 @@ export class VendorStatementsService {
           },
         });
 
-        return { ok: true as const, reused: false as const, statement: updated };
+        return {
+          ok: true as const,
+          reused: false as const,
+          statement: updated,
+        };
       },
       { isolationLevel: Prisma.TransactionIsolationLevel.Serializable },
     );
@@ -363,7 +403,10 @@ export class VendorStatementsService {
     return { page, pageSize, total, items };
   }
 
-  async vendorGetStatementDetail(args: { vendorId: string; statementId: string }) {
+  async vendorGetStatementDetail(args: {
+    vendorId: string;
+    statementId: string;
+  }) {
     const st = await this.prisma.vendorStatement.findUnique({
       where: { id: args.statementId },
       include: {

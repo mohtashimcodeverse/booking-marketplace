@@ -23,14 +23,14 @@ export class SearchPropertiesQuery {
 
   @IsOptional()
   @Type(() => Number)
-  @ValidateIf((o) => o.lat !== undefined)
+  @ValidateIf((o: SearchPropertiesQuery) => o.lat !== undefined)
   @Min(-90)
   @Max(90)
   lat?: number;
 
   @IsOptional()
   @Type(() => Number)
-  @ValidateIf((o) => o.lng !== undefined)
+  @ValidateIf((o: SearchPropertiesQuery) => o.lng !== undefined)
   @Min(-180)
   @Max(180)
   lng?: number;

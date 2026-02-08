@@ -36,7 +36,10 @@ export class PortalVendorStatementsController {
   }
 
   @Get(':statementId')
-  async detail(@CurrentUser() user: AuthedUser, @Param('statementId') statementId: string) {
+  async detail(
+    @CurrentUser() user: AuthedUser,
+    @Param('statementId') statementId: string,
+  ) {
     const vendorId = typeof user?.id === 'string' ? user.id : '';
     if (!vendorId) {
       throw new Error('Invalid auth user payload (missing user.id).');

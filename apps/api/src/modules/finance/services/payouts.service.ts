@@ -102,7 +102,9 @@ export class PayoutsService {
    * Create payout from a FINALIZED statement (idempotent).
    * If payout already exists, returns it.
    */
-  async adminCreatePayoutFromStatement(args: AdminCreatePayoutFromStatementArgs) {
+  async adminCreatePayoutFromStatement(
+    args: AdminCreatePayoutFromStatementArgs,
+  ) {
     const provider = args.provider ?? PaymentProvider.MANUAL;
     const providerRef = (args.providerRef ?? '').trim() || null;
 
@@ -125,7 +127,11 @@ export class PayoutsService {
         }
 
         if (statement.payout) {
-          return { ok: true as const, reused: true as const, payout: statement.payout };
+          return {
+            ok: true as const,
+            reused: true as const,
+            payout: statement.payout,
+          };
         }
 
         const payout = await tx.payout.create({
@@ -157,7 +163,9 @@ export class PayoutsService {
 
     const result = await this.prisma.$transaction(
       async (tx) => {
-        const payout = await tx.payout.findUnique({ where: { id: args.payoutId } });
+        const payout = await tx.payout.findUnique({
+          where: { id: args.payoutId },
+        });
         if (!payout) throw new NotFoundException('Payout not found.');
 
         if (payout.status === PayoutStatus.PROCESSING) {
@@ -166,7 +174,11 @@ export class PayoutsService {
               where: { id: payout.id },
               data: { providerRef },
             });
-            return { ok: true as const, reused: true as const, payout: updated };
+            return {
+              ok: true as const,
+              reused: true as const,
+              payout: updated,
+            };
           }
           return { ok: true as const, reused: true as const, payout };
         }
@@ -209,16 +221,27 @@ export class PayoutsService {
           include: { statement: true },
         });
         if (!payout) throw new NotFoundException('Payout not found.');
-        if (!payout.statement) throw new BadRequestException('Payout has no statement.');
+        if (!payout.statement)
+          throw new BadRequestException('Payout has no statement.');
 
         const statement = payout.statement;
 
         if (payout.status === PayoutStatus.SUCCEEDED) {
-          return { ok: true as const, reused: true as const, payoutId: payout.id, statementId: statement.id };
+          return {
+            ok: true as const,
+            reused: true as const,
+            payoutId: payout.id,
+            statementId: statement.id,
+          };
         }
 
-        if (payout.status !== PayoutStatus.PENDING && payout.status !== PayoutStatus.PROCESSING) {
-          throw new BadRequestException(`Cannot mark SUCCEEDED from status ${payout.status}.`);
+        if (
+          payout.status !== PayoutStatus.PENDING &&
+          payout.status !== PayoutStatus.PROCESSING
+        ) {
+          throw new BadRequestException(
+            `Cannot mark SUCCEEDED from status ${payout.status}.`,
+          );
         }
 
         if (statement.status !== VendorStatementStatus.FINALIZED) {
@@ -312,15 +335,22 @@ export class PayoutsService {
 
     const result = await this.prisma.$transaction(
       async (tx) => {
-        const payout = await tx.payout.findUnique({ where: { id: args.payoutId } });
+        const payout = await tx.payout.findUnique({
+          where: { id: args.payoutId },
+        });
         if (!payout) throw new NotFoundException('Payout not found.');
 
         if (payout.status === PayoutStatus.FAILED) {
           return { ok: true as const, reused: true as const, payout };
         }
 
-        if (payout.status !== PayoutStatus.PENDING && payout.status !== PayoutStatus.PROCESSING) {
-          throw new BadRequestException(`Cannot mark FAILED from status ${payout.status}.`);
+        if (
+          payout.status !== PayoutStatus.PENDING &&
+          payout.status !== PayoutStatus.PROCESSING
+        ) {
+          throw new BadRequestException(
+            `Cannot mark FAILED from status ${payout.status}.`,
+          );
         }
 
         const updated = await tx.payout.update({
@@ -350,7 +380,9 @@ export class PayoutsService {
 
     const result = await this.prisma.$transaction(
       async (tx) => {
-        const payout = await tx.payout.findUnique({ where: { id: args.payoutId } });
+        const payout = await tx.payout.findUnique({
+          where: { id: args.payoutId },
+        });
         if (!payout) throw new NotFoundException('Payout not found.');
 
         if (payout.status === PayoutStatus.CANCELLED) {
@@ -358,7 +390,9 @@ export class PayoutsService {
         }
 
         if (payout.status !== PayoutStatus.PENDING) {
-          throw new BadRequestException(`Cannot cancel from status ${payout.status}.`);
+          throw new BadRequestException(
+            `Cannot cancel from status ${payout.status}.`,
+          );
         }
 
         const updated = await tx.payout.update({

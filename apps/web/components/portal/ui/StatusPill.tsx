@@ -15,12 +15,33 @@ function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
 }
 
+function toneFromStatus(raw: string | null | undefined): Tone {
+  const s = (raw ?? "").trim().toUpperCase();
+  if (!s) return "neutral";
+
+  if (["SUCCEEDED", "SUCCESS", "PAID", "FINALIZED", "COMPLETED", "APPROVED", "PUBLISHED", "ACTIVE"].includes(s)) {
+    return "success";
+  }
+  if (["FAILED", "FAIL", "CANCELLED", "CANCELED", "VOID", "REJECTED", "BLOCKED", "EXPIRED"].includes(s)) {
+    return "danger";
+  }
+  if (["PENDING", "PROCESSING", "DRAFT", "REVIEW", "IN_REVIEW", "ON_HOLD", "HOLD"].includes(s)) {
+    return "warning";
+  }
+  return "neutral";
+}
+
 export function StatusPill(props: {
   tone?: Tone;
-  children: React.ReactNode;
+  children?: React.ReactNode;
+  status?: string;
+  value?: string;
   className?: string;
 }) {
-  const t = TONES[props.tone ?? "neutral"] ?? TONES.neutral; // ✅ hard fallback
+  const statusText = props.status ?? props.value;
+  const t = TONES[props.tone ?? toneFromStatus(statusText)] ?? TONES.neutral;
+  const content = props.children ?? statusText ?? "—";
+
   return (
     <span
       className={cn(
@@ -31,7 +52,7 @@ export function StatusPill(props: {
         props.className
       )}
     >
-      {props.children}
+      {content}
     </span>
   );
 }

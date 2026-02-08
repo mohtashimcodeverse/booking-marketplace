@@ -64,6 +64,7 @@ export default async function PropertiesPage(props: PageProps) {
 
   const items = res.ok ? res.data.items : [];
   const meta = res.ok ? res.data.meta : null;
+  const totalPages = meta ? Math.max(1, Math.ceil(meta.total / meta.limit)) : 1;
 
   return (
     <main className="min-h-screen bg-[var(--tourm-bg)]">
@@ -123,9 +124,9 @@ export default async function PropertiesPage(props: PageProps) {
           ))}
         </div>
 
-        {meta && meta.totalPages > 1 ? (
+        {meta && totalPages > 1 ? (
           <div className="mt-10 flex items-center justify-center gap-2">
-            {Array.from({ length: meta.totalPages }).slice(0, 8).map((_, i) => {
+            {Array.from({ length: totalPages }).slice(0, 8).map((_, i) => {
               const p = i + 1;
               const qs = new URLSearchParams();
 

@@ -331,7 +331,7 @@ export default function VendorBookingsPage() {
         </Drawer>
       </div>
     );
-  }, [state, derived, filters, page, pageSize, selected]);
+  }, [state, derived, filters, page, selected]);
 
   return (
     <PortalShell title="Vendor Bookings" nav={nav}>

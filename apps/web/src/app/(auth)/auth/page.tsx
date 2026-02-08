@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Suspense, useMemo, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Building2, User2, ArrowRight } from "lucide-react";
@@ -17,7 +17,7 @@ function readRole(raw: string | null): AuthRoleUi {
   return raw === "vendor" ? "vendor" : "customer";
 }
 
-export default function AuthGatewayPage() {
+function AuthGatewayContent() {
   const router = useRouter();
   const sp = useSearchParams();
 
@@ -129,6 +129,26 @@ export default function AuthGatewayPage() {
         </motion.button>
       </div>
     </AuthCard>
+  );
+}
+
+export default function AuthGatewayPage() {
+  return (
+    <Suspense
+      fallback={
+        <AuthCard
+          title="Loading access"
+          subtitle="Preparing account gateway..."
+          eyebrow="Account access"
+          showBackHome
+          width="lg"
+        >
+          <div className="h-20" />
+        </AuthCard>
+      }
+    >
+      <AuthGatewayContent />
+    </Suspense>
   );
 }
 

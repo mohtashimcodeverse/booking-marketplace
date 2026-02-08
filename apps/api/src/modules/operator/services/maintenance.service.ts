@@ -3,9 +3,14 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { MaintenanceStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMaintenanceRequestDto } from '../dto/create-maintenance-request.dto';
 import { UpdateWorkOrderDto } from '../dto/update-work-order.dto';
+
+function isMaintenanceStatus(value: string): value is MaintenanceStatus {
+  return Object.values(MaintenanceStatus).some((status) => status === value);
+}
 
 @Injectable()
 export class MaintenanceService {
@@ -52,9 +57,14 @@ export class MaintenanceService {
     const page = Math.max(params.page ?? 1, 1);
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.MaintenanceRequestWhereInput = {};
     if (params.propertyId) where.propertyId = params.propertyId;
-    if (params.status) where.status = params.status;
+    if (params.status) {
+      if (!isMaintenanceStatus(params.status)) {
+        throw new BadRequestException('Invalid maintenance status');
+      }
+      where.status = params.status;
+    }
 
     const [items, total] = await this.prisma.$transaction([
       this.prisma.maintenanceRequest.findMany({

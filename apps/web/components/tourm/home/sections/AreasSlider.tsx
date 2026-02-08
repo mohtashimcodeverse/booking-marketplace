@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
@@ -38,19 +38,19 @@ export default function AreasSlider({ title, subtitle, areas }: Props) {
   const count = list.length;
   const canRun = count >= 2;
 
-  function clampIndex(i: number) {
+  const clampIndex = useCallback((i: number) => {
     if (count <= 0) return 0;
     const m = ((i % count) + count) % count;
     return m;
-  }
+  }, [count]);
 
-  function next() {
+  const next = useCallback(() => {
     setIndex((i) => clampIndex(i + 1));
-  }
+  }, [clampIndex]);
 
-  function prev() {
+  const prev = useCallback(() => {
     setIndex((i) => clampIndex(i - 1));
-  }
+  }, [clampIndex]);
 
   useEffect(() => {
     if (!canRun) return;
@@ -61,7 +61,7 @@ export default function AreasSlider({ title, subtitle, areas }: Props) {
     }, 3200); // faster like Tourm
 
     return () => window.clearInterval(t);
-  }, [canRun, count]);
+  }, [canRun, next]);
 
   // render 5 cards: [-2,-1,0,+1,+2]
   const slots = useMemo(() => {
@@ -71,7 +71,7 @@ export default function AreasSlider({ title, subtitle, areas }: Props) {
       const idx = clampIndex(index + off);
       return { off, idx, area: list[idx] };
     });
-  }, [count, index, list]);
+  }, [clampIndex, count, index, list]);
 
   return (
     <section className="relative w-full py-14 sm:py-18">

@@ -6,44 +6,61 @@ export type SearchPropertyCard = {
   id: string;
   slug: string;
   title: string;
-  subtitle: string | null;
-  city: string | null;
-  area: string | null;
-  lat: number | null;
-  lng: number | null;
-  coverImageUrl: string | null;
-  status: PropertyStatus;
-
-  // Pricing (Frank Porter style: show “from”)
-  currency: CurrencyCode;
-  priceFrom: number; // integer minor/major depends on backend; we display as number
-  maxGuests: number;
-  bedrooms: number | null;
-  bathrooms: number | null;
-
-  ratingAvg: number | null;
-  ratingCount: number | null;
+  location: {
+    city: string | null;
+    area: string | null;
+    address: string | null;
+    lat: number | null;
+    lng: number | null;
+  };
+  capacity: {
+    maxGuests: number | null;
+    bedrooms: number | null;
+    bathrooms: number | null;
+  };
+  coverImage: {
+    url: string;
+    alt: string | null;
+    category: string | null;
+  } | null;
+  pricing: {
+    nightly: number;
+    cleaningFee: number;
+    currency: CurrencyCode;
+    totalForStay?: number;
+    nights?: number;
+  };
+  flags: {
+    instantBook: boolean;
+  };
 };
 
 export type SearchMeta = {
-  total: number;
   page: number;
-  pageSize: number;
-  totalPages: number;
+  limit: number;
+  total: number;
+  hasMore: boolean;
 };
 
 export type SearchResponse = {
   ok: true;
   query: {
-    q?: string;
     city?: string;
     area?: string;
+    lat?: number;
+    lng?: number;
+    radiusKm?: number;
     guests?: number;
     checkIn?: string;
     checkOut?: string;
     minPrice?: number;
     maxPrice?: number;
+    bedrooms?: number;
+    bathrooms?: number;
+    maxGuests?: number;
     sort?: string;
+    page: number;
+    limit: number;
   };
   meta: SearchMeta;
   items: SearchPropertyCard[];
@@ -55,8 +72,8 @@ export type MapPoint = {
   lng: number;
   priceFrom: number;
   currency: CurrencyCode;
-  slug: string;
-  title: string;
+  slug?: string;
+  title?: string;
 };
 
 export type MapResponse = {

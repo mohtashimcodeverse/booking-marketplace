@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
-import { createBookingFromHold, type BookingListItem } from "@/lib/api/bookings";
+import { createBookingFromHold } from "@/lib/api/bookings";
 import { PendingPaymentCard } from "@/components/checkout/PendingPaymentCard";
 import { HoldExpiredCard } from "@/components/checkout/HoldExpiredCard";
 
@@ -13,10 +13,6 @@ type ViewState =
   | { kind: "holdExpired" }
   | { kind: "error"; message: string }
   | { kind: "created"; bookingId: string; status: string };
-
-function upper(s: string): string {
-  return (s ?? "").toUpperCase();
-}
 
 function classNames(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");

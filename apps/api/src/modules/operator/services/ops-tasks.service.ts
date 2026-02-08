@@ -3,8 +3,17 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
+import { OpsTaskStatus, OpsTaskType, Prisma } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateOpsTaskDto } from '../dto/update-ops-task.dto';
+
+function isOpsTaskStatus(value: string): value is OpsTaskStatus {
+  return Object.values(OpsTaskStatus).some((status) => status === value);
+}
+
+function isOpsTaskType(value: string): value is OpsTaskType {
+  return Object.values(OpsTaskType).some((type) => type === value);
+}
 
 @Injectable()
 export class OpsTasksService {
@@ -23,11 +32,21 @@ export class OpsTasksService {
     const page = Math.max(params.page ?? 1, 1);
     const skip = (page - 1) * limit;
 
-    const where: any = {};
+    const where: Prisma.OpsTaskWhereInput = {};
     if (params.propertyId) where.propertyId = params.propertyId;
     if (params.bookingId) where.bookingId = params.bookingId;
-    if (params.status) where.status = params.status;
-    if (params.type) where.type = params.type;
+    if (params.status) {
+      if (!isOpsTaskStatus(params.status)) {
+        throw new BadRequestException('Invalid ops task status');
+      }
+      where.status = params.status;
+    }
+    if (params.type) {
+      if (!isOpsTaskType(params.type)) {
+        throw new BadRequestException('Invalid ops task type');
+      }
+      where.type = params.type;
+    }
     if (params.assignedToUserId)
       where.assignedToUserId = params.assignedToUserId;
 

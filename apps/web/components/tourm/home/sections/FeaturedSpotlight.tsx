@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
 import type { SearchPropertyCard } from "@/lib/api/publicTypes";
 
@@ -13,8 +13,8 @@ type FeaturedSpotlightProps = {
   items: ReadonlyArray<SearchPropertyCard>;
 };
 
-function formatMoney(amount: number | null, currency: string | null): string {
-  if (amount === null) return "";
+function formatMoney(amount: number | null | undefined, currency: string | null | undefined): string {
+  if (amount === null || amount === undefined) return "";
   const c = (currency ?? "").trim();
   try {
     const nf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
@@ -47,8 +47,9 @@ function useDragScroller() {
   const [dragging, setDragging] = useState(false);
 
   useEffect(() => {
-    const el = ref.current;
-    if (!el) return;
+    const nodeCandidate = ref.current;
+    if (!nodeCandidate) return;
+    const node: HTMLDivElement = nodeCandidate;
 
     function onDown(e: PointerEvent) {
       if (e.pointerType === "mouse" && e.button !== 0) return;
@@ -56,11 +57,11 @@ function useDragScroller() {
       st.current.down = true;
       st.current.moved = false;
       st.current.startX = e.clientX;
-      st.current.startLeft = el.scrollLeft;
+      st.current.startLeft = node.scrollLeft;
       setDragging(false);
 
-      el.classList.add("cursor-grabbing");
-      el.classList.remove("cursor-grab");
+      node.classList.add("cursor-grabbing");
+      node.classList.remove("cursor-grab");
     }
 
     function onMove(e: PointerEvent) {
@@ -74,7 +75,7 @@ function useDragScroller() {
       }
 
       if (st.current.moved) {
-        el.scrollLeft = st.current.startLeft - dx;
+        node.scrollLeft = st.current.startLeft - dx;
       }
     }
 
@@ -82,8 +83,8 @@ function useDragScroller() {
       if (!st.current.down) return;
       st.current.down = false;
 
-      el.classList.remove("cursor-grabbing");
-      el.classList.add("cursor-grab");
+      node.classList.remove("cursor-grabbing");
+      node.classList.add("cursor-grab");
 
       if (st.current.moved) {
         window.setTimeout(() => setDragging(false), 120);
@@ -92,16 +93,16 @@ function useDragScroller() {
       }
     }
 
-    el.addEventListener("pointerdown", onDown);
-    el.addEventListener("pointermove", onMove);
-    el.addEventListener("pointerup", onUp);
-    el.addEventListener("pointercancel", onUp);
+    node.addEventListener("pointerdown", onDown);
+    node.addEventListener("pointermove", onMove);
+    node.addEventListener("pointerup", onUp);
+    node.addEventListener("pointercancel", onUp);
 
     return () => {
-      el.removeEventListener("pointerdown", onDown);
-      el.removeEventListener("pointermove", onMove);
-      el.removeEventListener("pointerup", onUp);
-      el.removeEventListener("pointercancel", onUp);
+      node.removeEventListener("pointerdown", onDown);
+      node.removeEventListener("pointermove", onMove);
+      node.removeEventListener("pointerup", onUp);
+      node.removeEventListener("pointercancel", onUp);
     };
   }, []);
 
@@ -131,7 +132,7 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
 
   const clickIntent = useRef<ClickIntent | null>(null);
 
-  function centerToIdxNoVertical(idx: number) {
+  const centerToIdxNoVertical = useCallback((idx: number) => {
     const el = scrollerRef.current;
     if (!el) return;
 
@@ -146,9 +147,9 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
     const elCenter = el.clientWidth / 2;
     const nextLeft = Math.max(0, targetCenter - elCenter);
     el.scrollLeft = nextLeft;
-  }
+  }, [scrollerRef, snapIds]);
 
-  function scrollToIdx(idx: number) {
+  const scrollToIdx = useCallback((idx: number) => {
     const el = scrollerRef.current;
     if (!el) return;
 
@@ -162,12 +163,11 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
     const nextLeft = Math.max(0, targetCenter - elCenter);
 
     el.scrollTo({ left: nextLeft, behavior: "smooth" });
-  }
+  }, [scrollerRef, snapIds]);
 
   // Start centered (middle active) — WITHOUT scrolling the page vertically.
   useEffect(() => {
     if (!list.length) return;
-    setActiveIdx(initialIdx);
 
     // double RAF ensures layout is stable (prevents any accidental jank)
     const raf1 = window.requestAnimationFrame(() => {
@@ -178,13 +178,13 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
     });
 
     return () => window.cancelAnimationFrame(raf1);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialIdx, list.length]);
+  }, [centerToIdxNoVertical, initialIdx, list.length]);
 
   // Active index from closest-to-center.
   useEffect(() => {
-    const el = scrollerRef.current;
-    if (!el) return;
+    const elCandidate = scrollerRef.current;
+    if (!elCandidate) return;
+    const el: HTMLDivElement = elCandidate;
 
     let raf = 0;
 
@@ -220,10 +220,10 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
       el.removeEventListener("scroll", onScroll);
       if (raf) window.cancelAnimationFrame(raf);
     };
-  }, [snapIds]);
+  }, [scrollerRef, snapIds]);
 
   function onCardPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    clickIntent.current = { downAt: Date.now(), downX: e.clientX, downY: e.clientY };
+    clickIntent.current = { downAt: e.timeStamp, downX: e.clientX, downY: e.clientY };
   }
 
   function onCardPointerUp(slug: string, e: React.PointerEvent<HTMLDivElement>) {
@@ -235,7 +235,7 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
     if (!intent) return;
     const dx = Math.abs(e.clientX - intent.downX);
     const dy = Math.abs(e.clientY - intent.downY);
-    const dt = Date.now() - intent.downAt;
+    const dt = e.timeStamp - intent.downAt;
 
     if (dx <= 6 && dy <= 6 && dt <= 900) {
       router.push(`/properties/${slug}`);

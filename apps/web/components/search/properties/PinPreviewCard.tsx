@@ -1,6 +1,7 @@
 "use client";
 
 import type { SearchResponse } from "@/lib/types/search";
+import Image from "next/image";
 import { X, ArrowRight } from "lucide-react";
 
 type Item = SearchResponse["items"][number];
@@ -50,8 +51,14 @@ export default function PinPreviewCard(props: {
       <div className="mt-3 flex gap-3">
         <div className="relative h-16 w-24 flex-none overflow-hidden rounded-xl border border-white/10 bg-white/[0.04]">
           {img ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={img} alt={props.item.coverImage?.alt ?? title} className="h-full w-full object-cover" />
+            <Image
+              src={img}
+              alt={props.item.coverImage?.alt ?? title}
+              width={96}
+              height={64}
+              unoptimized
+              className="h-full w-full object-cover"
+            />
           ) : null}
         </div>
 

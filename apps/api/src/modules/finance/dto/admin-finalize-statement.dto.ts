@@ -3,7 +3,8 @@ import { IsOptional, IsString } from 'class-validator';
 
 export class AdminFinalizeStatementDto {
   @ApiPropertyOptional({
-    description: 'Optional admin note or metadata snapshot (stored in metaJson).',
+    description:
+      'Optional admin note or metadata snapshot (stored in metaJson).',
   })
   @IsOptional()
   @IsString()
