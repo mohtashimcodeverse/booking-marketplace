@@ -1,7 +1,24 @@
+"use client";
+
 import Link from "next/link";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SearchResponse } from "@/lib/types/search";
 
 type Item = SearchResponse["items"][number];
+
+type Slide = {
+  key: string;
+  url: string;
+  alt: string;
+};
+
+type DragState = {
+  pointerId: number | null;
+  down: boolean;
+  moved: boolean;
+  startX: number;
+  startLeft: number;
+};
 
 function formatMoney(currency: string | null | undefined, amount: number | null | undefined) {
   if (amount === null || amount === undefined) return null;
@@ -9,8 +26,11 @@ function formatMoney(currency: string | null | undefined, amount: number | null 
   return `${cur} ${amount.toLocaleString()}`;
 }
 
+function clamp(n: number, min: number, max: number) {
+  return Math.max(min, Math.min(max, n));
+}
+
 export default function TourmPropertyCard({ item }: { item: Item }) {
-  const img = item.coverImage?.url ?? null;
   const title = item.title ?? "Stay";
   const area = item.location?.area ?? null;
   const city = item.location?.city ?? null;
@@ -22,20 +42,206 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
 
   const price = formatMoney(item.pricing?.currency ?? null, item.pricing?.nightly ?? null);
 
+  const slides = useMemo<Slide[]>(() => {
+    const output: Slide[] = [];
+    const seen = new Set<string>();
+
+    for (const media of item.media ?? []) {
+      const url = (media.url ?? "").trim();
+      if (!url || seen.has(url)) continue;
+      seen.add(url);
+      output.push({
+        key: `${url}#${media.sortOrder}`,
+        url,
+        alt: (media.alt ?? title).trim() || title,
+      });
+    }
+
+    const cover = item.coverImage?.url?.trim();
+    if (cover && !seen.has(cover)) {
+      output.unshift({
+        key: `${cover}#cover`,
+        url: cover,
+        alt: (item.coverImage?.alt ?? title).trim() || title,
+      });
+    }
+
+    return output;
+  }, [item.coverImage?.alt, item.coverImage?.url, item.media, title]);
+
+  const railRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<DragState>({
+    pointerId: null,
+    down: false,
+    moved: false,
+    startX: 0,
+    startLeft: 0,
+  });
+
+  const suppressClickRef = useRef(false);
+
+  const [isHovered, setIsHovered] = useState(false);
+  const [isDragging, setIsDragging] = useState(false);
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  const slideCount = slides.length;
+  const hasMultipleSlides = slideCount > 1;
+
+  const scrollToIndex = useCallback(
+    (nextIndex: number, behavior: ScrollBehavior = "smooth") => {
+      const rail = railRef.current;
+      if (!rail || slideCount <= 0) return;
+
+      const clamped = clamp(nextIndex, 0, slideCount - 1);
+      rail.scrollTo({ left: clamped * rail.clientWidth, behavior });
+    },
+    [slideCount],
+  );
+
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    let raf = 0;
+
+    const updateActive = () => {
+      if (raf) return;
+      raf = window.requestAnimationFrame(() => {
+        raf = 0;
+        const next = Math.round(rail.scrollLeft / Math.max(rail.clientWidth, 1));
+        setActiveIndex(clamp(next, 0, Math.max(0, slideCount - 1)));
+      });
+    };
+
+    rail.addEventListener("scroll", updateActive, { passive: true });
+    updateActive();
+
+    return () => {
+      rail.removeEventListener("scroll", updateActive);
+      if (raf) window.cancelAnimationFrame(raf);
+    };
+  }, [slideCount]);
+
+  useEffect(() => {
+    if (!hasMultipleSlides || !isHovered || isDragging) return;
+
+    const timer = window.setInterval(() => {
+      const next = (activeIndex + 1) % slideCount;
+      scrollToIndex(next);
+    }, 1650);
+
+    return () => window.clearInterval(timer);
+  }, [activeIndex, hasMultipleSlides, isDragging, isHovered, scrollToIndex, slideCount]);
+
+  useEffect(() => {
+    const rail = railRef.current;
+    if (!rail) return;
+
+    const onResize = () => scrollToIndex(activeIndex, "auto");
+    window.addEventListener("resize", onResize, { passive: true });
+
+    return () => window.removeEventListener("resize", onResize);
+  }, [activeIndex, scrollToIndex]);
+
+  const onRailPointerDown = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    if (!hasMultipleSlides) return;
+    if (e.pointerType === "mouse" && e.button !== 0) return;
+
+    const rail = railRef.current;
+    if (!rail) return;
+
+    dragRef.current.pointerId = e.pointerId;
+    dragRef.current.down = true;
+    dragRef.current.moved = false;
+    dragRef.current.startX = e.clientX;
+    dragRef.current.startLeft = rail.scrollLeft;
+
+    setIsDragging(false);
+    rail.setPointerCapture(e.pointerId);
+  }, [hasMultipleSlides]);
+
+  const onRailPointerMove = useCallback((e: React.PointerEvent<HTMLDivElement>) => {
+    const rail = railRef.current;
+    if (!rail || !dragRef.current.down) return;
+
+    const dx = e.clientX - dragRef.current.startX;
+
+    if (!dragRef.current.moved && Math.abs(dx) > 6) {
+      dragRef.current.moved = true;
+      setIsDragging(true);
+    }
+
+    if (dragRef.current.moved) {
+      rail.scrollLeft = dragRef.current.startLeft - dx;
+    }
+  }, []);
+
+  const endDrag = useCallback((e?: React.PointerEvent<HTMLDivElement>) => {
+    const rail = railRef.current;
+    if (!rail || !dragRef.current.down) return;
+
+    if (e && dragRef.current.pointerId !== null && rail.hasPointerCapture(dragRef.current.pointerId)) {
+      rail.releasePointerCapture(dragRef.current.pointerId);
+    }
+
+    dragRef.current.pointerId = null;
+    dragRef.current.down = false;
+
+    if (dragRef.current.moved) {
+      suppressClickRef.current = true;
+      window.setTimeout(() => {
+        suppressClickRef.current = false;
+      }, 180);
+
+      window.setTimeout(() => setIsDragging(false), 120);
+      window.setTimeout(() => scrollToIndex(Math.round(rail.scrollLeft / Math.max(rail.clientWidth, 1))), 80);
+      return;
+    }
+
+    setIsDragging(false);
+  }, [scrollToIndex]);
+
   return (
-    <Link
-      href={`/properties/${item.slug}`}
-      className="group relative overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm transition-transform duration-300 hover:-translate-y-1 hover:shadow-md"
-    >
-      <div className="relative aspect-[4/3] w-full overflow-hidden">
-        {img ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img
-            src={img}
-            alt={item.coverImage?.alt ?? title}
-            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
-            loading="lazy"
-          />
+    <article className="group relative overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm transition-transform duration-300 hover:-translate-y-1 hover:shadow-md">
+      <div className="relative aspect-[5/4] w-full overflow-hidden">
+        {slideCount > 0 ? (
+          <div
+            ref={railRef}
+            className={[
+              "no-scrollbar flex h-full overflow-x-auto overflow-y-hidden snap-x snap-mandatory",
+              isDragging ? "cursor-grabbing" : hasMultipleSlides ? "cursor-grab" : "cursor-default",
+            ].join(" ")}
+            style={{ touchAction: hasMultipleSlides ? "pan-y pinch-zoom" : "auto" }}
+            onPointerDown={onRailPointerDown}
+            onPointerMove={onRailPointerMove}
+            onPointerUp={(e) => endDrag(e)}
+            onPointerCancel={(e) => endDrag(e)}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+          >
+            {slides.map((slide, idx) => (
+              <Link
+                key={slide.key}
+                href={`/properties/${item.slug}`}
+                className="relative h-full w-full shrink-0 snap-start"
+                onClick={(e) => {
+                  if (!suppressClickRef.current) return;
+                  e.preventDefault();
+                  e.stopPropagation();
+                }}
+                aria-label={`${title} photo ${idx + 1}`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={slide.url}
+                  alt={slide.alt}
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.05]"
+                  loading="lazy"
+                  draggable={false}
+                />
+              </Link>
+            ))}
+          </div>
         ) : (
           <div className="h-full w-full bg-gradient-to-br from-slate-100 to-slate-50" />
         )}
@@ -53,12 +259,31 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
             Instant book
           </div>
         ) : null}
+
+        {hasMultipleSlides ? (
+          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/25 bg-black/35 px-2.5 py-1.5 backdrop-blur-sm">
+            {slides.map((slide, idx) => {
+              const active = idx === activeIndex;
+              return (
+                <button
+                  key={slide.key}
+                  type="button"
+                  onClick={() => scrollToIndex(idx)}
+                  className={["h-1.5 rounded-full transition", active ? "w-5 bg-white" : "w-1.5 bg-white/55 hover:bg-white/80"].join(" ")}
+                  aria-label={`Show image ${idx + 1}`}
+                />
+              );
+            })}
+          </div>
+        ) : null}
       </div>
 
-      <div className="space-y-2 p-4">
+      <div className="space-y-2.5 p-5">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="line-clamp-2 text-base font-semibold tracking-tight text-slate-900">
-            {title}
+          <h3 className="line-clamp-2 text-lg font-semibold tracking-tight text-slate-900">
+            <Link href={`/properties/${item.slug}`} className="transition hover:text-slate-700">
+              {title}
+            </Link>
           </h3>
         </div>
 
@@ -66,22 +291,22 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
 
         <div className="flex flex-wrap gap-2 pt-1">
           {guests ? (
-            <span className="rounded-lg border border-black/10 bg-slate-50 px-2 py-1 text-xs text-slate-700">
+            <span className="rounded-lg border border-black/10 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700">
               {guests} guests
             </span>
           ) : null}
           {beds ? (
-            <span className="rounded-lg border border-black/10 bg-slate-50 px-2 py-1 text-xs text-slate-700">
+            <span className="rounded-lg border border-black/10 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700">
               {beds} beds
             </span>
           ) : null}
           {baths ? (
-            <span className="rounded-lg border border-black/10 bg-slate-50 px-2 py-1 text-xs text-slate-700">
+            <span className="rounded-lg border border-black/10 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700">
               {baths} baths
             </span>
           ) : null}
         </div>
       </div>
-    </Link>
+    </article>
   );
 }

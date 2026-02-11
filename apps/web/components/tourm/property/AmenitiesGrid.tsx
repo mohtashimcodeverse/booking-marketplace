@@ -42,7 +42,7 @@ export default function AmenitiesGrid({
 
   const iconWrapBorder = isLight ? "border-slate-200" : "border-white/10";
   const iconWrapBg = isLight ? "bg-slate-50" : "bg-white/[0.03]";
-  const iconColor = isLight ? "text-slate-600" : "text-white/75";
+  const iconColor = isLight ? "text-slate-700" : "text-white/85";
 
   const labelText = isLight ? "text-slate-900" : "text-white/85";
   const smallText = isLight ? "text-slate-500" : "text-white/50";
@@ -78,12 +78,12 @@ export default function AmenitiesGrid({
             >
               <div
                 className={[
-                  "flex h-10 w-10 items-center justify-center rounded-xl border",
+                  "flex h-11 w-11 items-center justify-center rounded-xl border",
                   iconWrapBorder,
                   iconWrapBg,
                 ].join(" ")}
               >
-                <Icon className={`h-5 w-5 ${iconColor}`} />
+                <Icon className={`h-[20px] w-[20px] ${iconColor}`} />
               </div>
 
               <div className="min-w-0">

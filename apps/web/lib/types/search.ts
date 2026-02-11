@@ -23,6 +23,12 @@ export type SearchPropertyCard = {
     alt: string | null;
     category: string | null;
   } | null;
+  media: Array<{
+    url: string;
+    alt: string | null;
+    category: string | null;
+    sortOrder: number;
+  }>;
   pricing: {
     nightly: number;
     cleaningFee: number;

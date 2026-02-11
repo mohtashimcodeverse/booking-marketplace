@@ -50,6 +50,17 @@ body {
     @apply mx-auto w-full max-w-[1200px] px-4;
   }
 
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+    width: 0;
+    height: 0;
+  }
+
   .tourm-card {
     background: var(--tourm-card);
     border: 1px solid var(--tourm-border);

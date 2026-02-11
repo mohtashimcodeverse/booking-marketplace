@@ -99,6 +99,16 @@ const OTHER: AmenityMeta = {
   Icon: CircleHelp,
 };
 
+const AMENITY_ALIASES: Record<string, AmenityKey> = {
+  PARKING: "PARKING_FREE",
+  SMOKE_FREE: "NO_SMOKING",
+  AIRCON: "AIR_CONDITIONING",
+  AIRCONDITIONING: "AIR_CONDITIONING",
+  AIR_CONDITIONER: "AIR_CONDITIONING",
+  WIFI_24_7: "WIFI",
+  WI_FI: "WIFI",
+};
+
 export const AMENITY_CATALOG: Record<AmenityKey, AmenityMeta> = {
   WIFI: { key: "WIFI", label: "Wi-Fi", Icon: Wifi },
   WIFI_BACKUP: { key: "WIFI_BACKUP", label: "Wi-Fi backup", Icon: PlugZap },
@@ -164,7 +174,15 @@ export const AMENITY_CATALOG: Record<AmenityKey, AmenityMeta> = {
 };
 
 export function normalizeAmenityKey(input: string): AmenityKey {
-  const cleaned = input.trim().toUpperCase().replace(/\s+/g, "_");
+  const cleaned = input
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]+/g, "_")
+    .replace(/^_+|_+$/g, "");
+
+  const alias = AMENITY_ALIASES[cleaned];
+  if (alias) return alias;
+
   return (Object.prototype.hasOwnProperty.call(AMENITY_CATALOG, cleaned)
     ? (cleaned as AmenityKey)
     : "OTHER");

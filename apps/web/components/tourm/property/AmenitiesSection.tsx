@@ -14,12 +14,6 @@ export type AmenitiesSectionProps = {
   previewCount?: number;
 };
 
-function stableKey(it: AmenitiesSectionItem, index: number) {
-  const k = it.key.trim();
-  const l = (it.label ?? "").trim();
-  return `${k || l}-${index}`;
-}
-
 export default function AmenitiesSection({
   title = "Amenities",
   items,
@@ -65,10 +59,7 @@ export default function AmenitiesSection({
       <div className="mt-4">
         <AmenitiesGrid
           title=""
-          items={preview.map((it, idx) => ({
-            key: stableKey(it, idx),
-            label: it.label,
-          }))}
+          items={preview}
           columns={3}
           variant="section"
         />
@@ -113,10 +104,7 @@ export default function AmenitiesSection({
               {/* We pass items directly; AmenitiesGrid does icon lookup */}
               <AmenitiesGrid
                 title=""
-                items={cleaned.map((it, idx) => ({
-                  key: stableKey(it, idx),
-                  label: it.label,
-                }))}
+                items={cleaned}
                 columns={3}
                 variant="section"
               />

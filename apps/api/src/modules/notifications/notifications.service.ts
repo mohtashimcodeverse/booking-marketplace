@@ -28,4 +28,25 @@ export class NotificationsService {
       payload: input.payload ?? {},
     });
   }
+
+  async findRecentFailures(limit = 50) {
+    const take = Number.isFinite(limit) ? Math.trunc(limit) : 50;
+    const boundedLimit = Math.min(200, Math.max(1, take));
+    const rows = await this.events.findRecentFailures(boundedLimit);
+
+    return rows.map((row) => ({
+      id: row.id,
+      type: row.type,
+      status: row.status,
+      recipientUserId: row.recipientUserId,
+      recipientEmail: row.recipientUser?.email ?? null,
+      attempts: row.attempts,
+      lastError: row.lastError,
+      entityType: row.entityType,
+      entityId: row.entityId,
+      createdAt: row.createdAt,
+      sentAt: row.sentAt,
+      nextAttemptAt: row.nextAttemptAt,
+    }));
+  }
 }

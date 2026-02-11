@@ -1,26 +1,82 @@
-import { Injectable, Logger } from '@nestjs/common';
+import { Injectable, Logger, OnModuleInit } from '@nestjs/common';
 import { Cron } from '@nestjs/schedule';
 import { NotificationChannel } from '@prisma/client';
 import { NotificationEventsService } from './notification-events.service';
 import { PrismaService } from '../prisma/prisma.service';
 import * as fs from 'fs';
 import * as path from 'path';
-import nodemailer from 'nodemailer';
+import nodemailer, { type SendMailOptions } from 'nodemailer';
 
 type JsonObject = Record<string, unknown>;
+type WorkerMetrics = {
+  sent_count: number;
+  failed_count: number;
+  retry_count: number;
+};
+type SmtpConfig = {
+  configured: boolean;
+  host: string;
+  port: number;
+  secure: boolean;
+  user: string;
+  pass: string;
+  from: string;
+  replyTo: string | undefined;
+  maxConnections: number;
+  maxMessages: number;
+  rateDelta: number;
+  rateLimit: number;
+  connectionTimeout: number;
+  greetingTimeout: number;
+  socketTimeout: number;
+};
+type DeliveryResult = {
+  to: string;
+  attempt: number;
+  latencyMs: number;
+  messageId: string | null;
+  smtpResponse: string | null;
+};
+type DeliveryErrorInfo = {
+  retryable: boolean;
+  reason: string;
+  code: string | null;
+  responseCode: number | null;
+};
+type DeliveryErrorContext = {
+  to?: string;
+  latencyMs?: number;
+  smtpResponse?: string;
+};
 
 @Injectable()
-export class NotificationsWorker {
+export class NotificationsWorker implements OnModuleInit {
   private readonly logger = new Logger(NotificationsWorker.name);
 
-  // V1 safety knobs
+  // Outbox knobs
   private readonly batchSize = 10;
   private readonly maxAttempts = 3;
+  private readonly retryBaseMs = 5_000;
+  private readonly retryMaxMs = 5 * 60_000;
+  private readonly metrics: WorkerMetrics = {
+    sent_count: 0,
+    failed_count: 0,
+    retry_count: 0,
+  };
+
+  private cachedTransport: {
+    key: string;
+    transporter: nodemailer.Transporter;
+  } | null = null;
 
   constructor(
     private readonly events: NotificationEventsService,
     private readonly prisma: PrismaService,
   ) {}
+
+  onModuleInit() {
+    this.warnOnInsecureLogoUrl();
+  }
 
   @Cron('*/5 * * * * *') // every 5 seconds
   async processOutbox() {
@@ -28,51 +84,121 @@ export class NotificationsWorker {
     if (pending.length === 0) return;
 
     for (const event of pending) {
-      // Hard stop on attempts (avoid infinite loops)
       if (event.attempts >= this.maxAttempts) {
         await this.events.markFailed(event.id, 'Max attempts reached.');
+        this.incrementMetric('failed_count');
+        this.logEmailAttempt('error', {
+          notificationEventId: event.id,
+          type: String(event.type),
+          to: null,
+          attempts: event.attempts,
+          latencyMs: null,
+          messageId: null,
+          smtpResponse: null,
+          smtpCode: null,
+          smtpResponseCode: null,
+          retryable: false,
+          status: 'failed',
+          reason: 'max_attempts_reached',
+          nextAttemptAt: null,
+        });
         continue;
       }
 
-      // Optimistic claim (prevents double processing across instances)
       const claimed = await this.events.claimIfPending(
         event.id,
         event.attempts,
       );
       if (!claimed) continue;
 
+      const attempt = event.attempts + 1;
+
       try {
         const payload = this.safeJson(event.payloadJson);
         const channel = String(event.channel);
 
-        // Deliver based on channel
         if (event.channel === NotificationChannel.EMAIL) {
-          await this.deliverEmail({
+          const result = await this.deliverEmail({
             notificationId: event.id,
-            type: event.type,
+            type: String(event.type),
             recipientUserId: event.recipientUserId,
             payload,
+            attempt,
+          });
+
+          await this.events.markSent(event.id);
+          this.incrementMetric('sent_count');
+          this.logEmailAttempt('log', {
+            notificationEventId: event.id,
+            type: String(event.type),
+            to: result.to,
+            attempts: result.attempt,
+            latencyMs: result.latencyMs,
+            messageId: result.messageId,
+            smtpResponse: result.smtpResponse,
+            smtpCode: null,
+            smtpResponseCode: null,
+            retryable: false,
+            status: 'sent',
+            reason: 'delivered',
+            nextAttemptAt: null,
           });
         } else {
-          // V1: only EMAIL is implemented; others fallback to log-only
           const entityType = event.entityType ?? 'unknown';
           const entityId = event.entityId ?? 'unknown';
           this.logger.log(
             `DELIVER (noop) notification id=${event.id} type=${event.type} channel=${channel} recipient=${event.recipientUserId} entity=${entityType}:${entityId}`,
           );
+          await this.events.markSent(event.id);
         }
-
-        await this.events.markSent(event.id);
       } catch (err: unknown) {
         const msg = this.errMessage(err);
-        await this.events.setLastError(event.id, msg);
+        const info = this.classifyDeliveryError(err);
+        const context = this.extractErrorContext(err);
 
-        // After claim, attempts already incremented.
-        // If now reached maxAttempts, mark FAILED; else keep PENDING for retry.
-        const updatedAttempts = event.attempts + 1;
-        if (updatedAttempts >= this.maxAttempts) {
+        if (!info.retryable || attempt >= this.maxAttempts) {
           await this.events.markFailed(event.id, msg);
+          this.incrementMetric('failed_count');
+          this.logEmailAttempt('error', {
+            notificationEventId: event.id,
+            type: String(event.type),
+            to: context.to ?? null,
+            attempts: attempt,
+            latencyMs: context.latencyMs ?? null,
+            messageId: null,
+            smtpResponse: context.smtpResponse ?? null,
+            smtpCode: info.code,
+            smtpResponseCode: info.responseCode,
+            retryable: false,
+            status: 'failed',
+            reason: info.reason,
+            nextAttemptAt: null,
+            error: msg,
+          });
+          continue;
         }
+
+        const backoffMs = this.computeBackoffMs(attempt);
+        const nextAttemptAt = new Date(Date.now() + backoffMs);
+        await this.events.scheduleRetry(event.id, msg, nextAttemptAt);
+        this.incrementMetric('retry_count');
+
+        this.logEmailAttempt('warn', {
+          notificationEventId: event.id,
+          type: String(event.type),
+          to: context.to ?? null,
+          attempts: attempt,
+          latencyMs: context.latencyMs ?? null,
+          messageId: null,
+          smtpResponse: context.smtpResponse ?? null,
+          smtpCode: info.code,
+          smtpResponseCode: info.responseCode,
+          retryable: true,
+          status: 'retry',
+          reason: info.reason,
+          nextAttemptAt: nextAttemptAt.toISOString(),
+          error: msg,
+        });
       }
     }
   }
@@ -82,8 +208,8 @@ export class NotificationsWorker {
     type: string;
     recipientUserId: string;
     payload: JsonObject;
-  }) {
-    // Resolve recipient email: prefer payload.email (OTP uses it), else lookup by recipientUserId
+    attempt: number;
+  }): Promise<DeliveryResult> {
     const payloadEmail = this.getNested(input.payload, 'email');
     const to =
       typeof payloadEmail === 'string' && payloadEmail.trim()
@@ -91,7 +217,6 @@ export class NotificationsWorker {
         : await this.lookupUserEmail(input.recipientUserId);
 
     if (!to) {
-      // No recipient email → fail (this is actionable)
       throw new Error('Recipient email not found');
     }
 
@@ -102,44 +227,48 @@ export class NotificationsWorker {
       input.payload,
     );
 
-    // If SMTP isn't configured, behave safely:
     const smtp = this.smtpConfig();
     if (!smtp.configured) {
-      if (process.env.NODE_ENV === 'production') {
-        throw new Error('SMTP not configured');
-      }
-
-      // Dev fallback: log-only
-      this.logger.log(
-        `EMAIL (dev log-only) id=${input.notificationId} to=${to} subject="${subject}" htmlLen=${html.length}`,
+      throw new Error(
+        'SMTP not configured. Required env vars: SMTP_HOST, SMTP_PORT, SMTP_USER, SMTP_PASS, SMTP_FROM',
       );
-      return;
     }
 
-    const transporter = nodemailer.createTransport({
-      host: smtp.host,
-      port: smtp.port,
-      secure: smtp.secure,
-      auth:
-        smtp.user && smtp.pass
-          ? { user: smtp.user, pass: smtp.pass }
-          : undefined,
-    });
-
-    const from = smtp.from;
-    const replyTo = smtp.replyTo;
-
-    await transporter.sendMail({
-      from,
+    const transporter = this.getTransporter(smtp);
+    const message: SendMailOptions = {
+      from: smtp.from,
       to,
-      replyTo,
+      replyTo: smtp.replyTo,
       subject,
       html,
-    });
+    };
 
-    this.logger.log(
-      `EMAIL sent id=${input.notificationId} to=${to} subject="${subject}"`,
-    );
+    const startedAt = Date.now();
+
+    try {
+      const rawInfo: unknown = await transporter.sendMail(message);
+      const info = this.toRecord(rawInfo);
+      const latencyMs = Date.now() - startedAt;
+      const messageId = info.messageId;
+      const smtpResponse = info.response;
+      return {
+        to,
+        attempt: input.attempt,
+        latencyMs,
+        messageId:
+          typeof messageId === 'string' && messageId.trim() ? messageId : null,
+        smtpResponse:
+          typeof smtpResponse === 'string' && smtpResponse.trim()
+            ? smtpResponse
+            : null,
+      };
+    } catch (err: unknown) {
+      const context: DeliveryErrorContext = {
+        to,
+        latencyMs: Date.now() - startedAt,
+      };
+      throw this.withDeliveryContext(err, context);
+    }
   }
 
   private async lookupUserEmail(userId: string): Promise<string | null> {
@@ -150,34 +279,246 @@ export class NotificationsWorker {
     return u?.email?.trim().toLowerCase() ?? null;
   }
 
-  private smtpConfig(): {
-    configured: boolean;
-    host: string;
-    port: number;
-    secure: boolean;
-    user: string | null;
-    pass: string | null;
-    from: string;
-    replyTo: string | undefined;
-  } {
+  private smtpConfig(): SmtpConfig {
     const host = (process.env.SMTP_HOST || '').trim();
     const portRaw = (process.env.SMTP_PORT || '').trim();
     const port = Number(portRaw || '587');
-    const secure = (process.env.SMTP_SECURE || 'false') === 'true';
 
-    const user = (process.env.SMTP_USER || '').trim() || null;
-    const pass = (process.env.SMTP_PASS || '').trim() || null;
+    // SSL on 465 is mandatory for cPanel SMTP.
+    const secureFlag = (process.env.SMTP_SECURE || '').trim().toLowerCase();
+    const secureFromEnv =
+      secureFlag === 'true' || secureFlag === '1' || secureFlag === 'yes';
+    const secure = port === 465 ? true : secureFromEnv;
 
-    // Default sender for real business emails
+    const user = (process.env.SMTP_USER || '').trim();
+    const pass = (process.env.SMTP_PASS || '').trim();
     const from =
       (process.env.SMTP_FROM || '').trim() ||
-      'Laugh & Lodge Vocation Homes Rental LLC <Booking@rentpropertyuae.com>';
-
+      'RentPropertyUAE <booking@rentpropertyuae.com>';
     const replyTo = (process.env.SMTP_REPLY_TO || '').trim() || undefined;
 
-    const configured = Boolean(host) && Number.isFinite(port) && port > 0;
+    const configured =
+      Boolean(host) &&
+      Number.isFinite(port) &&
+      port > 0 &&
+      Boolean(user) &&
+      Boolean(pass) &&
+      Boolean(from);
 
-    return { configured, host, port, secure, user, pass, from, replyTo };
+    return {
+      configured,
+      host,
+      port,
+      secure,
+      user,
+      pass,
+      from,
+      replyTo,
+      maxConnections: this.readPositiveInt('SMTP_MAX_CONNECTIONS', 2),
+      maxMessages: this.readPositiveInt('SMTP_MAX_MESSAGES', 50),
+      rateDelta: this.readPositiveInt('SMTP_RATE_DELTA', 1000),
+      rateLimit: this.readPositiveInt('SMTP_RATE_LIMIT', 5),
+      connectionTimeout: this.readPositiveInt(
+        'SMTP_CONNECTION_TIMEOUT_MS',
+        15000,
+      ),
+      greetingTimeout: this.readPositiveInt('SMTP_GREETING_TIMEOUT_MS', 15000),
+      socketTimeout: this.readPositiveInt('SMTP_SOCKET_TIMEOUT_MS', 20000),
+    };
+  }
+
+  private getTransporter(smtp: SmtpConfig): nodemailer.Transporter {
+    const key = [
+      smtp.host,
+      String(smtp.port),
+      String(smtp.secure),
+      smtp.user,
+      smtp.from,
+      smtp.replyTo ?? '',
+      String(smtp.maxConnections),
+      String(smtp.maxMessages),
+      String(smtp.rateDelta),
+      String(smtp.rateLimit),
+      String(smtp.connectionTimeout),
+      String(smtp.greetingTimeout),
+      String(smtp.socketTimeout),
+    ].join('|');
+
+    if (this.cachedTransport && this.cachedTransport.key === key) {
+      return this.cachedTransport.transporter;
+    }
+
+    const transporter = nodemailer.createTransport({
+      host: smtp.host,
+      port: smtp.port,
+      secure: smtp.secure,
+      auth: { user: smtp.user, pass: smtp.pass },
+      pool: true,
+      maxConnections: smtp.maxConnections,
+      maxMessages: smtp.maxMessages,
+      rateDelta: smtp.rateDelta,
+      rateLimit: smtp.rateLimit,
+      connectionTimeout: smtp.connectionTimeout,
+      greetingTimeout: smtp.greetingTimeout,
+      socketTimeout: smtp.socketTimeout,
+    });
+
+    this.cachedTransport = { key, transporter };
+    return transporter;
+  }
+
+  private warnOnInsecureLogoUrl() {
+    const rawLogoUrl = (process.env.BRAND_LOGO_URL || '').trim();
+    if (!rawLogoUrl) {
+      this.logger.warn(
+        'BRAND_LOGO_URL is not set. Set an HTTPS logo URL to improve email client rendering.',
+      );
+      return;
+    }
+
+    if (!rawLogoUrl.toLowerCase().startsWith('https://')) {
+      this.logger.warn(
+        'BRAND_LOGO_URL is not HTTPS. Use an HTTPS URL to avoid blocked mixed-content images in email clients.',
+      );
+    }
+  }
+
+  private readPositiveInt(key: string, fallback: number): number {
+    const raw = (process.env[key] || '').trim();
+    const value = Number(raw);
+    if (!Number.isFinite(value) || value <= 0) return fallback;
+    return Math.trunc(value);
+  }
+
+  private computeBackoffMs(attempt: number): number {
+    const exponent = Math.max(0, attempt - 1);
+    const delayMs = this.retryBaseMs * 2 ** exponent;
+    return Math.min(delayMs, this.retryMaxMs);
+  }
+
+  private classifyDeliveryError(err: unknown): DeliveryErrorInfo {
+    const message = this.errMessage(err).toLowerCase();
+    const record = this.toRecord(err);
+
+    const rawCode = record.code;
+    const code = typeof rawCode === 'string' ? rawCode.toUpperCase() : null;
+
+    const rawResponseCode = record.responseCode;
+    const responseCode =
+      typeof rawResponseCode === 'number'
+        ? rawResponseCode
+        : typeof rawResponseCode === 'string' &&
+            Number.isFinite(Number(rawResponseCode))
+          ? Number(rawResponseCode)
+          : null;
+
+    if (message.includes('template') || message.includes('interpolate')) {
+      return {
+        retryable: false,
+        reason: 'template_error',
+        code,
+        responseCode,
+      };
+    }
+
+    if (
+      code === 'EAUTH' ||
+      responseCode === 535 ||
+      message.includes('535 ') ||
+      message.includes('authentication failed')
+    ) {
+      return {
+        retryable: false,
+        reason: 'smtp_auth_failure',
+        code,
+        responseCode,
+      };
+    }
+
+    if (
+      responseCode === 550 ||
+      message.includes('550 ') ||
+      message.includes('invalid recipient')
+    ) {
+      return {
+        retryable: false,
+        reason: 'invalid_recipient',
+        code,
+        responseCode,
+      };
+    }
+
+    const transientCodes = new Set([
+      'ETIMEDOUT',
+      'ECONNRESET',
+      'ECONNREFUSED',
+      'EPIPE',
+      'ESOCKET',
+      'ECONNECTION',
+      'ENOTFOUND',
+      'EAI_AGAIN',
+      'EHOSTUNREACH',
+    ]);
+
+    if (code && transientCodes.has(code)) {
+      return {
+        retryable: true,
+        reason: 'network_transient',
+        code,
+        responseCode,
+      };
+    }
+
+    if (responseCode !== null && responseCode >= 400 && responseCode < 500) {
+      return {
+        retryable: true,
+        reason: 'smtp_4xx_transient',
+        code,
+        responseCode,
+      };
+    }
+
+    return {
+      retryable: false,
+      reason: 'non_retryable',
+      code,
+      responseCode,
+    };
+  }
+
+  private withDeliveryContext(
+    err: unknown,
+    context: DeliveryErrorContext,
+  ): Error {
+    const baseError =
+      err instanceof Error ? err : new Error(this.errMessage(err));
+    const output = baseError as Error & DeliveryErrorContext;
+
+    if (context.to) output.to = context.to;
+    if (typeof context.latencyMs === 'number')
+      output.latencyMs = context.latencyMs;
+    if (context.smtpResponse) output.smtpResponse = context.smtpResponse;
+
+    return output;
+  }
+
+  private extractErrorContext(err: unknown): DeliveryErrorContext {
+    const record = this.toRecord(err);
+    const to = typeof record.to === 'string' ? record.to : undefined;
+    const latencyMs =
+      typeof record.latencyMs === 'number' ? record.latencyMs : undefined;
+    const smtpResponse =
+      typeof record.response === 'string'
+        ? record.response
+        : typeof record.smtpResponse === 'string'
+          ? record.smtpResponse
+          : undefined;
+    return { to, latencyMs, smtpResponse };
+  }
+
+  private toRecord(value: unknown): Record<string, unknown> {
+    if (typeof value !== 'object' || value === null) return {};
+    return value as Record<string, unknown>;
   }
 
   private safeJson(s: string): JsonObject {
@@ -199,6 +540,29 @@ export class NotificationsWorker {
     return 'Unknown notification delivery error';
   }
 
+  private incrementMetric(metric: keyof WorkerMetrics) {
+    this.metrics[metric] += 1;
+    this.logger.log(
+      `NOTIFICATION_EMAIL_METRICS ${JSON.stringify(this.metrics)}`,
+    );
+  }
+
+  private logEmailAttempt(
+    level: 'log' | 'warn' | 'error',
+    payload: Record<string, unknown>,
+  ) {
+    const line = `NOTIFICATION_EMAIL_ATTEMPT ${JSON.stringify(payload)}`;
+    if (level === 'warn') {
+      this.logger.warn(line);
+      return;
+    }
+    if (level === 'error') {
+      this.logger.error(line);
+      return;
+    }
+    this.logger.log(line);
+  }
+
   private mapSubject(type: string, payload: JsonObject): string {
     switch (type) {
       case 'EMAIL_VERIFICATION_OTP':
@@ -208,10 +572,13 @@ export class NotificationsWorker {
       case 'BOOKING_CANCELLED':
       case 'BOOKING_CANCELLED_BY_GUEST':
         return 'Booking cancelled';
+      case 'PAYMENT_FAILED':
+        return 'Payment failed for your booking';
+      case 'SMTP_TEST':
+        return 'SMTP Test — Success';
       case 'OPS_TASKS_CREATED':
         return 'Your stay services are scheduled';
       default: {
-        // fallback but professional
         const ref = this.getNested(payload, 'booking.id');
         if (typeof ref === 'string' && ref.trim())
           return `Update for booking ${ref.trim()}`;
@@ -225,36 +592,82 @@ export class NotificationsWorker {
     type: string,
     payload: JsonObject,
   ): string {
-    // Only EMAIL in V1
     if (channel !== NotificationChannel.EMAIL) {
       return JSON.stringify({ type, payload });
     }
 
     const fileName = this.mapTemplate(type);
-    const templatePath = path.join(__dirname, 'templates', fileName);
+    const templatePath = this.resolveTemplatePath(fileName);
 
-    // If template missing, fallback to JSON output
-    if (!fs.existsSync(templatePath)) {
+    if (!templatePath) {
       return JSON.stringify({ type, payload }, null, 2);
     }
 
     const html = fs.readFileSync(templatePath, 'utf8');
+    const payloadBrand = this.getNested(payload, 'brand');
+    const brandOverrides = this.isObject(payloadBrand) ? payloadBrand : {};
 
-    // Inject standard brand fields if not present
     const merged: JsonObject = {
-      brand: {
-        name: 'Laugh & Lodge',
-        legalName: 'Laugh & Lodge Vocation Homes Rental LLC',
-        domain: 'rentpropertyuae.com',
-        supportEmail: 'Info@rentpropertyuae.com',
-        bookingEmail: 'Booking@rentpropertyuae.com',
-        phone: '+971502348756',
-        country: 'United Arab Emirates',
-      },
       ...payload,
+      brand: {
+        ...this.defaultBrand(),
+        ...brandOverrides,
+      },
     };
 
     return this.simpleInterpolate(html, merged);
+  }
+
+  private defaultBrand() {
+    return {
+      name: 'RentPropertyUAE',
+      legalName: 'RentPropertyUAE',
+      domain: 'rentpropertyuae.com',
+      supportEmail: 'info@rentpropertyuae.com',
+      bookingEmail: 'booking@rentpropertyuae.com',
+      phone: '+971 50 234 8756',
+      country: 'United Arab Emirates',
+      logoUrl:
+        (process.env.BRAND_LOGO_URL || '').trim() ||
+        'https://rentpropertyuae.com/brand/logo.svg',
+    };
+  }
+
+  private resolveTemplatePath(fileName: string): string | null {
+    const candidates = [
+      path.join(__dirname, 'templates', fileName),
+      path.join(
+        process.cwd(),
+        'src',
+        'modules',
+        'notifications',
+        'templates',
+        fileName,
+      ),
+      path.join(
+        process.cwd(),
+        'dist',
+        'src',
+        'modules',
+        'notifications',
+        'templates',
+        fileName,
+      ),
+      path.join(
+        process.cwd(),
+        'dist',
+        'modules',
+        'notifications',
+        'templates',
+        fileName,
+      ),
+    ];
+
+    for (const candidate of candidates) {
+      if (fs.existsSync(candidate)) return candidate;
+    }
+
+    return null;
   }
 
   private mapTemplate(type: string) {
@@ -266,35 +679,38 @@ export class NotificationsWorker {
       case 'BOOKING_CANCELLED':
       case 'BOOKING_CANCELLED_BY_GUEST':
         return 'booking-cancelled.html';
+      case 'PAYMENT_FAILED':
+        return 'payment-failed.html';
+      case 'SMTP_TEST':
+        return 'smtp-test.html';
       case 'OPS_TASKS_CREATED':
         return 'ops-tasks-created.html';
       default:
-        // fallback to something harmless
         return 'booking-confirmed.html';
     }
   }
 
   private simpleInterpolate(html: string, payload: JsonObject) {
-    // Minimal templating: {{key}} replacements
     return html.replace(
       /\{\{\s*([a-zA-Z0-9_.]+)\s*\}\}/g,
       (_m, key: string) => {
         const value = this.getNested(payload, key);
         if (value === null || value === undefined) return '';
+
         if (
           typeof value === 'string' ||
           typeof value === 'number' ||
           typeof value === 'boolean' ||
           typeof value === 'bigint'
         ) {
-          return String(value);
+          return this.escapeHtml(String(value));
         }
         if (value instanceof Date) {
-          return value.toISOString();
+          return this.escapeHtml(value.toISOString());
         }
         if (Array.isArray(value) || this.isObject(value)) {
           try {
-            return JSON.stringify(value);
+            return this.escapeHtml(JSON.stringify(value));
           } catch {
             return '';
           }
@@ -302,6 +718,15 @@ export class NotificationsWorker {
         return '';
       },
     );
+  }
+
+  private escapeHtml(input: string): string {
+    return input
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&#39;');
   }
 
   private getNested(obj: JsonObject, key: string): unknown {

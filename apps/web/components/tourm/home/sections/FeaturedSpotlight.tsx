@@ -3,8 +3,16 @@
 import Image from "next/image";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { ArrowLeft, ArrowRight, ChevronLeft, ChevronRight } from "lucide-react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import type { SearchPropertyCard } from "@/lib/api/publicTypes";
 
 type FeaturedSpotlightProps = {
@@ -13,9 +21,48 @@ type FeaturedSpotlightProps = {
   items: ReadonlyArray<SearchPropertyCard>;
 };
 
+type DragState = {
+  pointerId: number | null;
+  down: boolean;
+  moved: boolean;
+  axis: "none" | "horizontal" | "vertical";
+  startX: number;
+  startY: number;
+  rawDx: number;
+  rawDy: number;
+};
+
+type SlotProfile = {
+  scale: number;
+  blur: number;
+  brightness: number;
+  dim: number;
+  opacity: number;
+  shadow: string;
+  zIndex: number;
+};
+
+type CursorState = {
+  x: number;
+  y: number;
+  visible: boolean;
+  pressed: boolean;
+};
+
+const SLOT_OFFSETS = [-2, -1, 0, 1, 2] as const;
+const DRAG_SENSITIVITY = 0.26;
+const SNAP_MS = 460;
+const CLICK_DRAG_THRESHOLD = 8;
+const INTENT_LOCK_THRESHOLD = 8;
+
+function safeText(v: string | null | undefined): string {
+  return (v ?? "").trim();
+}
+
 function formatMoney(amount: number | null | undefined, currency: string | null | undefined): string {
   if (amount === null || amount === undefined) return "";
-  const c = (currency ?? "").trim();
+  const c = safeText(currency);
+
   try {
     const nf = new Intl.NumberFormat(undefined, { maximumFractionDigits: 0 });
     return c ? `${nf.format(amount)} ${c}` : nf.format(amount);
@@ -24,232 +71,423 @@ function formatMoney(amount: number | null | undefined, currency: string | null 
   }
 }
 
-function safeText(v: string | null | undefined): string {
-  return (v ?? "").trim();
+function ensureRotationSize(items: ReadonlyArray<SearchPropertyCard>, minCount: number): SearchPropertyCard[] {
+  const clean = items.filter((it) => Boolean(safeText(it?.slug)));
+  if (!clean.length) return [];
+  if (clean.length >= minCount) return [...clean];
+
+  const expanded = [...clean];
+  let cursor = 0;
+
+  while (expanded.length < minCount) {
+    expanded.push(clean[cursor % clean.length]);
+    cursor += 1;
+  }
+
+  return expanded;
 }
 
-type DragState = {
-  down: boolean;
-  moved: boolean;
-  startX: number;
-  startLeft: number;
-};
-
-function useDragScroller() {
-  const ref = useRef<HTMLDivElement | null>(null);
-  const st = useRef<DragState>({
-    down: false,
-    moved: false,
-    startX: 0,
-    startLeft: 0,
-  });
-
-  const [dragging, setDragging] = useState(false);
+function useViewportWidth() {
+  const [vw, setVw] = useState(1280);
 
   useEffect(() => {
-    const nodeCandidate = ref.current;
-    if (!nodeCandidate) return;
-    const node: HTMLDivElement = nodeCandidate;
-
-    function onDown(e: PointerEvent) {
-      if (e.pointerType === "mouse" && e.button !== 0) return;
-
-      st.current.down = true;
-      st.current.moved = false;
-      st.current.startX = e.clientX;
-      st.current.startLeft = node.scrollLeft;
-      setDragging(false);
-
-      node.classList.add("cursor-grabbing");
-      node.classList.remove("cursor-grab");
-    }
-
-    function onMove(e: PointerEvent) {
-      if (!st.current.down) return;
-
-      const dx = e.clientX - st.current.startX;
-
-      if (!st.current.moved && Math.abs(dx) > 6) {
-        st.current.moved = true;
-        setDragging(true);
-      }
-
-      if (st.current.moved) {
-        node.scrollLeft = st.current.startLeft - dx;
-      }
-    }
-
-    function onUp() {
-      if (!st.current.down) return;
-      st.current.down = false;
-
-      node.classList.remove("cursor-grabbing");
-      node.classList.add("cursor-grab");
-
-      if (st.current.moved) {
-        window.setTimeout(() => setDragging(false), 120);
-      } else {
-        setDragging(false);
-      }
-    }
-
-    node.addEventListener("pointerdown", onDown);
-    node.addEventListener("pointermove", onMove);
-    node.addEventListener("pointerup", onUp);
-    node.addEventListener("pointercancel", onUp);
-
-    return () => {
-      node.removeEventListener("pointerdown", onDown);
-      node.removeEventListener("pointermove", onMove);
-      node.removeEventListener("pointerup", onUp);
-      node.removeEventListener("pointercancel", onUp);
-    };
+    const onResize = () => setVw(window.innerWidth);
+    onResize();
+    window.addEventListener("resize", onResize, { passive: true });
+    return () => window.removeEventListener("resize", onResize);
   }, []);
 
-  const didDrag = () => st.current.moved;
-
-  return { ref, dragging, didDrag };
+  return vw;
 }
 
-type ClickIntent = {
-  downAt: number;
-  downX: number;
-  downY: number;
-};
+function clamp01(v: number) {
+  return Math.max(0, Math.min(1, v));
+}
+
+function lerp(a: number, b: number, t: number) {
+  return a + (b - a) * t;
+}
+
+function easeOut(t: number) {
+  return 1 - Math.pow(1 - clamp01(t), 3);
+}
+
+function profileForDistance(distanceRaw: number): SlotProfile {
+  const d = Math.abs(distanceRaw);
+  const nearT = clamp01(d);
+  const farT = clamp01(d - 1);
+
+  const scale = d <= 1 ? lerp(1.1, 0.94, nearT) : lerp(0.94, 0.89, farT);
+  const blur = d <= 1 ? lerp(0, 2.8, nearT) : lerp(2.8, 4.6, farT);
+  const brightness = d <= 1 ? lerp(1, 0.9, nearT) : lerp(0.9, 0.84, farT);
+  const dim = d <= 1 ? lerp(0, 0.18, nearT) : lerp(0.18, 0.26, farT);
+  const opacity = d <= 1 ? lerp(1, 0.95, nearT) : lerp(0.95, 0.9, farT);
+  const zIndex = Math.round(60 - Math.min(24, d * 10));
+
+  const shadowAlpha = d <= 1 ? lerp(0.36, 0.22, nearT) : lerp(0.22, 0.18, farT);
+  const shadowY = d <= 1 ? lerp(42, 22, nearT) : lerp(22, 14, farT);
+  const shadowBlur = d <= 1 ? lerp(112, 66, nearT) : lerp(66, 44, farT);
+
+  return {
+    scale,
+    blur,
+    brightness,
+    dim,
+    opacity,
+    shadow: `0 ${shadowY}px ${shadowBlur}px rgba(2, 10, 20, ${shadowAlpha})`,
+    zIndex,
+  };
+}
 
 export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
   const router = useRouter();
-  const list = props.items.slice(0, 12);
+  const vw = useViewportWidth();
+  const list = useMemo(() => ensureRotationSize(props.items, 9), [props.items]);
 
-  const snapIds = useMemo(() => list.map((it) => `featured_${it.id}`), [list]);
-  const initialIdx = useMemo(
-    () => (list.length ? Math.floor(list.length / 2) : 0),
+  const scrollerRef = useRef<HTMLDivElement | null>(null);
+  const dragRef = useRef<DragState>({
+    pointerId: null,
+    down: false,
+    moved: false,
+    axis: "none",
+    startX: 0,
+    startY: 0,
+    rawDx: 0,
+    rawDy: 0,
+  });
+
+  const suppressClickRef = useRef(false);
+  const dragOffsetRef = useRef(0);
+  const snapFrameRef = useRef<number | null>(null);
+  const snappingRef = useRef(false);
+  const wheelLockRef = useRef(false);
+  const wheelLockTimerRef = useRef<number | null>(null);
+
+  const [activeIdx, setActiveIdx] = useState(0);
+  const [dragging, setDragging] = useState(false);
+  const [dragOffset, setDragOffset] = useState(0);
+  const [stageWidth, setStageWidth] = useState(0);
+  const [cursor, setCursor] = useState<CursorState>({ x: 0, y: 0, visible: false, pressed: false });
+  const cursorFrameRef = useRef<number | null>(null);
+  const cursorPosRef = useRef({ x: 0, y: 0 });
+
+  const dims = useMemo(() => {
+    if (vw < 640) {
+      return {
+        cardW: 173,
+        slotStep: 97,
+        stageH: 286,
+      };
+    }
+
+    if (vw < 1024) {
+      return {
+        cardW: 258,
+        slotStep: 140,
+        stageH: 422,
+      };
+    }
+
+    if (vw < 1440) {
+      return {
+        cardW: 364,
+        slotStep: 198,
+        stageH: 580,
+      };
+    }
+
+    return {
+      cardW: 389,
+      slotStep: 212,
+      stageH: 620,
+    };
+  }, [vw]);
+
+  const dragThreshold = Math.max(52, dims.slotStep * 0.26);
+
+  const wrapIndex = useCallback(
+    (idx: number) => {
+      if (!list.length) return 0;
+      return ((idx % list.length) + list.length) % list.length;
+    },
     [list.length],
   );
 
-  const { ref: scrollerRef, dragging, didDrag } = useDragScroller();
-  const [activeIdx, setActiveIdx] = useState<number>(initialIdx);
+  const animateOffsetTo = useCallback((target: number, onDone?: () => void) => {
+    if (snapFrameRef.current) {
+      window.cancelAnimationFrame(snapFrameRef.current);
+      snapFrameRef.current = null;
+    }
 
-  const clickIntent = useRef<ClickIntent | null>(null);
+    const from = dragOffsetRef.current;
+    if (Math.abs(target - from) < 0.8) {
+      dragOffsetRef.current = target;
+      setDragOffset(target);
+      onDone?.();
+      return;
+    }
 
-  const centerToIdxNoVertical = useCallback((idx: number) => {
-    const el = scrollerRef.current;
-    if (!el) return;
+    const startAt = performance.now();
+    snappingRef.current = true;
 
-    const max = Math.max(0, snapIds.length - 1);
-    const clamped = Math.max(0, Math.min(idx, max));
-    const target = el.querySelector<HTMLElement>(`#${snapIds[clamped]}`);
-    if (!target) return;
+    const tick = (now: number) => {
+      const t = clamp01((now - startAt) / SNAP_MS);
+      const eased = easeOut(t);
+      const next = from + (target - from) * eased;
 
-    // HARD RULE: never use scrollIntoView. Only horizontal math.
-    // Use offsetLeft math (no viewport/rect math required).
-    const targetCenter = target.offsetLeft + target.offsetWidth / 2;
-    const elCenter = el.clientWidth / 2;
-    const nextLeft = Math.max(0, targetCenter - elCenter);
-    el.scrollLeft = nextLeft;
-  }, [scrollerRef, snapIds]);
+      dragOffsetRef.current = next;
+      setDragOffset(next);
 
-  const scrollToIdx = useCallback((idx: number) => {
-    const el = scrollerRef.current;
-    if (!el) return;
+      if (t >= 1) {
+        snapFrameRef.current = null;
+        onDone?.();
+        return;
+      }
 
-    const max = Math.max(0, snapIds.length - 1);
-    const clamped = Math.max(0, Math.min(idx, max));
-    const target = el.querySelector<HTMLElement>(`#${snapIds[clamped]}`);
-    if (!target) return;
+      snapFrameRef.current = window.requestAnimationFrame(tick);
+    };
 
-    const targetCenter = target.offsetLeft + target.offsetWidth / 2;
-    const elCenter = el.clientWidth / 2;
-    const nextLeft = Math.max(0, targetCenter - elCenter);
+    snapFrameRef.current = window.requestAnimationFrame(tick);
+  }, []);
 
-    el.scrollTo({ left: nextLeft, behavior: "smooth" });
-  }, [scrollerRef, snapIds]);
+  const moveByOne = useCallback(
+    (step: 1 | -1) => {
+      if (!list.length) return;
+      if (dragRef.current.down || snappingRef.current) return;
 
-  // Start centered (middle active) — WITHOUT scrolling the page vertically.
+      const target = step > 0 ? -dims.slotStep : dims.slotStep;
+      animateOffsetTo(target, () => {
+        setActiveIdx((v) => wrapIndex(v + step));
+        dragOffsetRef.current = 0;
+        setDragOffset(0);
+        snappingRef.current = false;
+      });
+    },
+    [animateOffsetTo, dims.slotStep, list.length, wrapIndex],
+  );
+
   useEffect(() => {
+    dragOffsetRef.current = dragOffset;
+  }, [dragOffset]);
+
+  useEffect(() => {
+    const node = scrollerRef.current;
+    if (!node) return;
+
+    const update = () => setStageWidth(node.clientWidth);
+    update();
+
+    if (typeof ResizeObserver !== "undefined") {
+      const ro = new ResizeObserver(() => update());
+      ro.observe(node);
+      return () => ro.disconnect();
+    }
+
+    window.addEventListener("resize", update, { passive: true });
+    return () => window.removeEventListener("resize", update);
+  }, []);
+
+  useEffect(() => {
+    return () => {
+      if (cursorFrameRef.current) {
+        window.cancelAnimationFrame(cursorFrameRef.current);
+      }
+      if (snapFrameRef.current) {
+        window.cancelAnimationFrame(snapFrameRef.current);
+      }
+      if (wheelLockTimerRef.current) {
+        window.clearTimeout(wheelLockTimerRef.current);
+      }
+    };
+  }, []);
+
+  const onStagePointerDown = useCallback((e: ReactPointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === "mouse" && e.button !== 0) return;
     if (!list.length) return;
 
-    // double RAF ensures layout is stable (prevents any accidental jank)
-    const raf1 = window.requestAnimationFrame(() => {
-      const raf2 = window.requestAnimationFrame(() => {
-        centerToIdxNoVertical(initialIdx);
-      });
-      window.cancelAnimationFrame(raf2);
-    });
+    const node = scrollerRef.current;
+    if (!node) return;
 
-    return () => window.cancelAnimationFrame(raf1);
-  }, [centerToIdxNoVertical, initialIdx, list.length]);
+    dragRef.current.pointerId = e.pointerId;
+    dragRef.current.down = true;
+    dragRef.current.moved = false;
+    dragRef.current.axis = "none";
+    dragRef.current.startX = e.clientX;
+    dragRef.current.startY = e.clientY;
+    dragRef.current.rawDx = 0;
+    dragRef.current.rawDy = 0;
 
-  // Active index from closest-to-center.
-  useEffect(() => {
-    const elCandidate = scrollerRef.current;
-    if (!elCandidate) return;
-    const el: HTMLDivElement = elCandidate;
+    setDragging(false);
+    if (snapFrameRef.current) {
+      window.cancelAnimationFrame(snapFrameRef.current);
+      snapFrameRef.current = null;
+    }
+    snappingRef.current = false;
+    if (e.pointerType === "mouse") {
+      setCursor((prev) => ({ ...prev, visible: true, pressed: true }));
+    }
 
-    let raf = 0;
+  }, [list.length]);
 
-    function onScroll() {
-      if (raf) return;
-      raf = window.requestAnimationFrame(() => {
-        raf = 0;
+  const onStagePointerMove = useCallback(
+    (e: ReactPointerEvent<HTMLDivElement>) => {
+      const node = scrollerRef.current;
+      if (!node) return;
+      if (!dragRef.current.down) return;
 
-        const centerX = el.scrollLeft + el.clientWidth / 2;
+      const rawDx = e.clientX - dragRef.current.startX;
+      const rawDy = e.clientY - dragRef.current.startY;
+      dragRef.current.rawDx = rawDx;
+      dragRef.current.rawDy = rawDy;
 
-        let best = 0;
-        let bestDist = Number.POSITIVE_INFINITY;
+      if (dragRef.current.axis === "none") {
+        const absX = Math.abs(rawDx);
+        const absY = Math.abs(rawDy);
 
-        for (let i = 0; i < snapIds.length; i += 1) {
-          const node = el.querySelector<HTMLElement>(`#${snapIds[i]}`);
-          if (!node) continue;
-          const nodeCenter = node.offsetLeft + node.offsetWidth / 2;
-          const d = Math.abs(centerX - nodeCenter);
-          if (d < bestDist) {
-            bestDist = d;
-            best = i;
+        if (absX < INTENT_LOCK_THRESHOLD && absY < INTENT_LOCK_THRESHOLD) return;
+
+        if (absY > absX) {
+          dragRef.current.pointerId = null;
+          dragRef.current.down = false;
+          dragRef.current.axis = "vertical";
+          dragRef.current.rawDx = 0;
+          dragRef.current.rawDy = 0;
+          setDragging(false);
+          setCursor((prev) => ({ ...prev, pressed: false }));
+          if (node.hasPointerCapture(e.pointerId)) {
+            node.releasePointerCapture(e.pointerId);
           }
+          return;
         }
 
-        setActiveIdx(best);
+        dragRef.current.axis = "horizontal";
+        if (dragRef.current.pointerId !== null && !node.hasPointerCapture(dragRef.current.pointerId)) {
+          node.setPointerCapture(dragRef.current.pointerId);
+        }
+      }
+
+      if (dragRef.current.axis !== "horizontal") return;
+      e.preventDefault();
+
+      if (!dragRef.current.moved && Math.abs(rawDx) > CLICK_DRAG_THRESHOLD) {
+        dragRef.current.moved = true;
+        setDragging(true);
+      }
+
+      if (!dragRef.current.moved) return;
+
+      const eased = Math.max(-dims.slotStep * 0.95, Math.min(dims.slotStep * 0.95, rawDx * DRAG_SENSITIVITY));
+      dragOffsetRef.current = eased;
+      setDragOffset(eased);
+    },
+    [dims.slotStep],
+  );
+
+  const onStagePointerUp = useCallback(
+    () => {
+      const node = scrollerRef.current;
+      if (!node || !dragRef.current.down) return;
+
+      if (
+        dragRef.current.pointerId !== null &&
+        node.hasPointerCapture(dragRef.current.pointerId)
+      ) {
+        node.releasePointerCapture(dragRef.current.pointerId);
+      }
+
+      const moved = dragRef.current.moved;
+      const rawDx = dragRef.current.rawDx;
+
+      dragRef.current.pointerId = null;
+      dragRef.current.down = false;
+      dragRef.current.axis = "none";
+      dragRef.current.rawDx = 0;
+      dragRef.current.rawDy = 0;
+
+      let step: 1 | -1 | 0 = 0;
+      if (moved && Math.abs(rawDx) >= dragThreshold) {
+        step = rawDx < 0 ? 1 : -1;
+        suppressClickRef.current = true;
+        window.setTimeout(() => {
+          suppressClickRef.current = false;
+        }, 220);
+      }
+
+      setDragging(false);
+      setCursor((prev) => ({ ...prev, pressed: false }));
+
+      const target = step === 0 ? 0 : step > 0 ? -dims.slotStep : dims.slotStep;
+      animateOffsetTo(target, () => {
+        if (step !== 0) {
+          setActiveIdx((v) => wrapIndex(v + step));
+        }
+        dragOffsetRef.current = 0;
+        setDragOffset(0);
+        snappingRef.current = false;
       });
-    }
+    },
+    [animateOffsetTo, dims.slotStep, dragThreshold, wrapIndex],
+  );
 
-    el.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
+  const onStageWheel = useCallback(
+    (e: ReactWheelEvent<HTMLDivElement>) => {
+      if (list.length < 2) return;
+      const absX = Math.abs(e.deltaX);
+      const absY = Math.abs(e.deltaY);
+      if (absX < 0.6 && absY < 0.6) return;
+      if (absX <= absY) return;
 
-    return () => {
-      el.removeEventListener("scroll", onScroll);
-      if (raf) window.cancelAnimationFrame(raf);
-    };
-  }, [scrollerRef, snapIds]);
+      e.preventDefault();
 
-  function onCardPointerDown(e: React.PointerEvent<HTMLDivElement>) {
-    clickIntent.current = { downAt: e.timeStamp, downX: e.clientX, downY: e.clientY };
-  }
+      if (wheelLockRef.current || dragRef.current.down || snappingRef.current) {
+        return;
+      }
 
-  function onCardPointerUp(slug: string, e: React.PointerEvent<HTMLDivElement>) {
-    const intent = clickIntent.current;
-    clickIntent.current = null;
+      const delta = e.deltaX;
+      moveByOne(delta > 0 ? 1 : -1);
 
-    if (didDrag()) return;
+      wheelLockRef.current = true;
+      if (wheelLockTimerRef.current) {
+        window.clearTimeout(wheelLockTimerRef.current);
+      }
+      wheelLockTimerRef.current = window.setTimeout(() => {
+        wheelLockRef.current = false;
+      }, 260);
+    },
+    [list.length, moveByOne],
+  );
 
-    if (!intent) return;
-    const dx = Math.abs(e.clientX - intent.downX);
-    const dy = Math.abs(e.clientY - intent.downY);
-    const dt = e.timeStamp - intent.downAt;
+  const slots = useMemo(() => {
+    if (!list.length) return [];
 
-    if (dx <= 6 && dy <= 6 && dt <= 900) {
-      router.push(`/properties/${slug}`);
-    }
+    const dragProgress = dragOffset / dims.slotStep;
+
+    return SLOT_OFFSETS.map((off) => {
+      const idx = wrapIndex(activeIdx + off);
+      const item = list[idx];
+      const profile = profileForDistance(off + dragProgress);
+      const x = (off + dragProgress) * dims.slotStep;
+
+      return {
+        off,
+        idx,
+        item,
+        profile,
+        x,
+      };
+    });
+  }, [activeIdx, dims.slotStep, dragOffset, list, wrapIndex]);
+
+  if (!list.length) {
+    return null;
   }
 
   return (
-    <section className="relative w-full py-16 sm:py-20">
+    <section className="relative w-full py-[3.7rem] sm:py-[4.625rem]">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
           <div className="max-w-3xl">
-            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-ink/60">
-              Featured
-            </p>
+            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-ink/60">Featured</p>
             <h2 className="mt-2 text-2xl font-semibold tracking-tight text-midnight sm:text-3xl">
               {props.title}
             </h2>
@@ -262,13 +500,13 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
               className="inline-flex items-center gap-2 rounded-full border border-stone bg-white px-5 py-3 text-sm font-extrabold text-midnight shadow-sm transition hover:bg-sand"
             >
               View all stays
-              <ArrowRight className="h-4 w-4 text-ink/70" />
+              <span aria-hidden className="text-ink/70">→</span>
             </Link>
 
             <div className="hidden items-center gap-2 sm:flex">
               <button
                 type="button"
-                onClick={() => scrollToIdx(activeIdx - 1)}
+                onClick={() => moveByOne(-1)}
                 className="grid h-11 w-11 place-items-center rounded-full border border-stone bg-white shadow-sm transition hover:bg-sand"
                 aria-label="Previous"
               >
@@ -276,7 +514,7 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
               </button>
               <button
                 type="button"
-                onClick={() => scrollToIdx(activeIdx + 1)}
+                onClick={() => moveByOne(1)}
                 className="grid h-11 w-11 place-items-center rounded-full border border-stone bg-white shadow-sm transition hover:bg-sand"
                 aria-label="Next"
               >
@@ -286,162 +524,172 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
           </div>
         </div>
 
-        <div className="relative mt-10 rounded-[32px] border border-stone bg-white/55 p-4 shadow-[0_18px_60px_rgba(2,10,20,0.08)] backdrop-blur sm:p-6">
-          <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-20 rounded-[32px] bg-gradient-to-r from-white/90 to-transparent" />
-          <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-20 rounded-[32px] bg-gradient-to-l from-white/90 to-transparent" />
+        <div className="mt-14 w-full sm:mt-16">
+          <div className="mx-auto w-[95%] max-w-[1140px]">
+            <div
+              ref={scrollerRef}
+              className={[
+                "relative select-none touch-none",
+                dragging ? "cursor-grabbing" : "cursor-grab",
+              ].join(" ")}
+              style={{
+                height: dims.stageH,
+                width: "100%",
+                touchAction: "pan-y",
+                willChange: "transform",
+              }}
+              onWheel={onStageWheel}
+              onMouseEnter={() => {
+                setCursor((prev) => ({ ...prev, visible: true }));
+              }}
+              onMouseMove={(e) => {
+                const node = scrollerRef.current;
+                if (!node) return;
 
-          <div className="pointer-events-none absolute left-1/2 top-1/2 z-20 -translate-x-1/2 -translate-y-1/2">
-            <div className="grid h-20 w-20 place-items-center rounded-full border border-white/20 bg-midnight/65 text-white shadow-[0_18px_55px_rgba(2,10,20,0.35)] backdrop-blur-md">
-              <div className="flex items-center gap-2 text-[11px] font-extrabold tracking-[0.22em]">
-                <ArrowLeft className="h-4 w-4 text-white/90" />
-                DRAG
-                <ArrowRight className="h-4 w-4 text-white/90" />
-              </div>
-            </div>
-          </div>
+                const rect = node.getBoundingClientRect();
+                cursorPosRef.current = {
+                  x: e.clientX - rect.left,
+                  y: e.clientY - rect.top,
+                };
 
+                if (cursorFrameRef.current) return;
+                cursorFrameRef.current = window.requestAnimationFrame(() => {
+                  cursorFrameRef.current = null;
+                  setCursor((prev) => ({
+                    ...prev,
+                    visible: true,
+                    x: cursorPosRef.current.x,
+                    y: cursorPosRef.current.y,
+                  }));
+                });
+              }}
+              onMouseLeave={() => {
+                setCursor((prev) => ({ ...prev, visible: false, pressed: false }));
+              }}
+              onPointerDown={onStagePointerDown}
+              onPointerMove={onStagePointerMove}
+              onPointerUp={onStagePointerUp}
+              onPointerCancel={onStagePointerUp}
+            >
           <div
-            ref={scrollerRef}
-            className="no-scrollbar cursor-grab overflow-x-auto scroll-smooth"
+            className={[
+              "pointer-events-none absolute z-[80] hidden h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/45 bg-white/14 backdrop-blur-md transition-all duration-200 md:block",
+              cursor.visible ? "opacity-100" : "opacity-0",
+            ].join(" ")}
             style={{
-              scrollSnapType: "x mandatory",
-              WebkitOverflowScrolling: "touch",
+              left: cursor.x,
+              top: cursor.y,
+              transform: `translate(-50%, -50%) scale(${cursor.pressed ? 1.16 : 1})`,
             }}
-          >
-            <div className="flex items-stretch gap-6 pr-10">
-              <div className="w-[14vw] shrink-0 sm:w-[18vw]" />
+            aria-hidden
+          />
 
-              {list.map((it, idx) => {
-                const isActive = idx === activeIdx;
+          {slots.map((slot) => {
+            const title = safeText(slot.item.title) || "Stay";
+            const cover = safeText(slot.item.coverImageUrl);
+            const price = formatMoney(slot.item.priceFrom, slot.item.currency);
+            const city = safeText(slot.item.city);
+            const area = safeText(slot.item.area);
+            const loc = area ? `${area}${city ? `, ${city}` : ""}` : city;
 
-                const city = safeText(it.city);
-                const area = safeText(it.area);
-                const loc = area ? `${area}${city ? `, ${city}` : ""}` : city;
+            return (
+              <div
+                key={`${slot.off}-${slot.idx}`}
+                className="pointer-events-none absolute top-0"
+                style={{
+                  width: dims.cardW,
+                  left: stageWidth > 0 ? 0 : "50%",
+                  transform:
+                    stageWidth > 0
+                      ? `translate3d(${stageWidth / 2 - dims.cardW / 2 + slot.x}px, 0, 0)`
+                      : `translate3d(calc(-50% + ${slot.x}px), 0, 0)`,
+                  zIndex: slot.profile.zIndex,
+                  willChange: "transform",
+                }}
+              >
+                <div
+                  className="relative w-full overflow-hidden rounded-[2rem] border border-white/35 bg-white"
+                  style={{
+                    boxShadow: slot.profile.shadow,
+                    transform: `scale(${slot.profile.scale})`,
+                    filter: `blur(${slot.profile.blur}px) brightness(${slot.profile.brightness})`,
+                    opacity: slot.profile.opacity,
+                    transition: dragging ? "none" : "transform 120ms linear, filter 120ms linear, opacity 120ms linear",
+                    willChange: "transform, filter, opacity",
+                  }}
+                >
+                  <div className="relative w-full aspect-[4/5]">
+                    {cover ? (
+                      <Image
+                        src={cover}
+                        alt={title}
+                        fill
+                        sizes="(max-width: 639px) 173px, (max-width: 1023px) 258px, (max-width: 1439px) 364px, 389px"
+                        className="object-cover"
+                        priority={slot.off === 0}
+                      />
+                    ) : (
+                      <div className="h-full w-full bg-gradient-to-br from-stone to-white" />
+                    )}
 
-                const title = safeText(it.title) || "Stay";
-                const cover = safeText(it.coverImageUrl);
-                const price = formatMoney(it.priceFrom, it.currency);
+                    <div className="absolute inset-0" style={{ backgroundColor: `rgba(2,10,20,${slot.profile.dim})` }} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-midnight/80 via-midnight/20 to-transparent" />
 
-                const heightClass = isActive
-                  ? "h-[440px] sm:h-[500px]"
-                  : "h-[410px] sm:h-[470px]";
+                    <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
+                      <p className="truncate text-base font-extrabold text-white sm:text-lg">{title}</p>
+                      <p className="mt-1 truncate text-xs text-white/78 sm:text-sm">{loc || "Dubai"}</p>
 
-                const widthClass = isActive
-                  ? "w-[78vw] max-w-[560px] sm:w-[560px]"
-                  : "w-[62vw] max-w-[470px] sm:w-[470px]";
-
-                const visualClass = isActive
-                  ? "scale-[1.02] opacity-100"
-                  : "scale-[0.94] opacity-70 blur-[1.2px]";
-
-                return (
-                  <div
-                    key={it.id}
-                    id={snapIds[idx]}
-                    className={[
-                      "relative shrink-0 overflow-hidden rounded-[34px] border border-stone bg-white shadow-[0_16px_55px_rgba(2,10,20,0.10)] transition-transform duration-300 ease-out",
-                      widthClass,
-                      visualClass,
-                      dragging ? "select-none" : "",
-                    ].join(" ")}
-                    style={{ scrollSnapAlign: "center" }}
-                    onPointerDown={onCardPointerDown}
-                    onPointerUp={(e) => onCardPointerUp(it.slug, e)}
-                    role="link"
-                    tabIndex={0}
-                    aria-label={`Open ${title}`}
-                  >
-                    <div className={["relative w-full", heightClass].join(" ")}>
-                      {cover ? (
-                        <Image
-                          src={cover}
-                          alt={title}
-                          fill
-                          sizes="(max-width: 640px) 80vw, 560px"
-                          className="object-cover"
-                        />
-                      ) : (
-                        <div className="h-full w-full bg-gradient-to-br from-stone to-white" />
-                      )}
-
-                      {!isActive ? <div className="absolute inset-0 bg-white/10 backdrop-blur-[3px]" /> : null}
-
-                      <div className="absolute inset-0 bg-gradient-to-t from-midnight/70 via-midnight/10 to-transparent" />
-
-                      <div className="absolute bottom-0 left-0 right-0 p-5 sm:p-6">
-                        <div className="flex items-end justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-lg font-extrabold text-white sm:text-xl">
-                              {title}
-                            </p>
-                            <p className="mt-1 truncate text-sm text-white/80">{loc || "Dubai"}</p>
-
-                            <div className="mt-3 flex flex-wrap items-center gap-2">
-                              {it.guests ? (
-                                <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-bold text-white/90 backdrop-blur">
-                                  Up to {it.guests} guests
-                                </span>
-                              ) : null}
-                              {it.bedrooms ? (
-                                <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-bold text-white/90 backdrop-blur">
-                                  {it.bedrooms} bed
-                                </span>
-                              ) : null}
-                              {it.bathrooms ? (
-                                <span className="rounded-full border border-white/25 bg-white/10 px-3 py-1 text-xs font-bold text-white/90 backdrop-blur">
-                                  {it.bathrooms} bath
-                                </span>
-                              ) : null}
-                            </div>
-                          </div>
-
-                          <div className="shrink-0 text-right">
-                            {price ? (
-                              <div className="rounded-2xl border border-white/25 bg-white/10 px-4 py-3 text-white backdrop-blur">
-                                <div className="text-xs font-bold text-white/75">from</div>
-                                <div className="text-sm font-extrabold">{price}</div>
-                              </div>
-                            ) : (
-                              <div className="rounded-2xl border border-white/25 bg-white/10 px-4 py-3 text-white/85 backdrop-blur">
-                                <div className="text-xs font-bold">View</div>
-                              </div>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="mt-3 text-xs font-bold text-white/80">
-                          Click to open property →
-                        </div>
+                      <div className="mt-3 flex items-center justify-between gap-2">
+                        <span className="text-[11px] font-bold text-white/80 sm:text-xs">
+                          {slot.item.guests ? `Up to ${slot.item.guests} guests` : "Verified listing"}
+                        </span>
+                        <span className="shrink-0 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-extrabold text-white sm:text-xs">
+                          {price ? `from ${price}` : "View stay"}
+                        </span>
                       </div>
                     </div>
-                  </div>
-                );
-              })}
 
-              <div className="w-[14vw] shrink-0 sm:w-[18vw]" />
+                    <button
+                      type="button"
+                      className="pointer-events-auto absolute inset-0 cursor-pointer"
+                      aria-label={`Open ${title}`}
+                      onClick={(e) => {
+                        if (suppressClickRef.current || dragRef.current.moved) {
+                          e.preventDefault();
+                          return;
+                        }
+                        router.push(`/properties/${slot.item.slug}`);
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            );
+          })}
             </div>
           </div>
+        </div>
 
-          <div className="mt-5 flex items-center justify-center gap-2">
-            {list.slice(0, 8).map((it, idx) => (
+        <div className="mt-5 flex items-center justify-center gap-2">
+          {list.slice(0, 9).map((it, idx) => {
+            const isActive = idx === wrapIndex(activeIdx);
+            return (
               <button
-                key={it.id}
+                key={`${it.id}-${idx}`}
                 type="button"
-                onClick={() => scrollToIdx(idx)}
-                className={[
-                  "h-2.5 rounded-full transition",
-                  idx === activeIdx ? "w-8 bg-brand" : "w-2.5 bg-stone",
-                ].join(" ")}
+                onClick={() => {
+                  if (snappingRef.current || dragRef.current.down) return;
+                  const current = wrapIndex(activeIdx);
+                  const diff = idx - current;
+                  if (diff === 0) return;
+                  moveByOne(diff > 0 ? 1 : -1);
+                }}
+                className={["h-2.5 rounded-full transition", isActive ? "w-8 bg-brand" : "w-2.5 bg-stone"].join(" ")}
                 aria-label={`Go to featured ${idx + 1}`}
               />
-            ))}
-          </div>
+            );
+          })}
         </div>
-      </div>
-
-      <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -left-24 top-20 h-72 w-72 rounded-full bg-brand/10 blur-3xl" />
-        <div className="absolute -right-24 bottom-10 h-72 w-72 rounded-full bg-midnight/10 blur-3xl" />
       </div>
     </section>
   );

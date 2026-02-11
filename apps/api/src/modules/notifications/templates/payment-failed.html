@@ -27,7 +27,7 @@
           >
             <tr>
               <td
-                style="padding: 22px 24px; background: #0b1220; color: #ffffff"
+                style="padding: 22px 24px; background: #7f1d1d; color: #ffffff"
               >
                 <table
                   role="presentation"
@@ -61,10 +61,10 @@
                   </tr>
                 </table>
                 <div style="font-size: 22px; font-weight: 700; margin-top: 6px">
-                  Verify your email
+                  Payment Failed
                 </div>
                 <div style="font-size: 13px; opacity: 0.85; margin-top: 6px">
-                  Use the code below to continue.
+                  Your booking payment could not be completed.
                 </div>
               </td>
             </tr>
@@ -72,36 +72,91 @@
             <tr>
               <td style="padding: 22px 24px; color: #111827">
                 <div style="font-size: 14px; color: #374151; line-height: 1.6">
-                  Enter this 6-digit verification code in the app:
+                  We were unable to process your payment. Please retry with the
+                  same card or use another payment method.
                 </div>
 
-                <div
+                <table
+                  role="presentation"
+                  width="100%"
+                  cellpadding="0"
+                  cellspacing="0"
                   style="
                     margin-top: 16px;
-                    padding: 18px 16px;
-                    border: 1px dashed #c7ccd6;
+                    border: 1px solid #edf0f6;
                     border-radius: 12px;
-                    background: #f9fafb;
-                    text-align: center;
+                    overflow: hidden;
                   "
                 >
-                  <div
-                    style="
-                      font-size: 32px;
-                      letter-spacing: 8px;
-                      font-weight: 800;
-                      color: #111827;
-                    "
-                  >
-                    {{otp}}
-                  </div>
-                  <div
-                    style="font-size: 12px; color: #6b7280; margin-top: 10px"
-                  >
-                    This code expires soon. If you didn’t request it, you can
-                    ignore this email.
-                  </div>
-                </div>
+                  <tr>
+                    <td
+                      style="
+                        padding: 14px 16px;
+                        background: #f9fafb;
+                        border-bottom: 1px solid #edf0f6;
+                        font-weight: 700;
+                      "
+                    >
+                      Payment details
+                    </td>
+                  </tr>
+                  <tr>
+                    <td style="padding: 14px 16px">
+                      <div
+                        style="
+                          display: flex;
+                          justify-content: space-between;
+                          gap: 12px;
+                          margin: 6px 0;
+                        "
+                      >
+                        <span style="color: #6b7280; font-size: 13px"
+                          >Booking ID</span
+                        >
+                        <span style="font-weight: 700">{{bookingId}}</span>
+                      </div>
+                      <div
+                        style="
+                          display: flex;
+                          justify-content: space-between;
+                          gap: 12px;
+                          margin: 6px 0;
+                        "
+                      >
+                        <span style="color: #6b7280; font-size: 13px"
+                          >Provider</span
+                        >
+                        <span style="font-weight: 600">{{provider}}</span>
+                      </div>
+                      <div
+                        style="
+                          display: flex;
+                          justify-content: space-between;
+                          gap: 12px;
+                          margin: 6px 0;
+                        "
+                      >
+                        <span style="color: #6b7280; font-size: 13px"
+                          >Reason</span
+                        >
+                        <span style="font-weight: 600">{{reason}}</span>
+                      </div>
+                      <div
+                        style="
+                          display: flex;
+                          justify-content: space-between;
+                          gap: 12px;
+                          margin: 6px 0;
+                        "
+                      >
+                        <span style="color: #6b7280; font-size: 13px"
+                          >Reference</span
+                        >
+                        <span style="font-weight: 600">{{reference}}</span>
+                      </div>
+                    </td>
+                  </tr>
+                </table>
 
                 <div
                   style="
@@ -111,21 +166,9 @@
                     line-height: 1.6;
                   "
                 >
-                  Need help? Contact us at
+                  If the issue persists, contact us at
                   <strong>{{brand.supportEmail}}</strong> or
                   <strong>{{brand.phone}}</strong>.
-                </div>
-
-                <div
-                  style="
-                    margin-top: 14px;
-                    font-size: 12px;
-                    color: #9ca3af;
-                    line-height: 1.6;
-                  "
-                >
-                  For your security, never share this code with anyone —
-                  including support agents.
                 </div>
               </td>
             </tr>

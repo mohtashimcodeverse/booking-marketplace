@@ -84,6 +84,12 @@ type SearchCard = {
     alt: string | null;
     category: string;
   } | null;
+  media: Array<{
+    url: string;
+    alt: string | null;
+    category: string;
+    sortOrder: number;
+  }>;
   pricing: {
     nightly: number;
     cleaningFee: number;
@@ -431,8 +437,8 @@ export class SearchService {
           createdAt: true,
           media: {
             orderBy: { sortOrder: 'asc' },
-            take: 1,
-            select: { url: true, alt: true, category: true },
+            take: 8,
+            select: { url: true, alt: true, category: true, sortOrder: true },
           },
         },
       }),
@@ -484,6 +490,12 @@ export class SearchService {
         coverImage: cover
           ? { url: cover.url, alt: cover.alt, category: cover.category }
           : null,
+        media: (p.media ?? []).map((m) => ({
+          url: m.url,
+          alt: m.alt,
+          category: m.category,
+          sortOrder: m.sortOrder,
+        })),
         pricing: price,
         flags: {
           instantBook: p.isInstantBook,

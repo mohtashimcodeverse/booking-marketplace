@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion } from "framer-motion";
 import type { PropertyMedia } from "@/lib/types/property";
 import { ChevronLeft, ChevronRight, X, Images } from "lucide-react";
 
@@ -12,7 +12,7 @@ type Props = {
 };
 
 type GalleryItem = {
-  id: string; // stable key (may be derived)
+  id: string;
   url: string;
   alt: string;
   sortOrder: number;
@@ -95,13 +95,23 @@ export default function PropertyGallery({ media, title }: Props) {
     return () => window.removeEventListener("keydown", onKeyDown);
   }, [open, close, prev, next]);
 
+  useEffect(() => {
+    if (!open) return;
+
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [open]);
+
   const remainingCount = Math.max(0, total - 5);
   const showGrid = grid.length > 0;
 
   return (
     <>
       <div className="grid gap-3">
-        {/* HERO */}
         <motion.div
           className="relative aspect-[16/10] overflow-hidden rounded-2xl"
           initial={{ scale: 0.985, opacity: 0 }}
@@ -152,7 +162,6 @@ export default function PropertyGallery({ media, title }: Props) {
           </div>
         </motion.div>
 
-        {/* GRID */}
         {showGrid ? (
           <div className="grid gap-3 sm:grid-cols-2">
             {grid.map((m, idx) => {
@@ -190,87 +199,106 @@ export default function PropertyGallery({ media, title }: Props) {
         ) : null}
       </div>
 
-      {/* LIGHTBOX MODAL */}
-      {open && items.length > 0 ? (
-        <div className="fixed inset-0 z-50">
-          <button
-            type="button"
-            aria-label="Close gallery"
-            onClick={close}
-            className="absolute inset-0 bg-black/70"
-          />
+      <AnimatePresence>
+        {open && items.length > 0 ? (
+          <motion.div
+            className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            <button
+              type="button"
+              aria-label="Close gallery"
+              onClick={close}
+              className="absolute inset-0 bg-[radial-gradient(circle_at_50%_50%,rgba(12,16,26,0.6),rgba(0,0,0,0.9))]"
+            />
 
-          <div className="absolute inset-0 flex flex-col">
-            <div className="relative z-10 flex items-center justify-between gap-4 px-4 py-3 sm:px-6">
-              <div className="text-xs font-semibold text-white/90">
-                {activeIndex + 1} / {items.length}
-              </div>
-
-              <button
-                type="button"
-                onClick={close}
-                className="inline-flex items-center gap-2 rounded-full bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-white/15"
-              >
-                <X className="h-4 w-4" />
-                Close
-              </button>
-            </div>
-
-            <div className="relative flex-1 px-4 pb-6 sm:px-6">
-              <div className="relative h-full w-full overflow-hidden rounded-3xl bg-black">
-                <Image
-                  src={items[activeIndex].url}
-                  alt={items[activeIndex].alt}
-                  fill
-                  sizes="100vw"
-                  className="object-contain"
-                  priority
-                />
+            <motion.div
+              initial={{ opacity: 0, scale: 0.97, y: 18 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.98, y: 10 }}
+              transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
+              className="relative z-10 w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/15 bg-[#070b12]/95 shadow-[0_30px_100px_rgba(0,0,0,0.55)]"
+            >
+              <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-6">
+                <div className="text-xs font-semibold text-white/90">
+                  {activeIndex + 1} / {items.length}
+                </div>
 
                 <button
                   type="button"
-                  onClick={prev}
-                  aria-label="Previous photo"
-                  className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur transition hover:bg-white/15"
+                  onClick={close}
+                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-white/15"
                 >
-                  <ChevronLeft className="h-5 w-5" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={next}
-                  aria-label="Next photo"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full bg-white/10 p-3 text-white backdrop-blur transition hover:bg-white/15"
-                >
-                  <ChevronRight className="h-5 w-5" />
+                  <X className="h-4 w-4" />
+                  Close
                 </button>
               </div>
 
-              <div className="mt-4 flex gap-2 overflow-x-auto pb-1">
-                {items.map((it, idx) => {
-                  const active = idx === activeIndex;
-                  return (
-                    <button
-                      key={`${it.id}-${idx}`}
-                      type="button"
-                      onClick={() => setActiveIndex(idx)}
-                      className={`relative h-16 w-24 flex-none overflow-hidden rounded-xl border transition sm:h-20 sm:w-32 ${
-                        active ? "border-white" : "border-white/20 hover:border-white/40"
-                      }`}
-                      aria-label={`Go to photo ${idx + 1}`}
-                    >
-                      <Image src={it.url} alt={it.alt} fill sizes="160px" className="object-cover" />
-                      {active ? <div className="absolute inset-0 ring-2 ring-white" /> : <div className="absolute inset-0 bg-black/10" />}
-                    </button>
-                  );
-                })}
-              </div>
+              <div className="px-2 pb-3 pt-3 sm:px-6 sm:pb-6 sm:pt-5">
+                <div className="relative mx-auto h-[62vh] min-h-[320px] max-h-[760px] w-full overflow-hidden rounded-[1.65rem] bg-black/70 sm:h-[70vh]">
+                  <Image
+                    src={items[activeIndex].url}
+                    alt={items[activeIndex].alt}
+                    fill
+                    sizes="100vw"
+                    className="object-contain"
+                    priority
+                  />
 
-              <div className="mt-2 text-center text-[11px] text-white/70">Tip: use ← / → to navigate, Esc to close.</div>
-            </div>
-          </div>
-        </div>
-      ) : null}
+                  <button
+                    type="button"
+                    onClick={prev}
+                    aria-label="Previous photo"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/35 p-3 text-white backdrop-blur transition hover:bg-black/50"
+                  >
+                    <ChevronLeft className="h-5 w-5" />
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={next}
+                    aria-label="Next photo"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/35 p-3 text-white backdrop-blur transition hover:bg-black/50"
+                  >
+                    <ChevronRight className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div className="no-scrollbar mt-4 flex gap-2 overflow-x-auto pb-1">
+                  {items.map((it, idx) => {
+                    const active = idx === activeIndex;
+                    return (
+                      <button
+                        key={`${it.id}-${idx}`}
+                        type="button"
+                        onClick={() => setActiveIndex(idx)}
+                        className={[
+                          "relative h-16 w-24 flex-none overflow-hidden rounded-xl border transition sm:h-20 sm:w-32",
+                          active ? "border-white" : "border-white/20 hover:border-white/40",
+                        ].join(" ")}
+                        aria-label={`Go to photo ${idx + 1}`}
+                      >
+                        <Image src={it.url} alt={it.alt} fill sizes="160px" className="object-cover" />
+                        {active ? (
+                          <div className="absolute inset-0 ring-2 ring-white" />
+                        ) : (
+                          <div className="absolute inset-0 bg-black/10" />
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+
+                <div className="mt-2 text-center text-[11px] text-white/70">
+                  Tip: use ← / → to navigate, Esc to close.
+                </div>
+              </div>
+            </motion.div>
+          </motion.div>
+        ) : null}
+      </AnimatePresence>
     </>
   );
 }

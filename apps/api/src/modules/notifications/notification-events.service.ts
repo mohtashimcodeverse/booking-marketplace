@@ -34,7 +34,7 @@ export class NotificationEventsService {
           payloadJson: JSON.stringify(input.payload ?? {}),
         },
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       // Idempotency fallback: re-fetch by unique tuple
       const existing = await this.prisma.notificationEvent.findFirst({
         where: {
@@ -55,9 +55,14 @@ export class NotificationEventsService {
    * Fetch a batch of pending events. Lightweight select for worker.
    */
   async findPendingBatch(limit: number) {
+    const now = new Date();
+
     return this.prisma.notificationEvent.findMany({
-      where: { status: NotificationStatus.PENDING },
-      orderBy: { createdAt: 'asc' },
+      where: {
+        status: NotificationStatus.PENDING,
+        nextAttemptAt: { lte: now },
+      },
+      orderBy: [{ nextAttemptAt: 'asc' }, { createdAt: 'asc' }],
       take: limit,
       select: {
         id: true,
@@ -69,6 +74,7 @@ export class NotificationEventsService {
         recipientUserId: true,
         payloadJson: true,
         attempts: true,
+        nextAttemptAt: true,
         createdAt: true,
       },
     });
@@ -79,18 +85,21 @@ export class NotificationEventsService {
    * This prevents duplicate deliveries when multiple pods/instances are running.
    */
   async claimIfPending(eventId: string, expectedAttempts: number) {
-    const res = await this.prisma.notificationEvent.updateMany({
+    const now = new Date();
+
+    const rawResult: unknown = await this.prisma.notificationEvent.updateMany({
       where: {
         id: eventId,
         status: NotificationStatus.PENDING,
         attempts: expectedAttempts,
+        nextAttemptAt: { lte: now },
       },
       data: {
         attempts: { increment: 1 },
       },
     });
 
-    return res.count === 1;
+    return this.extractBatchCount(rawResult) === 1;
   }
 
   async markSent(eventId: string) {
@@ -121,5 +130,53 @@ export class NotificationEventsService {
         lastError: errorMessage.slice(0, 2000),
       },
     });
+  }
+
+  async scheduleRetry(
+    eventId: string,
+    errorMessage: string,
+    nextAttemptAt: Date,
+  ) {
+    return this.prisma.notificationEvent.update({
+      where: { id: eventId },
+      data: {
+        status: NotificationStatus.PENDING,
+        lastError: errorMessage.slice(0, 2000),
+        nextAttemptAt,
+      },
+    });
+  }
+
+  async findRecentFailures(limit: number) {
+    return this.prisma.notificationEvent.findMany({
+      where: {
+        status: NotificationStatus.FAILED,
+        channel: NotificationChannel.EMAIL,
+      },
+      orderBy: { createdAt: 'desc' },
+      take: limit,
+      select: {
+        id: true,
+        type: true,
+        status: true,
+        recipientUserId: true,
+        attempts: true,
+        lastError: true,
+        createdAt: true,
+        sentAt: true,
+        entityType: true,
+        entityId: true,
+        nextAttemptAt: true,
+        recipientUser: {
+          select: { email: true },
+        },
+      },
+    });
+  }
+
+  private extractBatchCount(value: unknown): number {
+    if (typeof value !== 'object' || value === null) return 0;
+    const record = value as Record<string, unknown>;
+    return typeof record.count === 'number' ? record.count : 0;
   }
 }
