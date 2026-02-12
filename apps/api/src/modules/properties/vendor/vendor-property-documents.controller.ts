@@ -9,7 +9,7 @@ import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { UserRole, type User } from '@prisma/client';
 import { PropertyDocumentsService } from '../documents/property-documents.service';
 
-@Controller('/api/vendor/properties/:propertyId/documents')
+@Controller('vendor/properties/:propertyId/documents')
 @UseGuards(JwtAccessGuard, RolesGuard)
 @Roles(UserRole.VENDOR)
 export class VendorPropertyDocumentsController {

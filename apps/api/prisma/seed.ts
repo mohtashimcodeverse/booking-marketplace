@@ -31,6 +31,10 @@ import {
 const prisma = new PrismaClient();
 
 const SEED_PASSWORD = (process.env.SEED_PASSWORD ?? 'Password123!').trim();
+const DB_CONNECT_MAX_ATTEMPTS = 3;
+const DB_CONNECT_RETRY_DELAY_MS = 2_000;
+const SEED_RUN_MAX_ATTEMPTS = 3;
+const SEED_RUN_RETRY_DELAY_MS = 3_000;
 
 const TARGET_COUNTS = {
   vendors: 15,
@@ -420,6 +424,52 @@ async function cleanAll() {
   await prisma.user.deleteMany().catch(() => undefined);
 }
 
+function errorToMessage(error: unknown): string {
+  if (error instanceof Error && error.message.trim().length > 0) {
+    return error.message;
+  }
+  return String(error);
+}
+
+function hasPrismaCode(error: unknown, code: string): boolean {
+  if (typeof error !== 'object' || error === null) {
+    return false;
+  }
+  const maybeError = error as { code?: unknown };
+  return maybeError.code === code;
+}
+
+async function wait(ms: number): Promise<void> {
+  await new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function preflightDatabaseConnection() {
+  for (let attempt = 1; attempt <= DB_CONNECT_MAX_ATTEMPTS; attempt++) {
+    try {
+      // eslint-disable-next-line no-console
+      console.log(
+        `[seed] DB preflight: connecting (attempt ${attempt}/${DB_CONNECT_MAX_ATTEMPTS})...`,
+      );
+      await prisma.$connect();
+      // eslint-disable-next-line no-console
+      console.log('[seed] DB preflight: connection established.');
+      return;
+    } catch (error: unknown) {
+      const message = errorToMessage(error);
+      if (attempt >= DB_CONNECT_MAX_ATTEMPTS) {
+        throw new Error(
+          `DB unreachable; check Render allowlist/status/network. Last error: ${message}`,
+        );
+      }
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[seed] DB preflight failed on attempt ${attempt}/${DB_CONNECT_MAX_ATTEMPTS}: ${message}`,
+      );
+      await wait(DB_CONNECT_RETRY_DELAY_MS);
+    }
+  }
+}
+
 async function seedAmenityCatalog() {
   for (const g of AMENITY_GROUPS) {
     await prisma.amenityGroup.upsert({
@@ -539,6 +589,8 @@ async function main() {
   if (!process.env.DATABASE_URL) {
     throw new Error('DATABASE_URL is missing. Put it in apps/api/.env');
   }
+
+  await preflightDatabaseConnection();
 
   const rand = mulberry32(20260211);
   const now = new Date();
@@ -1536,7 +1588,37 @@ async function main() {
   });
 }
 
-main()
+async function runSeedWithRetry() {
+  for (let attempt = 1; attempt <= SEED_RUN_MAX_ATTEMPTS; attempt++) {
+    try {
+      if (attempt > 1) {
+        // eslint-disable-next-line no-console
+        console.log(
+          `[seed] Retrying full seed run (attempt ${attempt}/${SEED_RUN_MAX_ATTEMPTS})...`,
+        );
+      }
+
+      await main();
+      return;
+    } catch (error: unknown) {
+      const shouldRetry =
+        hasPrismaCode(error, 'P1001') && attempt < SEED_RUN_MAX_ATTEMPTS;
+
+      if (!shouldRetry) {
+        throw error;
+      }
+
+      // eslint-disable-next-line no-console
+      console.warn(
+        `[seed] Transient DB connectivity issue while seeding (attempt ${attempt}/${SEED_RUN_MAX_ATTEMPTS}): ${errorToMessage(error)}`,
+      );
+      await prisma.$disconnect().catch(() => undefined);
+      await wait(SEED_RUN_RETRY_DELAY_MS);
+    }
+  }
+}
+
+runSeedWithRetry()
   .catch((error) => {
     // eslint-disable-next-line no-console
     console.error('❌ Seed failed:', error);
