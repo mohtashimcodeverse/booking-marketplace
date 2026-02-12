@@ -1,32 +1,5 @@
+import { apiUrl } from "@/lib/api/base";
 import type { ApiErrorResponse, SearchPropertyCard } from "./publicTypes";
-
-const FALLBACK_API_BASE = "http://localhost:3001/api";
-
-function isAbsoluteHttpUrl(v: string) {
-  return /^https?:\/\//i.test(v.trim());
-}
-
-function getBaseUrl() {
-  /**
-   * We MUST return an absolute URL for server-side fetch in Next.js.
-   * If your env is mistakenly "/api" (relative), Node fetch will fail with:
-   * "Failed to parse URL from /api/..."
-   */
-  const raw =
-    process.env.NEXT_PUBLIC_API_BASE_URL ??
-    process.env.NEXT_PUBLIC_API_URL ??
-    process.env.API_URL ??
-    "";
-
-  const env = raw.trim();
-
-  if (!env) return FALLBACK_API_BASE;
-
-  // If someone set NEXT_PUBLIC_API_BASE_URL="/api" (relative), we hard-fallback.
-  if (!isAbsoluteHttpUrl(env)) return FALLBACK_API_BASE;
-
-  return env.replace(/\/+$/, "");
-}
 
 function toQuery(
   params: Record<string, string | number | boolean | null | undefined>,
@@ -132,8 +105,6 @@ function safeMsgFromUnknown(e: unknown): string {
 export async function fetchFeaturedStays(
   params: FeaturedSearchParams,
 ): Promise<FeaturedOk | FeaturedFail> {
-  const base = getBaseUrl();
-
   const qs = toQuery({
     page: 1,
     limit: params.limit,
@@ -145,7 +116,7 @@ export async function fetchFeaturedStays(
     area: params.area ?? null,
   });
 
-  const url = `${base}/search/properties${qs}`;
+  const url = `${apiUrl("/search/properties")}${qs}`;
 
   let res: Response;
   try {

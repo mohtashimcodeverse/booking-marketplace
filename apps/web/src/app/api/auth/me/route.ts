@@ -1,12 +1,5 @@
 import { NextResponse } from "next/server";
-
-const DEFAULT_API_BASE = "http://localhost:3001/api";
-
-function resolveApiBase(): string {
-  const fromEnv = (process.env.INTERNAL_API_BASE_URL ?? "").trim();
-  if (fromEnv) return fromEnv;
-  return DEFAULT_API_BASE;
-}
+import { apiUrl } from "@/lib/api/base";
 
 function buildAuthHeaders(req: Request): HeadersInit {
   const headers = new Headers();
@@ -21,7 +14,7 @@ export const dynamic = "force-dynamic";
 export const revalidate = 0;
 
 export async function GET(req: Request) {
-  const upstream = `${resolveApiBase().replace(/\/$/, "")}/auth/me`;
+  const upstream = apiUrl("/auth/me");
 
   try {
     const res = await fetch(upstream, {
@@ -41,4 +34,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ message: "Unauthorized" }, { status: 401 });
   }
 }
-

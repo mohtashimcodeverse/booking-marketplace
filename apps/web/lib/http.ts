@@ -1,5 +1,5 @@
-import { ENV } from "./env";
 import { getAccessToken } from "@/lib/auth/tokenStore";
+import { apiUrl } from "@/lib/api/base";
 
 export type HttpMethod = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -26,31 +26,15 @@ function isJsonResponse(res: Response): boolean {
   return ct.includes("application/json");
 }
 
-function joinUrl(base: string, path: string): string {
-  const b = base.endsWith("/") ? base.slice(0, -1) : base;
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return `${b}${p}`;
-}
-
-function getRuntimeOrigin(): string {
-  if (typeof window !== "undefined" && window.location?.origin) {
-    return window.location.origin;
-  }
-  return "http://localhost:3000";
-}
-
-function buildUrl(base: string, path: string): URL {
-  const full = joinUrl(base, path);
-  if (base.startsWith("http://") || base.startsWith("https://")) {
-    return new URL(full);
-  }
-  return new URL(full, getRuntimeOrigin());
-}
-
 function pickMessageFromJson(j: unknown): string | null {
   if (typeof j !== "object" || j === null) return null;
   const maybeMsg = (j as { message?: unknown }).message;
   return typeof maybeMsg === "string" ? maybeMsg : null;
+}
+
+function shouldDebugRequest(path: string): boolean {
+  const p = path.toLowerCase();
+  return p.includes("/auth/login") || p.includes("/calendar");
 }
 
 export async function apiFetch<T>(
@@ -68,13 +52,20 @@ export async function apiFetch<T>(
   }
 ): Promise<HttpResult<T>> {
   const method = opts?.method ?? "GET";
+  const debugLog =
+    process.env.NODE_ENV !== "production" && shouldDebugRequest(path);
 
   let url: URL;
   try {
-    url = buildUrl(ENV.apiBaseUrl, path);
+    url = new URL(apiUrl(path));
   } catch (err) {
     const msg = err instanceof Error ? err.message : "Invalid URL";
     return { ok: false, status: 0, message: msg };
+  }
+
+  if (debugLog) {
+    // eslint-disable-next-line no-console
+    console.info(`[apiFetch] ${method} ${url.toString()}`);
   }
 
   if (opts?.query) {
@@ -125,11 +116,22 @@ export async function apiFetch<T>(
       next: opts?.next,
     });
   } catch (err) {
+    if (debugLog) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `[apiFetch] ${method} ${url.toString()} -> network error`,
+        err,
+      );
+    }
     const msg = err instanceof Error ? err.message : "Network error";
     return { ok: false, status: 0, message: msg };
   }
 
   const status = res.status;
+  if (debugLog) {
+    // eslint-disable-next-line no-console
+    console.info(`[apiFetch] ${method} ${url.toString()} -> ${status}`);
+  }
 
   if (!res.ok) {
     let message = `Request failed (${status})`;

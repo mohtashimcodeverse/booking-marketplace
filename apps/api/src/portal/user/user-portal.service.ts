@@ -17,6 +17,7 @@ import {
 } from '@prisma/client';
 import { existsSync } from 'fs';
 import { join } from 'path';
+import { BOOKING_DOCUMENTS_DIR } from '../../common/upload/storage-paths';
 import type {
   Paginated,
   PortalCalendarEvent,
@@ -551,13 +552,7 @@ export class UserPortalService {
       throw new NotFoundException('Document not found.');
     }
 
-    const absolutePath = join(
-      process.cwd(),
-      'private_uploads',
-      'bookings',
-      'documents',
-      doc.storageKey,
-    );
+    const absolutePath = join(BOOKING_DOCUMENTS_DIR, doc.storageKey);
 
     if (!existsSync(absolutePath)) {
       throw new NotFoundException('Document file not found on disk.');

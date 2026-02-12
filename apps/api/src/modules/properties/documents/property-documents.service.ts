@@ -9,6 +9,13 @@ import { UserRole } from '@prisma/client';
 import * as fs from 'fs';
 import { createReadStream, type ReadStream } from 'fs';
 import * as path from 'path';
+import {
+  API_ROOT_DIR,
+  PRIVATE_UPLOADS_DIR,
+  PROPERTY_DOCUMENTS_DIR,
+  PROPERTY_DOCUMENTS_LEGACY_DIR,
+  PUBLIC_UPLOADS_DIR,
+} from '../../../common/upload/storage-paths';
 
 type DocumentRecord = {
   id: string;
@@ -43,24 +50,40 @@ export class PropertyDocumentsService {
     return pointer;
   }
 
-  /**
-   * Local filesystem absolute path resolution (safe against path traversal).
-   *
-   * Assumption: docs are stored under apps/api/uploads/** (private, NOT publicly served).
-   * If your pointer includes "uploads/..." we keep it; if it includes "/uploads/..." we strip leading "/".
-   */
   private toAbsoluteLocalPath(pointer: string): string {
-    const normalized = pointer.startsWith('/') ? pointer.slice(1) : pointer;
+    const normalized = pointer.replace(/\\/g, '/').replace(/^\/+/, '');
+    const candidates: string[] = [];
 
-    const uploadsRoot = path.resolve(process.cwd(), 'uploads');
-    const abs = path.resolve(uploadsRoot, normalized);
+    const pushIfUnderRoot = (candidate: string, root: string) => {
+      const rel = path.relative(root, candidate);
+      if (rel.startsWith('..') || path.isAbsolute(rel)) {
+        throw new ForbiddenException('Invalid document path.');
+      }
+      candidates.push(candidate);
+    };
 
-    const rel = path.relative(uploadsRoot, abs);
-    if (rel.startsWith('..') || path.isAbsolute(rel)) {
-      throw new ForbiddenException('Invalid document path.');
+    if (normalized.startsWith('private_uploads/')) {
+      pushIfUnderRoot(
+        path.resolve(API_ROOT_DIR, normalized),
+        PRIVATE_UPLOADS_DIR,
+      );
     }
 
-    return abs;
+    if (normalized.startsWith('uploads/')) {
+      pushIfUnderRoot(path.resolve(API_ROOT_DIR, normalized), PUBLIC_UPLOADS_DIR);
+    }
+
+    const fileName = path.basename(normalized);
+    pushIfUnderRoot(
+      path.resolve(PROPERTY_DOCUMENTS_DIR, fileName),
+      PROPERTY_DOCUMENTS_DIR,
+    );
+    pushIfUnderRoot(
+      path.resolve(PROPERTY_DOCUMENTS_LEGACY_DIR, fileName),
+      PROPERTY_DOCUMENTS_LEGACY_DIR,
+    );
+
+    return candidates.find((absPath) => fs.existsSync(absPath)) ?? candidates[0];
   }
 
   private async assertVendorOwnsProperty(

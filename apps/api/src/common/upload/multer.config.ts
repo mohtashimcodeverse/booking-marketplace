@@ -1,28 +1,16 @@
 import { diskStorage } from 'multer';
-import { extname, join } from 'path';
+import { extname } from 'path';
 import { randomUUID } from 'crypto';
 import { mkdirSync } from 'fs';
+import {
+  BOOKING_DOCUMENTS_DIR,
+  PROPERTY_DOCUMENTS_DIR,
+  PROPERTY_IMAGES_DIR,
+} from './storage-paths';
 
-const IMAGES_DIR = join(process.cwd(), 'uploads', 'properties', 'images');
-
-/**
- * ✅ PRIVATE docs dir (NOT publicly served)
- * We intentionally keep this outside /uploads so that a future static rule
- * can never accidentally expose it.
- */
-const DOCS_DIR = join(
-  process.cwd(),
-  'private_uploads',
-  'properties',
-  'documents',
-);
-
-const BOOKING_DOCS_DIR = join(
-  process.cwd(),
-  'private_uploads',
-  'bookings',
-  'documents',
-);
+const IMAGES_DIR = PROPERTY_IMAGES_DIR;
+const DOCS_DIR = PROPERTY_DOCUMENTS_DIR;
+const BOOKING_DOCS_DIR = BOOKING_DOCUMENTS_DIR;
 
 export const imageUploadStorage = diskStorage({
   destination: (_req, _file, cb) => {

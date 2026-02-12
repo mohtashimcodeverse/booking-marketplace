@@ -3,6 +3,7 @@ import bcrypt from 'bcryptjs';
 import { randomUUID } from 'crypto';
 import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
+import { PRIVATE_UPLOADS_DIR } from '../src/common/upload/storage-paths';
 import {
   BookingDocumentType,
   BookingStatus,
@@ -47,12 +48,7 @@ const TARGET_COUNTS = {
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
-const PRIVATE_UPLOAD_BASES = Array.from(
-  new Set([
-    join(process.cwd(), 'private_uploads'),
-    join(process.cwd(), 'apps', 'api', 'private_uploads'),
-  ]),
-);
+const PRIVATE_UPLOAD_BASES = [PRIVATE_UPLOADS_DIR];
 
 const DUBAI_AREAS = [
   { city: 'Dubai', area: 'Downtown Dubai', lat: 25.1972, lng: 55.2744 },

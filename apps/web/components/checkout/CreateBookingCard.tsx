@@ -2,17 +2,13 @@
 
 import { useMemo, useState } from "react";
 import type { CreateBookingResponse } from "@/lib/types/property";
+import { apiFetch } from "@/lib/http";
 
 type CreateUi =
   | { kind: "idle" }
   | { kind: "creating" }
   | { kind: "created"; bookingId: string; status: string; totalAmount: number; currency: string; expiresAt: string }
   | { kind: "error"; message: string };
-
-function apiBase(): string {
-  const v = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "").trim();
-  return v || "http://localhost:3001";
-}
 
 function extractErrorMessage(payload: unknown, fallback: string): string {
   if (typeof payload === "object" && payload !== null && "message" in payload) {
@@ -72,20 +68,22 @@ export default function CreateBookingCard(props: { holdId: string }) {
     setUi({ kind: "creating" });
 
     try {
-      const res = await fetch(`${apiBase()}/api/bookings`, {
+      const res = await apiFetch<unknown>("/bookings", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ holdId }),
+        body: { holdId },
+        auth: "auto",
       });
 
-      const data: unknown = await res.json().catch(() => null);
-
       if (!res.ok) {
-        setUi({ kind: "error", message: extractErrorMessage(data, `Request failed (${res.status})`) });
+        setUi({
+          kind: "error",
+          message: extractErrorMessage(res.details, res.message),
+        });
         return;
       }
 
+      const data: unknown = res.data;
       if (!isCreateBookingResponse(data)) {
         setUi({ kind: "error", message: "Booking created but response format was unexpected." });
         return;

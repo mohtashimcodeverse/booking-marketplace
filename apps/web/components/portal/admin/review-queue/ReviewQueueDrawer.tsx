@@ -4,8 +4,8 @@ import { useMemo, useState } from "react";
 import { Download, Eye, FileText, Image as ImageIcon, Info, X } from "lucide-react";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
 import type { AdminReviewQueueItem, ReviewQueueStatus } from "@/lib/api/admin/reviewQueue";
-import { ENV } from "@/lib/env";
 import { Modal } from "@/components/portal/ui/Modal";
+import { apiUrl } from "@/lib/api/base";
 
 function toneForStatus(s: ReviewQueueStatus): "neutral" | "success" | "warning" | "danger" {
   if (s === "APPROVED") return "success";
@@ -53,13 +53,15 @@ function readDevAccessToken(): string | null {
  * Backend contract (locked):
  * GET /api/admin/properties/:propertyId/documents/:documentId/download
  *
- * ENV.apiBaseUrl already includes /api
+ * URL is always built from canonical apiUrl() base helper.
  */
 async function fetchAdminPropertyDocumentBlob(
   propertyId: string,
   documentId: string
 ): Promise<{ blob: Blob; contentType: string | null }> {
-  const url = `${ENV.apiBaseUrl}/admin/properties/${encodeURIComponent(propertyId)}/documents/${encodeURIComponent(documentId)}/download`;
+  const url = apiUrl(
+    `/admin/properties/${encodeURIComponent(propertyId)}/documents/${encodeURIComponent(documentId)}/download`
+  );
 
   const token = readDevAccessToken();
   const headers: HeadersInit = {};

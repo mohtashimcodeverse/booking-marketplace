@@ -43,6 +43,7 @@ import {
   rejectAdminProperty,
   requestChangesAdminProperty,
 } from "@/lib/api/admin/reviewQueue";
+import { apiUrl } from "@/lib/api/base";
 
 type AdminPropertiesResponse = Awaited<ReturnType<typeof getAdminProperties>>;
 type AdminPropertyRow = AdminPropertiesResponse["items"][number];
@@ -1220,7 +1221,9 @@ function PropertyDetailDrawer(props: {
               <EmptyState title="No documents" description="Vendor has not uploaded private documents yet." icon={<User className="h-6 w-6" />} />
             ) : (
               documents.map((doc) => {
-                const fallback = `/api/vendor/properties/${encodeURIComponent(id)}/documents/${encodeURIComponent(doc.id)}/download`;
+                const fallback = apiUrl(
+                  `/vendor/properties/${encodeURIComponent(id)}/documents/${encodeURIComponent(doc.id)}/download`
+                );
                 const href = doc.url?.trim().length ? doc.url : fallback;
                 return (
                   <div key={doc.id} className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">

@@ -5,7 +5,7 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 import express from 'express';
-import { join } from 'path';
+import { PROPERTY_IMAGES_DIR } from './common/upload/storage-paths';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -28,7 +28,7 @@ async function bootstrap() {
    */
   app.use(
     '/uploads/properties/images',
-    express.static(join(process.cwd(), 'uploads', 'properties', 'images')),
+    express.static(PROPERTY_IMAGES_DIR),
   );
 
   /**

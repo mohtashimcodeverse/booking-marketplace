@@ -16,6 +16,11 @@ import {
 } from '@prisma/client';
 import { PrismaService } from '../modules/prisma/prisma.service';
 import {
+  PROPERTY_DOCUMENTS_DIR,
+  PROPERTY_DOCUMENTS_LEGACY_DIR,
+  PROPERTY_IMAGES_DIR,
+} from '../common/upload/storage-paths';
+import {
   CreatePropertyDto,
   UpdatePropertyDto,
   ReorderMediaDto,
@@ -808,13 +813,7 @@ export class VendorPropertiesService {
 
     const filename = media.url.split('/').pop();
     if (filename) {
-      const absolute = join(
-        process.cwd(),
-        'uploads',
-        'properties',
-        'images',
-        filename,
-      );
+      const absolute = join(PROPERTY_IMAGES_DIR, filename);
       if (existsSync(absolute)) {
         try {
           unlinkSync(absolute);
@@ -904,21 +903,8 @@ export class VendorPropertiesService {
       throw new NotFoundException('Document file is missing.');
     }
 
-    const privatePath = join(
-      process.cwd(),
-      'private_uploads',
-      'properties',
-      'documents',
-      storageKey,
-    );
-
-    const legacyPath = join(
-      process.cwd(),
-      'uploads',
-      'properties',
-      'documents',
-      storageKey,
-    );
+    const privatePath = join(PROPERTY_DOCUMENTS_DIR, storageKey);
+    const legacyPath = join(PROPERTY_DOCUMENTS_LEGACY_DIR, storageKey);
 
     const absolutePath = existsSync(privatePath)
       ? privatePath

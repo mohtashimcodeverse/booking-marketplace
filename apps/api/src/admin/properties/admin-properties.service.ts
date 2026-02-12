@@ -15,6 +15,7 @@ import {
   PropertyStatus,
 } from '@prisma/client';
 import { PrismaService } from '../../modules/prisma/prisma.service';
+import { PROPERTY_IMAGES_DIR } from '../../common/upload/storage-paths';
 import { AdminCreatePropertyDto } from './dto/admin-create-property.dto';
 import { AdminUpdatePropertyDto } from './dto/admin-update-property.dto';
 import {
@@ -533,13 +534,7 @@ export class AdminPropertiesService {
 
     const filename = media.url.split('/').pop();
     if (filename) {
-      const absolute = join(
-        process.cwd(),
-        'uploads',
-        'properties',
-        'images',
-        filename,
-      );
+      const absolute = join(PROPERTY_IMAGES_DIR, filename);
       if (existsSync(absolute)) {
         try {
           unlinkSync(absolute);

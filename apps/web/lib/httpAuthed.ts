@@ -1,13 +1,9 @@
+import { apiUrl } from "@/lib/api/base";
+
 type HttpOptions = Omit<RequestInit, "headers" | "body"> & {
   headers?: Record<string, string>;
   body?: string;
 };
-
-function joinUrl(base: string, path: string): string {
-  const b = base.endsWith("/") ? base.slice(0, -1) : base;
-  const p = path.startsWith("/") ? path : `/${path}`;
-  return `${b}${p}`;
-}
 
 function isObject(v: unknown): v is Record<string, unknown> {
   return typeof v === "object" && v !== null;
@@ -18,8 +14,7 @@ export async function authedJson<T>(
   token: string,
   options: HttpOptions,
 ): Promise<T> {
-  const base = (process.env.NEXT_PUBLIC_API_BASE_URL ?? "/api").trim();
-  const url = path.startsWith("http") ? path : joinUrl(base, path);
+  const url = path.startsWith("http") ? path : apiUrl(path);
 
   const res = await fetch(url, {
     ...options,

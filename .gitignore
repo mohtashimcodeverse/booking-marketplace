@@ -14,3 +14,9 @@ coverage
 
 # Turborepo cache
 .turbo/
+
+# Upload artifacts (must never be versioned)
+apps/api/private_uploads/
+apps/api/uploads/
+apps/api/apps/api/private_uploads/
+apps/api/apps/api/uploads/

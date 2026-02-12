@@ -259,8 +259,8 @@ export async function rejectAdminGuestReview(
 }
 
 /**
- * Admin Property Management (uses /api/admin/* endpoints behind ENV.apiBaseUrl)
- * apiFetch() already uses ENV.apiBaseUrl (includes /api), and attaches auth properly.
+ * Admin Property Management (uses /api/admin/* endpoints behind canonical apiUrl()).
+ * apiFetch() already resolves URL + cookies/auth correctly.
  */
 
 export type MediaCategory =
