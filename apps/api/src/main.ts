@@ -7,6 +7,13 @@ import cookieParser from 'cookie-parser';
 import express from 'express';
 import { PROPERTY_IMAGES_DIR } from './common/upload/storage-paths';
 
+type CorsOriginCallback = (error: Error | null, allow?: boolean) => void;
+
+function normalizeOrigin(value: string): string {
+  const trimmed = value.trim();
+  return trimmed.endsWith('/') ? trimmed.slice(0, -1) : trimmed;
+}
+
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
@@ -31,35 +38,53 @@ async function bootstrap() {
     express.static(PROPERTY_IMAGES_DIR),
   );
 
-  /**
-   * ============================
-   * ✅ CORS (PRODUCTION SAFE)
-   * ============================
-   *
-   * Supports:
-   * - Vercel frontend
-   * - Local development
-   * - Multiple origins (comma-separated)
-   *
-   * IMPORTANT:
-   * - No trailing slashes
-   * - Exact match with browser Origin
-   */
-  const corsOriginsRaw =
-    process.env.CORS_ORIGINS ??
-    process.env.CORS_ORIGIN ??
-    'http://localhost:3000';
+  const staticAllowedOrigins = new Set<string>([
+    'https://rentpropertyuae.vercel.app',
+    'http://localhost:3000',
+  ]);
 
-  const corsOrigins = corsOriginsRaw
-    .split(',')
-    .map((o) => o.trim())
-    .filter(Boolean)
-    // Normalize: remove trailing slash to match browser Origin exactly
-    .map((o) => (o.endsWith('/') ? o.slice(0, -1) : o));
+  const extraCorsOriginsRaw = process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN;
+  if (extraCorsOriginsRaw) {
+    for (const raw of extraCorsOriginsRaw.split(',')) {
+      const normalized = normalizeOrigin(raw);
+      if (normalized) {
+        staticAllowedOrigins.add(normalized);
+      }
+    }
+  }
+
+  const vercelPreviewPattern =
+    /^https:\/\/rentpropertyuae-[a-z0-9-]+\.vercel\.app$/;
 
   app.enableCors({
-    origin: corsOrigins,
+    origin: (origin: string | undefined, callback: CorsOriginCallback) => {
+      // Allow non-browser calls (curl, server-to-server) with no Origin header.
+      if (!origin) {
+        // eslint-disable-next-line no-console
+        console.log('[cors] origin=<none> allowed=true');
+        callback(null, true);
+        return;
+      }
+
+      const normalizedOrigin = normalizeOrigin(origin);
+      const allowed =
+        staticAllowedOrigins.has(normalizedOrigin) ||
+        vercelPreviewPattern.test(normalizedOrigin);
+
+      // Temporary proof log for CORS verification.
+      // eslint-disable-next-line no-console
+      console.log(`[cors] origin=${normalizedOrigin} allowed=${allowed}`);
+
+      if (allowed) {
+        callback(null, true);
+        return;
+      }
+
+      callback(new Error(`CORS blocked for origin: ${normalizedOrigin}`));
+    },
     credentials: true,
+    methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
+    allowedHeaders: 'Content-Type, Authorization, Accept, X-Requested-With',
   });
 
   /**
