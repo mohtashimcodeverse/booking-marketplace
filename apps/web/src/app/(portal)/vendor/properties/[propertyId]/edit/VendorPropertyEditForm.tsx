@@ -5,7 +5,7 @@ import type { VendorPropertyDetail, VendorPropertyDraftInput } from "@/lib/api/p
 import {
   getVendorPropertyDraft,
   publishVendorProperty,
-  unpublishVendorProperty,
+  requestVendorPropertyUnpublish,
   updateVendorPropertyDraft,
   updateVendorPropertyLocation,
 } from "@/lib/api/portal/vendor";
@@ -37,7 +37,7 @@ function TabButton({
       onClick={onClick}
       className={[
         "rounded-xl px-4 py-2 text-sm font-semibold",
-        active ? "bg-neutral-900 text-white" : "bg-white text-neutral-900 ring-1 ring-neutral-200 hover:bg-neutral-50",
+        active ? "bg-brand text-accent-text" : "bg-surface text-primary ring-1 ring-line hover:bg-warm-alt",
       ].join(" ")}
     >
       {children}
@@ -57,8 +57,8 @@ function Field({
   return (
     <label className="block">
       <div className="flex items-end justify-between gap-3">
-        <div className="text-sm font-semibold text-neutral-900">{label}</div>
-        {hint ? <div className="text-xs text-neutral-500">{hint}</div> : null}
+        <div className="text-sm font-semibold text-primary">{label}</div>
+        {hint ? <div className="text-xs text-muted">{hint}</div> : null}
       </div>
       <div className="mt-2">{children}</div>
     </label>
@@ -201,12 +201,13 @@ export default function VendorPropertyEditForm({ initial }: Props) {
     setBusy("Unpublishing...");
 
     try {
-      const updated = await unpublishVendorProperty(p.id);
-      setP(updated);
-      setOkMsg("Unpublished ✅ (back to DRAFT)");
+      await requestVendorPropertyUnpublish(p.id);
+      const refreshed = await getVendorPropertyDraft(p.id);
+      setP(refreshed);
+      setOkMsg("Unpublish request submitted ✅");
       setTab("REVIEW");
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unpublish failed");
+      setError(e instanceof Error ? e.message : "Unpublish request failed");
     } finally {
       setBusy(null);
     }
@@ -216,15 +217,15 @@ export default function VendorPropertyEditForm({ initial }: Props) {
 
   return (
     <div className="space-y-6">
-      <header className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <header className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
           <div>
-            <h1 className="text-lg font-semibold text-neutral-900">{p.title}</h1>
-            <p className="mt-1 text-sm text-neutral-600">
-              Status: <span className="font-semibold text-neutral-900">{p.status}</span> • City:{" "}
-              <span className="font-semibold text-neutral-900">{p.city}</span>
+            <h1 className="text-lg font-semibold text-primary">{p.title}</h1>
+            <p className="mt-1 text-sm text-secondary">
+              Status: <span className="font-semibold text-primary">{p.status}</span> • City:{" "}
+              <span className="font-semibold text-primary">{p.city}</span>
             </p>
-            <p className="mt-2 text-xs text-neutral-500">
+            <p className="mt-2 text-xs text-muted">
               Production rule: meaningful changes to APPROVED/PUBLISHED reset listing to DRAFT (review safety).
             </p>
           </div>
@@ -252,18 +253,18 @@ export default function VendorPropertyEditForm({ initial }: Props) {
         </div>
 
         {busy ? (
-          <div className="mt-4 rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700">{busy}</div>
+          <div className="mt-4 rounded-xl border border-line bg-warm-alt p-3 text-sm text-secondary">{busy}</div>
         ) : null}
 
         {okMsg ? (
-          <div className="mt-4 rounded-xl border border-emerald-200 bg-emerald-50 p-3 text-sm text-emerald-800">{okMsg}</div>
+          <div className="mt-4 rounded-xl border border-success/30 bg-success/12 p-3 text-sm text-success">{okMsg}</div>
         ) : null}
 
         {error ? (
-          <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 whitespace-pre-wrap">
+          <div className="mt-4 rounded-xl border border-danger/30 bg-danger/12 p-3 text-sm text-danger whitespace-pre-wrap">
             {error}
             {unauthorized ? (
-              <div className="mt-3 text-xs text-rose-700">
+              <div className="mt-3 text-xs text-danger">
                 Tip: your vendor token may be missing/expired. Go to <span className="font-semibold">/vendor/login</span>{" "}
                 and sign in again.
               </div>
@@ -276,7 +277,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
             type="button"
             disabled={busy !== null}
             onClick={() => void refresh()}
-            className="rounded-xl bg-white px-4 py-2 text-sm font-semibold text-neutral-900 ring-1 ring-neutral-200 hover:bg-neutral-50 disabled:opacity-50"
+            className="rounded-xl bg-surface px-4 py-2 text-sm font-semibold text-primary ring-1 ring-line hover:bg-warm-alt disabled:opacity-50"
           >
             Refresh
           </button>
@@ -297,9 +298,9 @@ export default function VendorPropertyEditForm({ initial }: Props) {
             }}
           />
 
-          <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-            <h3 className="text-base font-semibold text-neutral-900">Publish controls</h3>
-            <p className="mt-1 text-sm text-neutral-600">
+          <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+            <h3 className="text-base font-semibold text-primary">Publish controls</h3>
+            <p className="mt-1 text-sm text-secondary">
               Publish is only available after admin approval. Search visibility depends on PUBLISHED.
             </p>
 
@@ -308,7 +309,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="button"
                 disabled={busy !== null || !canSubmit || p.status !== "DRAFT"}
                 onClick={() => setTab("PHOTOS")}
-                className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 ring-1 ring-neutral-200 hover:bg-neutral-50 disabled:opacity-50"
+                className="rounded-xl bg-surface px-5 py-2.5 text-sm font-semibold text-primary ring-1 ring-line hover:bg-warm-alt disabled:opacity-50"
               >
                 Finish checklist
               </button>
@@ -317,7 +318,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="button"
                 disabled={busy !== null || p.status !== "APPROVED"}
                 onClick={() => void publish()}
-                className="rounded-xl bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-emerald-700 disabled:opacity-50"
+                className="rounded-xl bg-success px-5 py-2.5 text-sm font-semibold text-inverted hover:bg-success disabled:opacity-50"
               >
                 Publish (after APPROVED)
               </button>
@@ -326,14 +327,14 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="button"
                 disabled={busy !== null || p.status !== "PUBLISHED"}
                 onClick={() => void unpublish()}
-                className="rounded-xl bg-white px-5 py-2.5 text-sm font-semibold text-neutral-900 ring-1 ring-neutral-200 hover:bg-neutral-50 disabled:opacity-50"
+                className="rounded-xl bg-surface px-5 py-2.5 text-sm font-semibold text-primary ring-1 ring-line hover:bg-warm-alt disabled:opacity-50"
               >
                 Unpublish
               </button>
             </div>
 
             {!canSubmit ? (
-              <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+              <div className="mt-4 rounded-xl border border-warning/30 bg-warning/12 p-3 text-sm text-warning">
                 Not ready. Complete missing items above (backend will enforce anyway).
               </div>
             ) : null}
@@ -342,14 +343,14 @@ export default function VendorPropertyEditForm({ initial }: Props) {
       ) : null}
 
       {tab === "BASICS" ? (
-        <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-900">Basics</h3>
+        <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-primary">Basics</h3>
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="Title">
               <input
                 value={draft.title}
                 onChange={(e) => setDraft((s) => ({ ...s, title: e.target.value }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -357,7 +358,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               <input
                 value={draft.slug ?? ""}
                 onChange={(e) => setDraft((s) => ({ ...s, slug: e.target.value }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -365,7 +366,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               <input
                 value={draft.city}
                 onChange={(e) => setDraft((s) => ({ ...s, city: e.target.value }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -373,7 +374,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               <input
                 value={draft.area ?? ""}
                 onChange={(e) => setDraft((s) => ({ ...s, area: e.target.value }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -381,7 +382,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               <input
                 value={draft.address ?? ""}
                 onChange={(e) => setDraft((s) => ({ ...s, address: e.target.value }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -389,7 +390,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               <input
                 value={draft.currency ?? ""}
                 onChange={(e) => setDraft((s) => ({ ...s, currency: e.target.value }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -398,7 +399,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="number"
                 value={draft.basePrice}
                 onChange={(e) => setDraft((s) => ({ ...s, basePrice: Number(e.target.value) }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -407,7 +408,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="number"
                 value={draft.cleaningFee ?? 0}
                 onChange={(e) => setDraft((s) => ({ ...s, cleaningFee: Number(e.target.value) }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -416,7 +417,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="number"
                 value={draft.maxGuests ?? 2}
                 onChange={(e) => setDraft((s) => ({ ...s, maxGuests: Number(e.target.value) }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -425,7 +426,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="number"
                 value={draft.bedrooms ?? 1}
                 onChange={(e) => setDraft((s) => ({ ...s, bedrooms: Number(e.target.value) }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -434,7 +435,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="number"
                 value={draft.bathrooms ?? 1}
                 onChange={(e) => setDraft((s) => ({ ...s, bathrooms: Number(e.target.value) }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -443,7 +444,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="number"
                 value={draft.minNights ?? 1}
                 onChange={(e) => setDraft((s) => ({ ...s, minNights: Number(e.target.value) }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -451,7 +452,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               <textarea
                 value={draft.description ?? ""}
                 onChange={(e) => setDraft((s) => ({ ...s, description: e.target.value }))}
-                className="min-h-[120px] w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 sm:col-span-2"
+                className="min-h-[120px] w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary sm:col-span-2"
               />
             </Field>
           </div>
@@ -461,7 +462,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               type="button"
               onClick={() => void saveDraft()}
               disabled={busy !== null}
-              className="rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-50"
             >
               Save basics
             </button>
@@ -470,16 +471,16 @@ export default function VendorPropertyEditForm({ initial }: Props) {
       ) : null}
 
       {tab === "LOCATION" ? (
-        <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-          <h3 className="text-base font-semibold text-neutral-900">Location</h3>
-          <p className="mt-1 text-sm text-neutral-600">Next step: map pin UX. For now this matches backend requirements exactly.</p>
+        <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+          <h3 className="text-base font-semibold text-primary">Location</h3>
+          <p className="mt-1 text-sm text-secondary">Next step: map pin UX. For now this matches backend requirements exactly.</p>
 
           <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
             <Field label="City">
               <input
                 value={loc.city}
                 onChange={(e) => setLoc((s) => ({ ...s, city: e.target.value }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -487,7 +488,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               <input
                 value={loc.area}
                 onChange={(e) => setLoc((s) => ({ ...s, area: e.target.value }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -495,7 +496,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               <input
                 value={loc.address}
                 onChange={(e) => setLoc((s) => ({ ...s, address: e.target.value }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 sm:col-span-2"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary sm:col-span-2"
               />
             </Field>
 
@@ -504,7 +505,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="number"
                 value={loc.lat}
                 onChange={(e) => setLoc((s) => ({ ...s, lat: Number(e.target.value) }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
 
@@ -513,7 +514,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
                 type="number"
                 value={loc.lng}
                 onChange={(e) => setLoc((s) => ({ ...s, lng: Number(e.target.value) }))}
-                className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
               />
             </Field>
           </div>
@@ -523,7 +524,7 @@ export default function VendorPropertyEditForm({ initial }: Props) {
               type="button"
               onClick={() => void saveLocation()}
               disabled={busy !== null}
-              className="rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-50"
             >
               Save location
             </button>

@@ -91,51 +91,50 @@ export default function HeroSearchBar() {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
     >
-      {/* Tourm-like clean search: calm borders, soft shadow, no ugly chips row */}
-      <div className="tourm-card rounded-[2.25rem] p-3 sm:p-4">
+      <div className="premium-card premium-card-tinted rounded-[2.25rem] p-3 sm:p-4">
         <div className="grid gap-3 lg:grid-cols-[1.35fr_0.9fr_0.9fr_0.7fr_0.6fr] lg:items-center">
-          <div className="flex items-center gap-3 rounded-3xl border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3">
-            <MapPin className="h-4 w-4 text-slate-600" />
+          <div className="premium-input flex items-center gap-3 rounded-3xl px-4 py-3">
+            <MapPin className="h-4 w-4 text-secondary" />
             <input
               value={draft.location}
               onChange={(e) => setDraft((s) => ({ ...s, location: e.target.value }))}
               placeholder="Dubai Marina, Downtown, JBR, Al Barsha…"
-              className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400"
+              className="w-full bg-transparent text-sm font-medium text-primary outline-none placeholder:text-muted"
               aria-label="Location"
             />
           </div>
 
-          <div className="flex items-center gap-3 rounded-3xl border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3">
-            <CalendarDays className="h-4 w-4 text-slate-600" />
+          <div className="premium-input flex items-center gap-3 rounded-3xl px-4 py-3">
+            <CalendarDays className="h-4 w-4 text-secondary" />
             <input
               type="date"
               value={draft.checkIn}
               onChange={(e) => setDraft((s) => ({ ...s, checkIn: e.target.value }))}
-              className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none"
+              className="w-full bg-transparent text-sm font-medium text-primary outline-none"
               aria-label="Check-in date"
             />
           </div>
 
-          <div className="flex items-center gap-3 rounded-3xl border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3">
-            <CalendarDays className="h-4 w-4 text-slate-600" />
+          <div className="premium-input flex items-center gap-3 rounded-3xl px-4 py-3">
+            <CalendarDays className="h-4 w-4 text-secondary" />
             <input
               type="date"
               value={draft.checkOut}
               onChange={(e) => setDraft((s) => ({ ...s, checkOut: e.target.value }))}
-              className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none"
+              className="w-full bg-transparent text-sm font-medium text-primary outline-none"
               aria-label="Check-out date"
             />
           </div>
 
-          <div className="flex items-center gap-3 rounded-3xl border border-[rgba(15,23,42,0.12)] bg-white px-4 py-3">
-            <Users className="h-4 w-4 text-slate-600" />
+          <div className="premium-input flex items-center gap-3 rounded-3xl px-4 py-3">
+            <Users className="h-4 w-4 text-secondary" />
             <input
               type="number"
               min={1}
               max={16}
               value={draft.guests}
               onChange={(e) => setDraft((s) => ({ ...s, guests: Number(e.target.value) }))}
-              className="w-full bg-transparent text-sm font-medium text-slate-900 outline-none"
+              className="w-full bg-transparent text-sm font-medium text-primary outline-none"
               aria-label="Guests"
             />
           </div>
@@ -144,14 +143,14 @@ export default function HeroSearchBar() {
             type="button"
             onClick={go}
             disabled={!canSearch}
-            className="inline-flex w-full items-center justify-center rounded-3xl bg-[#16a6c8] px-5 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(22,166,200,0.25)] transition hover:brightness-95 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center rounded-3xl bg-brand px-5 py-3 text-sm font-semibold text-accent-text shadow-brand-soft transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Search className="mr-2 h-4 w-4" />
             Search
           </button>
         </div>
 
-        <div className="mt-3 px-2 text-[12px] text-slate-600">
+        <div className="mt-3 px-2 text-[12px] text-secondary">
           Tip: type an area like “Dubai Marina” or “Downtown Dubai” for exact area filtering.
         </div>
       </div>

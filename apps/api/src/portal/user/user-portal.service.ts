@@ -1,13 +1,22 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import {
+  BookingDocumentType,
   BookingStatus,
   CalendarDayStatus,
+  GuestReviewStatus,
   HoldStatus,
   PropertyStatus,
   RefundStatus,
   UserRole,
 } from '@prisma/client';
+import { existsSync } from 'fs';
+import { join } from 'path';
 import type {
   Paginated,
   PortalCalendarEvent,
@@ -285,7 +294,10 @@ export class UserPortalService {
     }
 
     const selectedPropertyId =
-      params.propertyId ?? bookedPropertyRows[0]?.id ?? properties[0]?.id ?? null;
+      params.propertyId ??
+      bookedPropertyRows[0]?.id ??
+      properties[0]?.id ??
+      null;
     const propertyIds = selectedPropertyId ? [selectedPropertyId] : [];
 
     const [bookings, holds, blockedDays] = await Promise.all([
@@ -358,9 +370,11 @@ export class UserPortalService {
         start: b.checkIn.toISOString(),
         end: b.checkOut.toISOString(),
         status: b.status,
-        guestName: isMine ? b.customer.fullName ?? b.customer.email ?? selfName : null,
+        guestName: isMine
+          ? (b.customer.fullName ?? b.customer.email ?? selfName)
+          : null,
         guestDisplay: isMine
-          ? b.customer.fullName ?? b.customer.email ?? selfName
+          ? (b.customer.fullName ?? b.customer.email ?? selfName)
           : 'Reserved guest',
         currency: b.currency,
         totalAmount: b.totalAmount,
@@ -419,6 +433,239 @@ export class UserPortalService {
       selectedPropertyId,
       properties,
       events,
+    };
+  }
+
+  private async assertBookingOwnership(userId: string, bookingId: string) {
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: bookingId },
+      select: {
+        id: true,
+        customerId: true,
+        propertyId: true,
+        status: true,
+        checkOut: true,
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Booking not found.');
+    if (booking.customerId !== userId) {
+      throw new ForbiddenException('Not allowed to access this booking.');
+    }
+
+    return booking;
+  }
+
+  async uploadBookingDocument(params: {
+    userId: string;
+    bookingId: string;
+    type: BookingDocumentType;
+    notes?: string;
+    file?: Express.Multer.File;
+  }) {
+    const file = params.file;
+    if (!file) throw new BadRequestException('File upload failed.');
+
+    await this.assertBookingOwnership(params.userId, params.bookingId);
+
+    const doc = await this.prisma.bookingDocument.create({
+      data: {
+        bookingId: params.bookingId,
+        uploadedByUserId: params.userId,
+        type: params.type,
+        storageKey: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        notes: params.notes?.trim() || null,
+      },
+      select: {
+        id: true,
+        bookingId: true,
+        uploadedByUserId: true,
+        type: true,
+        storageKey: true,
+        originalName: true,
+        mimeType: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      ...doc,
+      downloadUrl: `/api/portal/user/bookings/${params.bookingId}/documents/${doc.id}/download`,
+    };
+  }
+
+  async listBookingDocuments(params: { userId: string; bookingId: string }) {
+    await this.assertBookingOwnership(params.userId, params.bookingId);
+
+    const docs = await this.prisma.bookingDocument.findMany({
+      where: { bookingId: params.bookingId },
+      orderBy: { createdAt: 'desc' },
+      select: {
+        id: true,
+        bookingId: true,
+        uploadedByUserId: true,
+        type: true,
+        storageKey: true,
+        originalName: true,
+        mimeType: true,
+        notes: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      items: docs.map((doc) => ({
+        ...doc,
+        downloadUrl: `/api/portal/user/bookings/${params.bookingId}/documents/${doc.id}/download`,
+      })),
+    };
+  }
+
+  async getBookingDocumentDownload(params: {
+    userId: string;
+    role: UserRole;
+    bookingId: string;
+    documentId: string;
+  }) {
+    if (params.role === UserRole.CUSTOMER) {
+      await this.assertBookingOwnership(params.userId, params.bookingId);
+    }
+
+    const doc = await this.prisma.bookingDocument.findUnique({
+      where: { id: params.documentId },
+      select: {
+        id: true,
+        bookingId: true,
+        storageKey: true,
+        originalName: true,
+        mimeType: true,
+      },
+    });
+
+    if (!doc || doc.bookingId !== params.bookingId) {
+      throw new NotFoundException('Document not found.');
+    }
+
+    const absolutePath = join(
+      process.cwd(),
+      'private_uploads',
+      'bookings',
+      'documents',
+      doc.storageKey,
+    );
+
+    if (!existsSync(absolutePath)) {
+      throw new NotFoundException('Document file not found on disk.');
+    }
+
+    return {
+      absolutePath,
+      mimeType: doc.mimeType ?? 'application/octet-stream',
+      downloadName: doc.originalName ?? doc.storageKey,
+    };
+  }
+
+  async createReview(params: {
+    userId: string;
+    role: UserRole;
+    bookingId: string;
+    rating: number;
+    title?: string;
+    comment?: string;
+  }) {
+    this.assertCustomer(params.role);
+
+    if (params.rating < 1 || params.rating > 5) {
+      throw new BadRequestException('rating must be between 1 and 5.');
+    }
+
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: params.bookingId },
+      select: {
+        id: true,
+        customerId: true,
+        propertyId: true,
+        checkOut: true,
+        status: true,
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Booking not found.');
+    if (booking.customerId !== params.userId) {
+      throw new ForbiddenException('You can only review your own booking.');
+    }
+
+    if (booking.checkOut >= new Date()) {
+      throw new BadRequestException(
+        'Reviews are allowed only after the stay has ended.',
+      );
+    }
+
+    if (
+      booking.status !== BookingStatus.CONFIRMED &&
+      booking.status !== BookingStatus.COMPLETED
+    ) {
+      throw new BadRequestException(
+        'Only completed or confirmed stays can be reviewed.',
+      );
+    }
+
+    const existing = await this.prisma.guestReview.findUnique({
+      where: { bookingId: booking.id },
+      select: { id: true },
+    });
+    if (existing) {
+      throw new BadRequestException('This booking already has a review.');
+    }
+
+    return this.prisma.guestReview.create({
+      data: {
+        propertyId: booking.propertyId,
+        bookingId: booking.id,
+        customerId: params.userId,
+        rating: params.rating,
+        title: params.title?.trim() || null,
+        comment: params.comment?.trim() || null,
+        status: GuestReviewStatus.PENDING,
+      },
+    });
+  }
+
+  async listMyReviews(params: {
+    userId: string;
+    role: UserRole;
+    page: number;
+    pageSize: number;
+  }) {
+    this.assertCustomer(params.role);
+
+    const page = params.page > 0 ? params.page : 1;
+    const pageSize = params.pageSize > 0 ? params.pageSize : 20;
+
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.guestReview.count({ where: { customerId: params.userId } }),
+      this.prisma.guestReview.findMany({
+        where: { customerId: params.userId },
+        orderBy: { createdAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          property: { select: { id: true, title: true, slug: true } },
+          booking: { select: { id: true, checkIn: true, checkOut: true } },
+        },
+      }),
+    ]);
+
+    return {
+      page,
+      pageSize,
+      total,
+      items,
     };
   }
 }

@@ -135,26 +135,26 @@ export default function PropertyGallery({ media, title }: Props) {
               />
             </button>
           ) : (
-            <div className="h-full w-full bg-slate-100" />
+            <div className="h-full w-full bg-warm-alt" />
           )}
 
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-slate-950/40 via-transparent to-transparent" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-dark-1/40 via-transparent to-transparent" />
 
           <div className="pointer-events-none absolute bottom-4 left-4">
-            <div className="rounded-xl bg-white/90 px-3 py-2 text-xs font-semibold text-slate-900 backdrop-blur">
+            <div className="rounded-xl bg-surface/90 px-3 py-2 text-xs font-semibold text-primary backdrop-blur">
               Verified availability • Operator-managed
             </div>
           </div>
 
           <div className="absolute bottom-4 right-4 flex items-center gap-2">
-            <div className="pointer-events-none hidden rounded-xl bg-white/90 px-3 py-2 text-xs font-semibold text-slate-900 backdrop-blur sm:block">
+            <div className="pointer-events-none hidden rounded-xl bg-surface/90 px-3 py-2 text-xs font-semibold text-primary backdrop-blur sm:block">
               {total > 0 ? `${total} photos` : "Photos"}
             </div>
 
             <button
               type="button"
               onClick={() => openAt(0)}
-              className="inline-flex items-center gap-2 rounded-xl bg-white/90 px-3 py-2 text-xs font-semibold text-slate-900 backdrop-blur transition hover:bg-white"
+              className="inline-flex items-center gap-2 rounded-xl bg-surface/90 px-3 py-2 text-xs font-semibold text-primary backdrop-blur transition hover:bg-surface"
             >
               <Images className="h-4 w-4" />
               View all
@@ -183,11 +183,11 @@ export default function PropertyGallery({ media, title }: Props) {
                     sizes="(max-width: 1024px) 100vw, 33vw"
                     className="object-cover"
                   />
-                  <div className="absolute inset-0 bg-slate-950/10" />
+                  <div className="absolute inset-0 bg-dark-1/10" />
 
                   {isLastTile ? (
-                    <div className="absolute inset-0 grid place-items-center bg-slate-950/40">
-                      <div className="rounded-2xl bg-white/95 px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm">
+                    <div className="absolute inset-0 grid place-items-center bg-dark-1/40">
+                      <div className="rounded-2xl bg-surface/95 px-4 py-3 text-sm font-semibold text-primary shadow-sm">
                         +{remainingCount} more photos
                       </div>
                     </div>
@@ -219,17 +219,17 @@ export default function PropertyGallery({ media, title }: Props) {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.98, y: 10 }}
               transition={{ duration: 0.26, ease: [0.22, 1, 0.36, 1] }}
-              className="relative z-10 w-full max-w-6xl overflow-hidden rounded-[2rem] border border-white/15 bg-[#070b12]/95 shadow-[0_30px_100px_rgba(0,0,0,0.55)]"
+              className="relative z-10 w-full max-w-6xl overflow-hidden rounded-[2rem] border border-inverted/15 bg-dark-1/95 shadow-card"
             >
-              <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3 sm:px-6">
-                <div className="text-xs font-semibold text-white/90">
+              <div className="flex items-center justify-between gap-3 border-b border-inverted/10 px-4 py-3 sm:px-6">
+                <div className="text-xs font-semibold text-inverted/90">
                   {activeIndex + 1} / {items.length}
                 </div>
 
                 <button
                   type="button"
                   onClick={close}
-                  className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-semibold text-white backdrop-blur transition hover:bg-white/15"
+                  className="inline-flex items-center gap-2 rounded-full border border-inverted/20 bg-surface/10 px-4 py-2 text-xs font-semibold text-inverted backdrop-blur transition hover:bg-surface/15"
                 >
                   <X className="h-4 w-4" />
                   Close
@@ -237,7 +237,7 @@ export default function PropertyGallery({ media, title }: Props) {
               </div>
 
               <div className="px-2 pb-3 pt-3 sm:px-6 sm:pb-6 sm:pt-5">
-                <div className="relative mx-auto h-[62vh] min-h-[320px] max-h-[760px] w-full overflow-hidden rounded-[1.65rem] bg-black/70 sm:h-[70vh]">
+                <div className="relative mx-auto h-[62vh] min-h-[320px] max-h-[760px] w-full overflow-hidden rounded-[1.65rem] bg-dark-1/70 sm:h-[70vh]">
                   <Image
                     src={items[activeIndex].url}
                     alt={items[activeIndex].alt}
@@ -251,7 +251,7 @@ export default function PropertyGallery({ media, title }: Props) {
                     type="button"
                     onClick={prev}
                     aria-label="Previous photo"
-                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/35 p-3 text-white backdrop-blur transition hover:bg-black/50"
+                    className="absolute left-3 top-1/2 -translate-y-1/2 rounded-full border border-inverted/20 bg-dark-1/35 p-3 text-inverted backdrop-blur transition hover:bg-dark-1/50"
                   >
                     <ChevronLeft className="h-5 w-5" />
                   </button>
@@ -260,7 +260,7 @@ export default function PropertyGallery({ media, title }: Props) {
                     type="button"
                     onClick={next}
                     aria-label="Next photo"
-                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-white/20 bg-black/35 p-3 text-white backdrop-blur transition hover:bg-black/50"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full border border-inverted/20 bg-dark-1/35 p-3 text-inverted backdrop-blur transition hover:bg-dark-1/50"
                   >
                     <ChevronRight className="h-5 w-5" />
                   </button>
@@ -276,22 +276,22 @@ export default function PropertyGallery({ media, title }: Props) {
                         onClick={() => setActiveIndex(idx)}
                         className={[
                           "relative h-16 w-24 flex-none overflow-hidden rounded-xl border transition sm:h-20 sm:w-32",
-                          active ? "border-white" : "border-white/20 hover:border-white/40",
+                          active ? "border-inverted" : "border-inverted/20 hover:border-inverted/40",
                         ].join(" ")}
                         aria-label={`Go to photo ${idx + 1}`}
                       >
                         <Image src={it.url} alt={it.alt} fill sizes="160px" className="object-cover" />
                         {active ? (
-                          <div className="absolute inset-0 ring-2 ring-white" />
+                          <div className="absolute inset-0 ring-2 ring-inverted" />
                         ) : (
-                          <div className="absolute inset-0 bg-black/10" />
+                          <div className="absolute inset-0 bg-dark-1/10" />
                         )}
                       </button>
                     );
                   })}
                 </div>
 
-                <div className="mt-2 text-center text-[11px] text-white/70">
+                <div className="mt-2 text-center text-[11px] text-inverted/70">
                   Tip: use ← / → to navigate, Esc to close.
                 </div>
               </div>

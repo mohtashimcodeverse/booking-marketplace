@@ -52,18 +52,18 @@ export default function VendorDashboardPage() {
   const content = useMemo(() => {
     if (state.kind === "loading") {
       return (
-        <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">
+        <div className="premium-card premium-card-tinted rounded-2xl p-6 text-sm text-secondary">
           Loading vendor dashboard…
         </div>
       );
     }
     if (state.kind === "error") {
       return (
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm font-semibold text-slate-900">
+        <div className="premium-card premium-card-tinted rounded-2xl p-6">
+          <div className="text-sm font-semibold text-primary">
             Could not load vendor portal
           </div>
-          <div className="mt-2 text-sm text-slate-600">{state.message}</div>
+          <div className="mt-2 text-sm text-secondary">{state.message}</div>
         </div>
       );
     }
@@ -82,15 +82,20 @@ export default function VendorDashboardPage() {
           />
         ) : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {entries.slice(0, 6).map(([k, v]) => (
-              <StatCard key={k} label={k} value={v} />
+            {entries.slice(0, 6).map(([k, v], idx) => (
+              <StatCard
+                key={k}
+                label={k}
+                value={v}
+                variant={idx === 0 ? "dark" : "tinted"}
+              />
             ))}
           </div>
         )}
 
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm font-semibold text-slate-900">What to do next</div>
-          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
+        <div className="premium-card premium-card-tinted rounded-2xl p-6">
+          <div className="text-sm font-semibold text-primary">What to do next</div>
+          <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-secondary">
             <li>Check bookings and prepare upcoming stays.</li>
             <li>Review ops tasks created on confirmations.</li>
             <li>Keep availability calendar accurate.</li>

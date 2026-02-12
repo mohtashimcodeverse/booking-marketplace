@@ -20,6 +20,8 @@ import { PortalModule } from './portal/portal.module';
 import { BookingExpiryWorker } from './workers/booking-expiry.worker';
 import { SearchModule } from './modules/search/search.module';
 import { FinanceModule } from './modules/finance/finance.module';
+import { FxModule } from './modules/fx/fx.module';
+import { MessagingModule } from './modules/messaging/messaging.module';
 
 @Module({
   imports: [
@@ -48,6 +50,8 @@ import { FinanceModule } from './modules/finance/finance.module';
 
     // 💸 Finance: Statements + Ledger + Payouts
     FinanceModule,
+    FxModule,
+    MessagingModule,
 
     SearchModule,
   ],

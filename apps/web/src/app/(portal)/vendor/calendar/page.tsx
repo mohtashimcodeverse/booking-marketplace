@@ -2,7 +2,11 @@
 
 import { PortalShell } from "@/components/portal/PortalShell";
 import { PortalAvailabilityCalendar } from "@/components/portal/calendar/PortalAvailabilityCalendar";
-import { getVendorCalendar } from "@/lib/api/portal/vendor";
+import {
+  blockVendorPropertyDates,
+  getVendorCalendar,
+  unblockVendorPropertyDates,
+} from "@/lib/api/portal/vendor";
 
 export default function VendorCalendarPage() {
   return (
@@ -13,8 +17,15 @@ export default function VendorCalendarPage() {
     >
       <PortalAvailabilityCalendar
         role="vendor"
+        allowBlockControls
         loadData={async ({ from, to, propertyId }) =>
           getVendorCalendar({ from, to, propertyId })
+        }
+        onBlockRange={async ({ propertyId, from, to, note }) =>
+          blockVendorPropertyDates(propertyId, { from, to, note })
+        }
+        onUnblockRange={async ({ propertyId, from, to, note }) =>
+          unblockVendorPropertyDates(propertyId, { from, to, note })
         }
       />
     </PortalShell>

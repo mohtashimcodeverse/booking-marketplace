@@ -77,19 +77,16 @@ export class AuthController {
     const envSameSite = process.env.AUTH_COOKIE_SAMESITE;
     const envDomain = process.env.AUTH_COOKIE_DOMAIN;
 
-    const secure =
-      envSecure !== undefined ? envSecure === 'true' : isProd;
+    const secure = envSecure !== undefined ? envSecure === 'true' : isProd;
 
-    const sameSite = (envSameSite !== undefined
-      ? envSameSite
-      : isProd
-        ? 'none'
-        : 'lax') as 'lax' | 'strict' | 'none';
+    const sameSite = (
+      envSameSite !== undefined ? envSameSite : isProd ? 'none' : 'lax'
+    ) as 'lax' | 'strict' | 'none';
 
     return {
       httpOnly: true,
-      secure,        // REQUIRED when SameSite=None
-      sameSite,      // none in prod, lax in dev
+      secure, // REQUIRED when SameSite=None
+      sameSite, // none in prod, lax in dev
       domain: envDomain || undefined,
       path: '/',
     } as const;

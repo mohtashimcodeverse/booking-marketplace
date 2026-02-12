@@ -40,18 +40,18 @@ function Drawer(props: { open: boolean; title: string; subtitle?: string; onClos
   if (!props.open) return null;
   return (
     <div className="fixed inset-0 z-[90]">
-      <button type="button" aria-label="Close drawer" onClick={props.onClose} className="absolute inset-0 bg-black/40" />
-      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl">
-        <div className="border-b border-black/5 bg-[#f6f3ec]/60 px-5 py-4">
+      <button type="button" aria-label="Close drawer" onClick={props.onClose} className="absolute inset-0 bg-dark-1/40" />
+      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-surface shadow-2xl">
+        <div className="border-b border-line/50 bg-warm-base/60 px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-slate-900">{props.title}</div>
-              <div className="mt-1 text-xs text-slate-600">{props.subtitle ?? "Admin actions"}</div>
+              <div className="truncate text-sm font-semibold text-primary">{props.title}</div>
+              <div className="mt-1 text-xs text-secondary">{props.subtitle ?? "Admin actions"}</div>
             </div>
             <button
               type="button"
               onClick={props.onClose}
-              className="rounded-2xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+              className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:bg-warm-alt"
             >
               Close
             </button>
@@ -88,7 +88,7 @@ export default function AdminStatementsPage() {
   const [genYear, setGenYear] = useState<number>(now.getFullYear());
   const [genMonth, setGenMonth] = useState<number>(now.getMonth() + 1);
   const [genVendorId, setGenVendorId] = useState<string>("");
-  const [genCurrency, setGenCurrency] = useState<string>("PKR");
+  const [genCurrency, setGenCurrency] = useState<string>("AED");
 
   // statement actions
   const [finalizeNote, setFinalizeNote] = useState<string>("");
@@ -185,8 +185,8 @@ export default function AdminStatementsPage() {
         className: "col-span-5",
         render: (row) => (
           <div className="min-w-0">
-            <div className="truncate font-semibold text-slate-900">{monthLabel(row.periodStart)}</div>
-            <div className="mt-1 truncate text-xs text-slate-600 font-mono">{row.id}</div>
+            <div className="truncate font-semibold text-primary">{monthLabel(row.periodStart)}</div>
+            <div className="mt-1 truncate text-xs text-secondary font-mono">{row.id}</div>
           </div>
         ),
       },
@@ -195,9 +195,9 @@ export default function AdminStatementsPage() {
         header: "Vendor",
         className: "col-span-3",
         render: (row) => (
-          <div className="text-xs text-slate-700">
-            <div className="truncate font-semibold text-slate-900">{row.vendorId}</div>
-            <div className="mt-1 truncate font-mono text-[11px] text-slate-500">{row.currency}</div>
+          <div className="text-xs text-secondary">
+            <div className="truncate font-semibold text-primary">{row.vendorId}</div>
+            <div className="mt-1 truncate font-mono text-[11px] text-muted">{row.currency}</div>
           </div>
         ),
       },
@@ -292,12 +292,12 @@ export default function AdminStatementsPage() {
             searchPlaceholder="Search by statement id, vendor id, status…"
             right={
               <div className="flex items-center gap-2">
-                <div className="hidden items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm md:flex">
-                  <Filter className="h-4 w-4 text-slate-500" />
+                <div className="hidden items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-secondary shadow-sm md:flex">
+                  <Filter className="h-4 w-4 text-muted" />
                   <select
                     value={status}
                     onChange={(e) => setStatus(e.target.value)}
-                    className="bg-transparent text-sm font-semibold text-slate-900 outline-none"
+                    className="bg-transparent text-sm font-semibold text-primary outline-none"
                   >
                     <option value="ALL">All statuses</option>
                   </select>
@@ -306,7 +306,7 @@ export default function AdminStatementsPage() {
                 <button
                   type="button"
                   onClick={() => void refresh(1)}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Refresh
@@ -317,29 +317,29 @@ export default function AdminStatementsPage() {
           <SkeletonTable rows={10} />
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800 whitespace-pre-wrap">
+        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger whitespace-pre-wrap">
           {state.message}
         </div>
       ) : (
         <div className="space-y-5">
           {/* Generate panel */}
-          <div className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm">
-            <div className="border-b border-black/5 bg-[#f6f3ec]/60 px-5 py-4">
+          <div className="overflow-hidden rounded-3xl border border-line/50 bg-surface shadow-sm">
+            <div className="border-b border-line/50 bg-warm-base/60 px-5 py-4">
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-                      <Wand2 className="h-4 w-4 text-slate-800" />
+                  <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-surface shadow-sm ring-1 ring-line/55">
+                      <Wand2 className="h-4 w-4 text-primary" />
                     </div>
                     Generate statements
                   </div>
-                  <div className="mt-1 text-sm text-slate-600">
+                  <div className="mt-1 text-sm text-secondary">
                     Generate monthly statements for a single vendor (optional) or all vendors.
                   </div>
                 </div>
 
                 {busy ? (
-                  <div className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">{busy}</div>
+                  <div className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-accent-text">{busy}</div>
                 ) : null}
               </div>
             </div>
@@ -347,43 +347,43 @@ export default function AdminStatementsPage() {
             <div className="p-5">
               <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
                 <div>
-                  <div className="text-xs font-semibold text-slate-700">Year</div>
+                  <div className="text-xs font-semibold text-secondary">Year</div>
                   <input
                     value={String(genYear)}
                     onChange={(e) => setGenYear(Number(e.target.value))}
-                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                     inputMode="numeric"
                   />
                 </div>
 
                 <div>
-                  <div className="text-xs font-semibold text-slate-700">Month</div>
+                  <div className="text-xs font-semibold text-secondary">Month</div>
                   <input
                     value={String(genMonth)}
                     onChange={(e) => setGenMonth(Number(e.target.value))}
-                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                     inputMode="numeric"
                     placeholder="1-12"
                   />
                 </div>
 
                 <div className="sm:col-span-2">
-                  <div className="text-xs font-semibold text-slate-700">Vendor ID (optional)</div>
+                  <div className="text-xs font-semibold text-secondary">Vendor ID (optional)</div>
                   <input
                     value={genVendorId}
                     onChange={(e) => setGenVendorId(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15 font-mono"
+                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20 font-mono"
                     placeholder="vendor UUID"
                   />
                 </div>
 
                 <div>
-                  <div className="text-xs font-semibold text-slate-700">Currency</div>
+                  <div className="text-xs font-semibold text-secondary">Currency</div>
                   <input
                     value={genCurrency}
                     onChange={(e) => setGenCurrency(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
-                    placeholder="PKR"
+                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
+                    placeholder="AED"
                   />
                 </div>
               </div>
@@ -392,7 +392,7 @@ export default function AdminStatementsPage() {
                 <button
                   type="button"
                   onClick={() => void refresh(1)}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Refresh list
@@ -401,7 +401,7 @@ export default function AdminStatementsPage() {
                   type="button"
                   onClick={onGenerate}
                   disabled={busy !== null}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-[#16A6C8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95 disabled:opacity-60"
                 >
                   <Wand2 className="h-4 w-4" />
                   Generate
@@ -418,15 +418,15 @@ export default function AdminStatementsPage() {
             searchPlaceholder="Search statements…"
             right={
               <div className="flex flex-wrap items-center gap-2">
-                <div className="hidden items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm md:flex">
-                  <Search className="h-4 w-4 text-slate-500" />
+                <div className="hidden items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-secondary shadow-sm md:flex">
+                  <Search className="h-4 w-4 text-muted" />
                   <select
                     value={status}
                     onChange={(e) => {
                       setStatus(e.target.value);
                       setPage(1);
                     }}
-                    className="bg-transparent text-sm font-semibold text-slate-900 outline-none"
+                    className="bg-transparent text-sm font-semibold text-primary outline-none"
                   >
                     <option value="ALL">All statuses</option>
                     {derived?.statuses.map((s) => (
@@ -437,8 +437,8 @@ export default function AdminStatementsPage() {
                   </select>
                 </div>
 
-                <div className="rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm">
-                  Net (page): <MoneyText amount={derived?.totals.net ?? 0} currency={state.items?.[0]?.currency ?? "PKR"} />
+                <div className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm">
+                  Net (page): <MoneyText amount={derived?.totals.net ?? 0} currency={state.items?.[0]?.currency ?? "AED"} />
                 </div>
               </div>
             }
@@ -458,7 +458,7 @@ export default function AdminStatementsPage() {
                   setFinalizeNote("");
                   setVoidReason("");
                 }}
-                className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
               >
                 <FileText className="h-4 w-4" />
                 Open
@@ -471,18 +471,18 @@ export default function AdminStatementsPage() {
               type="button"
               disabled={!canPrev}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
             >
               Prev
             </button>
-            <div className="text-sm text-slate-600">
+            <div className="text-sm text-secondary">
               Page {state.page} {state.total ? `· ${state.total} total` : ""}
             </div>
             <button
               type="button"
               disabled={!canNext}
               onClick={() => setPage((p) => p + 1)}
-              className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
             >
               Next
             </button>
@@ -497,11 +497,11 @@ export default function AdminStatementsPage() {
             {selected ? (
               <div className="space-y-4">
                 {/* Summary */}
-                <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
+                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-500">Vendor</div>
-                      <div className="mt-1 break-all font-mono text-xs text-slate-700">{selected.vendorId}</div>
+                      <div className="text-xs font-semibold text-muted">Vendor</div>
+                      <div className="mt-1 break-all font-mono text-xs text-secondary">{selected.vendorId}</div>
                     </div>
                     <div className="shrink-0">
                       <StatusPill status={selected.status} />
@@ -509,16 +509,16 @@ export default function AdminStatementsPage() {
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-black/5 bg-[#f6f3ec] p-4">
-                      <div className="text-xs font-semibold text-slate-600">Net payable</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                    <div className="rounded-2xl border border-line/50 bg-warm-base p-4">
+                      <div className="text-xs font-semibold text-secondary">Net payable</div>
+                      <div className="mt-1 text-sm font-semibold text-primary">
                         <MoneyText amount={selected.netPayable} currency={selected.currency} />
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-black/5 bg-[#f6f3ec] p-4">
-                      <div className="text-xs font-semibold text-slate-600">Generated</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                    <div className="rounded-2xl border border-line/50 bg-warm-base p-4">
+                      <div className="text-xs font-semibold text-secondary">Generated</div>
+                      <div className="mt-1 text-sm font-semibold text-primary">
                         <DateText value={selected.generatedAt} />
                       </div>
                     </div>
@@ -526,11 +526,11 @@ export default function AdminStatementsPage() {
                 </div>
 
                 {/* Finalize block */}
-                <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
+                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-slate-900">Finalize</div>
-                      <div className="mt-1 text-sm text-slate-600">
+                      <div className="text-sm font-semibold text-primary">Finalize</div>
+                      <div className="mt-1 text-sm text-secondary">
                         Locks totals and marks the statement ready for payout.
                       </div>
                     </div>
@@ -538,7 +538,7 @@ export default function AdminStatementsPage() {
                       type="button"
                       disabled={!isDraft(selected.status) || busy !== null}
                       onClick={() => setConfirmFinalizeOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-[#16A6C8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95 disabled:opacity-60"
                     >
                       <CheckCircle2 className="h-4 w-4" />
                       Finalize
@@ -546,29 +546,29 @@ export default function AdminStatementsPage() {
                   </div>
 
                   <div className="mt-3">
-                    <div className="text-xs font-semibold text-slate-700">Finalize note (optional)</div>
+                    <div className="text-xs font-semibold text-secondary">Finalize note (optional)</div>
                     <textarea
                       value={finalizeNote}
                       onChange={(e) => setFinalizeNote(e.target.value)}
                       rows={3}
                       placeholder="Short operator note (optional)…"
-                      className="mt-1 w-full rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                      className="mt-1 w-full rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary shadow-sm outline-none placeholder:text-muted focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                     />
                   </div>
 
                   {!isDraft(selected.status) ? (
-                    <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <div className="mt-3 rounded-2xl border border-warning/30 bg-warning/12 p-3 text-sm text-warning">
                       Finalize is allowed only from <span className="font-semibold">DRAFT</span>.
                     </div>
                   ) : null}
                 </div>
 
                 {/* Void block */}
-                <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
+                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
                   <div className="flex items-center justify-between gap-3">
                     <div>
-                      <div className="text-sm font-semibold text-slate-900">Void</div>
-                      <div className="mt-1 text-sm text-slate-600">
+                      <div className="text-sm font-semibold text-primary">Void</div>
+                      <div className="mt-1 text-sm text-secondary">
                         Voids the statement. Not allowed once it is PAID.
                       </div>
                     </div>
@@ -576,7 +576,7 @@ export default function AdminStatementsPage() {
                       type="button"
                       disabled={isPaid(selected.status) || busy !== null}
                       onClick={() => setConfirmVoidOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-900 shadow-sm hover:bg-rose-100 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-danger/30 bg-danger/12 px-4 py-2 text-sm font-semibold text-danger shadow-sm hover:bg-danger/12 disabled:opacity-60"
                     >
                       <Ban className="h-4 w-4" />
                       Void
@@ -584,18 +584,18 @@ export default function AdminStatementsPage() {
                   </div>
 
                   <div className="mt-3">
-                    <div className="text-xs font-semibold text-slate-700">Void reason (required)</div>
+                    <div className="text-xs font-semibold text-secondary">Void reason (required)</div>
                     <textarea
                       value={voidReason}
                       onChange={(e) => setVoidReason(e.target.value)}
                       rows={3}
                       placeholder="Explain why this statement should be voided…"
-                      className="mt-1 w-full rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                      className="mt-1 w-full rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary shadow-sm outline-none placeholder:text-muted focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                     />
                   </div>
 
                   {isPaid(selected.status) ? (
-                    <div className="mt-3 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                    <div className="mt-3 rounded-2xl border border-warning/30 bg-warning/12 p-3 text-sm text-warning">
                       This statement is <span className="font-semibold">PAID</span>. Void is blocked by backend rules.
                     </div>
                   ) : null}

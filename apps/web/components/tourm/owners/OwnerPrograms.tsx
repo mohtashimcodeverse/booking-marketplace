@@ -8,22 +8,24 @@ type Program = {
 };
 
 function ProgramCard({ p }: { p: Program }) {
+  const dark = p.emphasis === true;
+
   return (
     <div
       className={[
-        "rounded-2xl border p-6 transition hover:-translate-y-0.5",
-        p.emphasis
-          ? "border-[#16a6c8]/35 bg-white shadow-[0_18px_60px_rgba(2,10,20,0.06)]"
-          : "border-stone bg-white/55 shadow-[0_18px_60px_rgba(2,10,20,0.05)]",
+        "rounded-2xl p-6",
+        dark
+          ? "premium-card premium-card-dark"
+          : "premium-card premium-card-tinted premium-card-hover card-accent-left",
       ].join(" ")}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-lg font-semibold text-midnight">{p.name}</p>
-          <p className="mt-2 text-sm text-ink/75">{p.tagline}</p>
+          <p className="text-lg font-semibold text-primary">{p.name}</p>
+          <p className={["mt-2 text-sm", dark ? "text-inverted/78" : "text-secondary/75"].join(" ")}>{p.tagline}</p>
         </div>
-        {p.emphasis ? (
-          <span className="rounded-xl border border-[#16a6c8]/30 bg-[#16a6c8]/10 px-3 py-2 text-xs font-extrabold text-midnight">
+        {dark ? (
+          <span className="rounded-xl border border-brand/30 bg-brand px-3 py-2 text-xs font-extrabold text-accent-text">
             Best for most owners
           </span>
         ) : null}
@@ -31,8 +33,8 @@ function ProgramCard({ p }: { p: Program }) {
 
       <ul className="mt-6 space-y-2">
         {p.highlights.slice(0, 7).map((h) => (
-          <li key={h} className="flex gap-3 text-sm text-ink/80">
-            <span className="mt-1 inline-block h-2 w-2 rounded-full bg-[#16a6c8]/60" />
+          <li key={h} className={["flex gap-3 text-sm", dark ? "text-inverted/78" : "text-secondary/80"].join(" ")}>
+            <span className="mt-1 inline-block h-2 w-2 rounded-full bg-brand" />
             <span>{h}</span>
           </li>
         ))}
@@ -43,20 +45,25 @@ function ProgramCard({ p }: { p: Program }) {
           href="/contact"
           className={[
             "inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm font-extrabold transition",
-            p.emphasis
-              ? "bg-[#16a6c8] text-white shadow-[0_14px_40px_rgba(22,166,200,0.25)] hover:brightness-95"
-              : "border border-stone bg-white text-midnight hover:bg-sand",
+            dark
+              ? "bg-brand text-accent-text shadow-brand-soft hover:brightness-95"
+              : "border border-line bg-surface text-primary hover:bg-warm-base",
           ].join(" ")}
         >
           Get started
-          <span aria-hidden className={p.emphasis ? "text-white/80" : "text-ink/60"}>
+          <span aria-hidden className={p.emphasis ? "text-inverted/80" : "text-secondary/60"}>
             →
           </span>
         </Link>
 
         <Link
           href="/services"
-          className="inline-flex items-center gap-2 rounded-2xl border border-stone bg-transparent px-4 py-3 text-sm font-extrabold text-midnight transition hover:bg-sand"
+          className={[
+            "inline-flex items-center gap-2 rounded-2xl border px-4 py-3 text-sm font-extrabold transition",
+            dark
+              ? "border-inverted/35 bg-transparent text-inverted hover:bg-accent-soft/16"
+              : "border-line bg-transparent text-primary hover:bg-warm-base",
+          ].join(" ")}
         >
           What’s included
         </Link>
@@ -104,28 +111,28 @@ export default function OwnerPrograms() {
   ];
 
   return (
-    <section className="relative w-full bg-[var(--tourm-bg)] py-14 sm:py-18">
+    <section className="relative w-full py-14 sm:py-18">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
           <div className="max-w-3xl">
-            <p className="inline-flex items-center gap-2 rounded-full border border-stone bg-white/70 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.22em] text-ink/70 shadow-sm backdrop-blur">
-              <span className="inline-block h-2 w-2 rounded-full bg-[#16a6c8]" />
+            <p className="inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.22em] text-secondary/70 shadow-sm backdrop-blur">
+              <span className="inline-block h-2 w-2 rounded-full bg-brand" />
               Programs
             </p>
-            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-midnight sm:text-3xl">
+            <h2 className="mt-4 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
               Choose how hands-on you want to be
             </h2>
-            <p className="mt-2 text-sm text-ink/75 sm:text-base">
+            <p className="mt-2 text-sm text-secondary/75 sm:text-base">
               We structure programs around real operations and accountability, not vague promises.
             </p>
           </div>
 
           <Link
             href="/contact"
-            className="inline-flex items-center gap-2 rounded-2xl border border-stone bg-white px-4 py-3 text-sm font-extrabold text-midnight transition hover:bg-sand"
+            className="inline-flex items-center gap-2 rounded-2xl border border-line bg-surface px-4 py-3 text-sm font-extrabold text-primary transition hover:bg-warm-base"
           >
             Talk to us
-            <span aria-hidden className="text-ink/60">
+            <span aria-hidden className="text-secondary/60">
               →
             </span>
           </Link>
@@ -139,7 +146,7 @@ export default function OwnerPrograms() {
       </div>
 
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -right-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-[#16a6c8]/10 blur-3xl" />
+        <div className="absolute -right-24 top-1/2 h-72 w-72 -translate-y-1/2 rounded-full bg-accent-soft/80 blur-3xl" />
       </div>
     </section>
   );

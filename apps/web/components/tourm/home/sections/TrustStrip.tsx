@@ -26,7 +26,7 @@ export default function TrustStrip({ items }: { items: ReadonlyArray<TrustItem> 
   return (
     <section className="relative -mt-6 pb-10 sm:pb-14">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
-        <div className="rounded-[26px] border border-stone bg-white/70 p-4 shadow-sm backdrop-blur sm:p-6">
+        <div className="premium-card premium-card-tinted rounded-[26px] p-4 sm:p-6">
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
             {items.slice(0, 4).map((it, idx) => {
               const Icon = ICONS[idx]?.icon ?? BadgeCheck;
@@ -34,7 +34,7 @@ export default function TrustStrip({ items }: { items: ReadonlyArray<TrustItem> 
               return (
                 <motion.div
                   key={it.title}
-                  className="group rounded-3xl border border-stone bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-card"
+                  className="premium-card premium-card-hover card-accent-left group rounded-3xl p-5"
                   initial={{ y: 16, opacity: 0 }}
                   whileInView={{ y: 0, opacity: 1 }}
                   viewport={{ once: true, margin: "-120px" }}
@@ -45,18 +45,18 @@ export default function TrustStrip({ items }: { items: ReadonlyArray<TrustItem> 
                   }}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-sand">
+                    <div className="card-icon-plate h-11 w-11 shrink-0">
                       <Icon className="h-5 w-5 text-brand" />
                     </div>
 
                     <div className="min-w-0">
-                      <p className="text-sm font-extrabold text-midnight">{it.title}</p>
-                      <p className="mt-2 text-sm leading-relaxed text-ink/80">{it.desc}</p>
+                      <p className="text-sm font-extrabold text-primary">{it.title}</p>
+                      <p className="mt-2 text-sm leading-relaxed text-secondary/80">{it.desc}</p>
 
                       {it.ctaHref && it.ctaLabel ? (
                         <Link
                           href={it.ctaHref}
-                          className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-midnight transition hover:text-brand"
+                          className="mt-4 inline-flex items-center gap-2 text-sm font-extrabold text-primary transition hover:text-brand"
                         >
                           {it.ctaLabel}
                           <ArrowRight className="h-4 w-4" />
@@ -65,7 +65,7 @@ export default function TrustStrip({ items }: { items: ReadonlyArray<TrustItem> 
                     </div>
                   </div>
 
-                  <div className="pointer-events-none mt-4 h-px w-full bg-gradient-to-r from-brand/25 via-stone to-transparent" />
+                  <div className="pointer-events-none mt-4 h-px w-full bg-gradient-to-r from-brand/25 via-warm-base to-transparent" />
                 </motion.div>
               );
             })}
@@ -75,7 +75,7 @@ export default function TrustStrip({ items }: { items: ReadonlyArray<TrustItem> 
 
       {/* Soft background plate like Tourm sections */}
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-10 h-40 w-[92%] -translate-x-1/2 rounded-[2.5rem] bg-white/40 blur-[0px]" />
+        <div className="absolute left-1/2 top-10 h-40 w-[92%] -translate-x-1/2 rounded-[2.5rem] bg-surface/40 blur-[0px]" />
       </div>
     </section>
   );

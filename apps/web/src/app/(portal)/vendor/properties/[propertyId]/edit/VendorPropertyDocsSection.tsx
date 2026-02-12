@@ -38,21 +38,21 @@ export function VendorPropertyDocsSection(props: {
   }
 
   return (
-    <div className="rounded-2xl border bg-white p-6 space-y-4">
+    <div className="rounded-2xl border bg-surface p-6 space-y-4">
       <div>
-        <div className="text-sm font-semibold text-slate-900">Ownership proof (private)</div>
-        <div className="mt-1 text-sm text-slate-600">
+        <div className="text-sm font-semibold text-primary">Ownership proof (private)</div>
+        <div className="mt-1 text-sm text-secondary">
           This document is stored privately and never shown as a public link. Admin uses it for verification.
         </div>
       </div>
 
-      <div className="rounded-xl border bg-slate-50 p-4">
-        <div className="text-sm font-semibold text-slate-900">Current status</div>
-        <div className="mt-1 text-sm text-slate-700">
+      <div className="rounded-xl border bg-warm-alt p-4">
+        <div className="text-sm font-semibold text-primary">Current status</div>
+        <div className="mt-1 text-sm text-secondary">
           {current ? (
             <>
               Uploaded: <span className="font-medium">{current.originalName ?? "document"}</span>
-              <div className="mt-1 text-xs text-slate-600">Uploaded at: {new Date(current.createdAt).toLocaleString()}</div>
+              <div className="mt-1 text-xs text-secondary">Uploaded at: {new Date(current.createdAt).toLocaleString()}</div>
             </>
           ) : (
             "No ownership proof uploaded yet."
@@ -61,7 +61,7 @@ export function VendorPropertyDocsSection(props: {
       </div>
 
       <div className="flex items-center gap-3">
-        <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+        <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover">
           {busy ? "Uploading…" : "Upload ownership proof"}
           <input
             type="file"
@@ -71,11 +71,11 @@ export function VendorPropertyDocsSection(props: {
             disabled={busy}
           />
         </label>
-        <div className="text-sm text-slate-600">PDF or image is okay (backend validates).</div>
+        <div className="text-sm text-secondary">PDF or image is okay (backend validates).</div>
       </div>
 
       {err ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 whitespace-pre-wrap">
+        <div className="rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger whitespace-pre-wrap">
           {err}
         </div>
       ) : null}

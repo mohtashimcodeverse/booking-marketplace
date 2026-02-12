@@ -11,7 +11,7 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
       <Preloader />
       <FloatingHeader />
       {/* kill ANY accidental horizontal overflow */}
-      <main className="pt-[92px] overflow-x-hidden">{children}</main>
+      <main className="pt-[76px] sm:pt-[80px] overflow-x-hidden">{children}</main>
       <Footer />
     </>
   );

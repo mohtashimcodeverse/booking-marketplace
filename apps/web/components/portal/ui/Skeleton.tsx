@@ -20,7 +20,7 @@ export function SkeletonLine(props: {
   return (
     <div
       className={cn(
-        "h-3 rounded-full bg-slate-200/70 animate-pulse",
+        "h-3 rounded-full bg-warm-alt/70 animate-pulse",
         w,
         props.className,
       )}
@@ -32,7 +32,7 @@ export function SkeletonBlock(props: { className?: string }) {
   return (
     <div
       className={cn(
-        "rounded-3xl bg-slate-200/70 animate-pulse",
+        "rounded-3xl bg-warm-alt/70 animate-pulse",
         props.className,
       )}
     />
@@ -43,8 +43,8 @@ export function SkeletonTable(props: { rows?: number }) {
   const rows = props.rows ?? 8;
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm">
-      <div className="border-b border-black/5 bg-[#f6f3ec]/40 px-6 py-4">
+    <div className="overflow-hidden rounded-3xl border border-line/50 bg-surface shadow-sm">
+      <div className="border-b border-line/50 bg-warm-base/40 px-6 py-4">
         <SkeletonLine w="md" />
       </div>
 

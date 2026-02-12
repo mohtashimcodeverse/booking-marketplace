@@ -94,11 +94,11 @@ function LoginPageContent() {
       showBackHome
     >
       <div className="mb-5 flex items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-2 rounded-full bg-black/5 px-3 py-1 text-xs font-semibold text-[color:var(--tourm-ink)]">
-          <span className="text-[color:var(--tourm-primary)]">{roleIcon}</span>
+        <div className="inline-flex items-center gap-2 rounded-full border border-[#4F46E5]/45 bg-[#4F46E5]/14 px-3 py-1 text-xs font-semibold text-[#0B0F19]">
+          <span className="text-[#4F46E5]">{roleIcon}</span>
           {roleLabel} login
         </div>
-        <Link href={qsGateway} className="text-xs font-semibold text-[color:var(--tourm-ink)] hover:underline">
+        <Link href={qsGateway} className="text-xs font-semibold text-[#4F46E5] hover:underline">
           Switch
         </Link>
       </div>
@@ -114,7 +114,7 @@ function LoginPageContent() {
         }}
       >
         <motion.div variants={fieldVariant}>
-          <label className="mb-1.5 block text-xs font-semibold text-[color:var(--tourm-ink)]">
+          <label className="mb-1.5 block text-xs font-semibold text-primary">
             Email
           </label>
           <input
@@ -124,12 +124,12 @@ function LoginPageContent() {
             placeholder="you@example.com"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm text-[color:var(--tourm-ink)] shadow-sm outline-none placeholder:text-black/30 focus:border-[color:var(--tourm-primary)] focus:ring-4 focus:ring-[color:var(--tourm-primary)]/15"
+            className="premium-input w-full rounded-2xl px-4 py-3 text-sm text-primary shadow-sm outline-none placeholder:text-muted"
           />
         </motion.div>
 
         <motion.div variants={fieldVariant}>
-          <label className="mb-1.5 block text-xs font-semibold text-[color:var(--tourm-ink)]">
+          <label className="mb-1.5 block text-xs font-semibold text-primary">
             Password
           </label>
           <div className="relative">
@@ -140,12 +140,12 @@ function LoginPageContent() {
               placeholder="••••••••"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 pr-12 text-sm text-[color:var(--tourm-ink)] shadow-sm outline-none placeholder:text-black/30 focus:border-[color:var(--tourm-primary)] focus:ring-4 focus:ring-[color:var(--tourm-primary)]/15"
+              className="premium-input w-full rounded-2xl px-4 py-3 pr-12 text-sm text-primary shadow-sm outline-none placeholder:text-muted"
             />
             <button
               type="button"
               onClick={() => setShowPassword((s) => !s)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-[color:var(--tourm-muted)] hover:bg-black/5 hover:text-[color:var(--tourm-ink)]"
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-secondary hover:bg-[#4F46E5]/12 hover:text-[#4F46E5]"
               aria-label={showPassword ? "Hide password" : "Show password"}
             >
               {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -155,7 +155,7 @@ function LoginPageContent() {
 
         {error ? (
           <motion.p
-            className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200"
+            className="rounded-2xl bg-danger/12 px-4 py-3 text-sm text-danger ring-1 ring-danger/30"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -167,17 +167,17 @@ function LoginPageContent() {
           type="submit"
           disabled={loading}
           whileTap={{ scale: 0.98 }}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--tourm-primary)] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(22,166,200,0.20)] hover:brightness-[0.98] disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#4F46E5] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(79,70,229,0.32)] hover:bg-[#4338CA] disabled:opacity-60"
         >
           {loading ? "Signing in…" : "Sign in"}
           <ArrowRight className="h-4 w-4" />
         </motion.button>
 
         <div className="flex items-center justify-between pt-1">
-          <Link href="/forgot-password" className="text-xs font-semibold text-[color:var(--tourm-ink)] hover:underline">
+          <Link href="/forgot-password" className="text-xs font-semibold text-[#4F46E5] hover:underline">
             Forgot password?
           </Link>
-          <Link href={qsSignup} className="text-xs font-semibold text-[color:var(--tourm-ink)] hover:underline">
+          <Link href={qsSignup} className="text-xs font-semibold text-[#4F46E5] hover:underline">
             Create account
           </Link>
         </div>

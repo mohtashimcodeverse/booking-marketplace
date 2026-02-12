@@ -202,17 +202,17 @@ export default function FiltersBar() {
 
   return (
     <div className="mt-6">
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-black/10 bg-white/70 p-3 text-slate-900 backdrop-blur">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line/80 bg-surface/70 p-3 text-primary backdrop-blur">
         <div className="flex flex-wrap items-center gap-2">
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+            className="inline-flex items-center gap-2 rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary transition hover:bg-warm-alt"
           >
             <SlidersHorizontal className="h-4 w-4" />
             Filters
             {activeCount > 0 ? (
-              <span className="ml-1 rounded-lg bg-[#16A6C8] px-2 py-0.5 text-xs font-bold text-white">
+              <span className="ml-1 rounded-lg bg-brand px-2 py-0.5 text-xs font-bold text-accent-text">
                 {activeCount}
               </span>
             ) : null}
@@ -229,8 +229,8 @@ export default function FiltersBar() {
                   className={[
                     "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition",
                     active
-                      ? "border-black/10 bg-[#16A6C8] text-white"
-                      : "border-black/10 bg-white text-slate-900 hover:bg-slate-50",
+                      ? "border-line/80 bg-brand text-accent-text"
+                      : "border-line/80 bg-surface text-primary hover:bg-warm-alt",
                   ].join(" ")}
                 >
                   <MapPin className="h-3.5 w-3.5 opacity-80" />
@@ -246,13 +246,13 @@ export default function FiltersBar() {
             <button
               type="button"
               onClick={clearAll}
-              className="inline-flex items-center gap-2 rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-800 transition hover:bg-slate-50"
+              className="inline-flex items-center gap-2 rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary transition hover:bg-warm-alt"
             >
               <X className="h-4 w-4" />
               Clear
             </button>
           ) : (
-            <div className="text-xs text-slate-500">Tip: filters persist on refresh</div>
+            <div className="text-xs text-muted">Tip: filters persist on refresh</div>
           )}
         </div>
       </div>
@@ -268,12 +268,12 @@ export default function FiltersBar() {
             <button
               type="button"
               aria-label="Close filters"
-              className="absolute inset-0 bg-black/40"
+              className="absolute inset-0 bg-dark-1/40"
               onClick={() => setOpen(false)}
             />
 
             <motion.div
-              className="absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto border-l border-black/10 bg-white p-5 text-slate-900 shadow-2xl"
+              className="absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto border-l border-line/80 bg-surface p-5 text-primary shadow-2xl"
               initial={{ x: 24, opacity: 0 }}
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: 24, opacity: 0 }}
@@ -282,7 +282,7 @@ export default function FiltersBar() {
               <div className="flex items-start justify-between gap-4">
                 <div>
                   <div className="text-lg font-semibold tracking-tight">Filters</div>
-                  <div className="mt-1 text-sm text-slate-600">
+                  <div className="mt-1 text-sm text-secondary">
                     Server-driven results — refresh-safe and backend-truth.
                   </div>
                 </div>
@@ -290,23 +290,23 @@ export default function FiltersBar() {
                 <button
                   type="button"
                   onClick={() => setOpen(false)}
-                  className="rounded-xl border border-black/10 bg-white p-2 transition hover:bg-slate-50"
+                  className="rounded-xl border border-line/80 bg-surface p-2 transition hover:bg-warm-alt"
                   aria-label="Close"
                 >
                   <X className="h-5 w-5" />
                 </button>
               </div>
 
-              <div className="mt-6 rounded-2xl border border-black/10 bg-white p-4">
+              <div className="mt-6 rounded-2xl border border-line/80 bg-surface p-4">
                 <div className="text-sm font-semibold">Location</div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <label className="block">
-                    <div className="mb-1 text-xs font-semibold text-slate-600">City</div>
+                    <div className="mb-1 text-xs font-semibold text-secondary">City</div>
                     <select
                       value={draft.city}
                       onChange={(e) => setDraft((s) => ({ ...s, city: e.target.value }))}
-                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-black/20"
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary outline-none focus:border-line/80"
                     >
                       {CITY_OPTIONS.map((o) => (
                         <option key={o.value} value={o.value}>
@@ -317,18 +317,18 @@ export default function FiltersBar() {
                   </label>
 
                   <label className="block">
-                    <div className="mb-1 text-xs font-semibold text-slate-600">Area</div>
+                    <div className="mb-1 text-xs font-semibold text-secondary">Area</div>
                     <input
                       value={draft.area}
                       onChange={(e) => setDraft((s) => ({ ...s, area: e.target.value }))}
                       placeholder="e.g. Dubai Marina"
-                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-black/20"
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary outline-none placeholder:text-muted focus:border-line/80"
                     />
                   </label>
                 </div>
 
                 <div className="mt-4">
-                  <div className="mb-2 text-xs font-semibold text-slate-600">Dubai presets</div>
+                  <div className="mb-2 text-xs font-semibold text-secondary">Dubai presets</div>
                   <div className="flex flex-wrap gap-2">
                     {DUBAI_PRESETS.map((p) => {
                       const active = draft.area.trim().toLowerCase() === p.toLowerCase();
@@ -340,8 +340,8 @@ export default function FiltersBar() {
                           className={[
                             "rounded-xl border px-3 py-2 text-xs font-semibold transition",
                             active
-                              ? "border-black/10 bg-[#16A6C8] text-white"
-                              : "border-black/10 bg-white text-slate-900 hover:bg-slate-50",
+                              ? "border-line/80 bg-brand text-accent-text"
+                              : "border-line/80 bg-surface text-primary hover:bg-warm-alt",
                           ].join(" ")}
                         >
                           {p}
@@ -352,22 +352,22 @@ export default function FiltersBar() {
                 </div>
 
                 <div className="mt-4">
-                  <div className="mb-1 text-xs font-semibold text-slate-600">Keyword</div>
+                  <div className="mb-1 text-xs font-semibold text-secondary">Keyword</div>
                   <input
                     value={draft.q}
                     onChange={(e) => setDraft((s) => ({ ...s, q: e.target.value }))}
                     placeholder="Community, landmark, building…"
-                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 outline-none placeholder:text-slate-400 focus:border-black/20"
+                    className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary outline-none placeholder:text-muted focus:border-line/80"
                   />
                 </div>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4">
+              <div className="mt-4 rounded-2xl border border-line/80 bg-surface p-4">
                 <div className="text-sm font-semibold">Guests & rooms</div>
 
                 <div className="mt-3 grid gap-3 sm:grid-cols-3">
                   <label className="block">
-                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-secondary">
                       <Users className="h-4 w-4" /> Guests
                     </div>
                     <input
@@ -379,12 +379,12 @@ export default function FiltersBar() {
                         const v = e.target.value.trim();
                         setDraft((s) => ({ ...s, guests: v === "" ? "" : clampInt(Number(v), 1, 16) }));
                       }}
-                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-black/20"
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary outline-none focus:border-line/80"
                     />
                   </label>
 
                   <label className="block">
-                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-secondary">
                       <BedDouble className="h-4 w-4" /> Bedrooms
                     </div>
                     <input
@@ -396,12 +396,12 @@ export default function FiltersBar() {
                         const v = e.target.value.trim();
                         setDraft((s) => ({ ...s, bedrooms: v === "" ? "" : clampInt(Number(v), 0, 20) }));
                       }}
-                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-black/20"
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary outline-none focus:border-line/80"
                     />
                   </label>
 
                   <label className="block">
-                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-secondary">
                       <Bath className="h-4 w-4" /> Bathrooms
                     </div>
                     <input
@@ -413,17 +413,17 @@ export default function FiltersBar() {
                         const v = e.target.value.trim();
                         setDraft((s) => ({ ...s, bathrooms: v === "" ? "" : clampInt(Number(v), 0, 20) }));
                       }}
-                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-black/20"
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary outline-none focus:border-line/80"
                     />
                   </label>
                 </div>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4">
+              <div className="mt-4 rounded-2xl border border-line/80 bg-surface p-4">
                 <div className="text-sm font-semibold">Price range</div>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
                   <label className="block">
-                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-secondary">
                       <BadgeDollarSign className="h-4 w-4" /> Min
                     </div>
                     <input
@@ -434,12 +434,12 @@ export default function FiltersBar() {
                         const v = e.target.value.trim();
                         setDraft((s) => ({ ...s, minPrice: v === "" ? "" : Math.max(0, Number(v)) }));
                       }}
-                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-black/20"
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary outline-none focus:border-line/80"
                     />
                   </label>
 
                   <label className="block">
-                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-slate-600">
+                    <div className="mb-1 flex items-center gap-2 text-xs font-semibold text-secondary">
                       <BadgeDollarSign className="h-4 w-4" /> Max
                     </div>
                     <input
@@ -450,28 +450,28 @@ export default function FiltersBar() {
                         const v = e.target.value.trim();
                         setDraft((s) => ({ ...s, maxPrice: v === "" ? "" : Math.max(0, Number(v)) }));
                       }}
-                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-black/20"
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary outline-none focus:border-line/80"
                     />
                   </label>
                 </div>
 
-                <div className="mt-2 text-xs text-slate-500">
+                <div className="mt-2 text-xs text-muted">
                   If backend supports it, results will filter. If not, backend will safely ignore it.
                 </div>
               </div>
 
-              <div className="mt-4 rounded-2xl border border-black/10 bg-white p-4">
+              <div className="mt-4 rounded-2xl border border-line/80 bg-surface p-4">
                 <div className="flex items-start justify-between gap-4">
                   <div>
                     <div className="text-sm font-semibold">Amenities</div>
-                    <div className="mt-1 text-xs text-slate-600">Multi-select. Uses the shared catalog.</div>
+                    <div className="mt-1 text-xs text-secondary">Multi-select. Uses the shared catalog.</div>
                   </div>
 
                   {draft.amenities.length ? (
                     <button
                       type="button"
                       onClick={() => setDraft((s) => ({ ...s, amenities: [] }))}
-                      className="rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-50"
+                      className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-secondary transition hover:bg-warm-alt"
                     >
                       Clear
                     </button>
@@ -490,8 +490,8 @@ export default function FiltersBar() {
                         className={[
                           "inline-flex items-center gap-2 rounded-xl border px-3 py-2 text-xs font-semibold transition",
                           active
-                            ? "border-black/10 bg-[#16A6C8] text-white"
-                            : "border-black/10 bg-white text-slate-800 hover:bg-slate-50",
+                            ? "border-line/80 bg-brand text-accent-text"
+                            : "border-line/80 bg-surface text-primary hover:bg-warm-alt",
                         ].join(" ")}
                       >
                         <meta.Icon className="h-4 w-4 opacity-80" />
@@ -501,17 +501,17 @@ export default function FiltersBar() {
                   })}
                 </div>
 
-                <div className="mt-3 text-xs text-slate-500">
-                  This writes URL param <code className="rounded bg-slate-100 px-1">amenities</code> so refresh/back keeps it.
+                <div className="mt-3 text-xs text-muted">
+                  This writes URL param <code className="rounded bg-warm-alt px-1">amenities</code> so refresh/back keeps it.
                 </div>
               </div>
 
-              <div className="sticky bottom-0 mt-6 border-t border-black/10 bg-white pb-2 pt-4">
+              <div className="sticky bottom-0 mt-6 border-t border-line/80 bg-surface pb-2 pt-4">
                 <div className="flex items-center justify-between gap-3">
                   <button
                     type="button"
                     onClick={clearAll}
-                    className="w-full rounded-xl border border-black/10 bg-white px-4 py-3 text-sm font-semibold text-slate-800 transition hover:bg-slate-50"
+                    className="w-full rounded-xl border border-line/80 bg-surface px-4 py-3 text-sm font-semibold text-primary transition hover:bg-warm-alt"
                   >
                     Clear all
                   </button>
@@ -522,13 +522,13 @@ export default function FiltersBar() {
                       apply(draft);
                       setOpen(false);
                     }}
-                    className="w-full rounded-xl bg-[#16A6C8] px-4 py-3 text-sm font-semibold text-white transition hover:brightness-95"
+                    className="w-full rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-accent-text transition hover:brightness-95"
                   >
                     Apply filters
                   </button>
                 </div>
 
-                <div className="mt-2 text-center text-xs text-slate-500">
+                <div className="mt-2 text-center text-xs text-muted">
                   Filters are server-driven. No fake UI.
                 </div>
               </div>

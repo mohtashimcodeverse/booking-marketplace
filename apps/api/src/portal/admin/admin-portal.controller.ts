@@ -1,4 +1,13 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Query,
+  Res,
+  StreamableFile,
+  UseGuards,
+} from '@nestjs/common';
 import { AdminPortalService } from './admin-portal.service';
 
 import { JwtAccessGuard } from '../../auth/guards/jwt-access.guard';
@@ -22,6 +31,8 @@ import {
   parseDateRange,
   parsePageParams,
 } from '../common/portal.utils';
+import { createReadStream } from 'fs';
+import type { Response } from 'express';
 
 @Controller('/portal/admin')
 @UseGuards(JwtAccessGuard, RolesGuard)
@@ -95,6 +106,40 @@ export class AdminPortalController {
       page,
       pageSize,
     });
+  }
+
+  @Get('bookings/:bookingId/documents')
+  bookingDocuments(
+    @CurrentUser() user: User,
+    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
+  ) {
+    return this.service.listBookingDocuments({
+      userId: user.id,
+      role: user.role,
+      bookingId,
+    });
+  }
+
+  @Get('bookings/:bookingId/documents/:documentId/download')
+  async downloadBookingDocument(
+    @CurrentUser() user: User,
+    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.service.getBookingDocumentDownload({
+      userId: user.id,
+      role: user.role,
+      bookingId,
+      documentId,
+    });
+
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(file.downloadName)}"`,
+    );
+    return new StreamableFile(createReadStream(file.absolutePath));
   }
 
   @Get('calendar')

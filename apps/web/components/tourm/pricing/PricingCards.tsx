@@ -6,22 +6,24 @@ type Card = {
 };
 
 function CardItem({ c }: { c: Card }) {
+  const dark = c.emphasis === true;
+
   return (
     <div
       className={[
-        "rounded-2xl border p-6 transition hover:-translate-y-0.5",
-        c.emphasis
-          ? "border-[#16a6c8]/35 bg-white shadow-[0_18px_60px_rgba(2,10,20,0.06)]"
-          : "border-stone bg-white/55 shadow-[0_18px_60px_rgba(2,10,20,0.05)]",
+        "rounded-2xl p-6",
+        dark
+          ? "premium-card premium-card-dark"
+          : "premium-card premium-card-tinted premium-card-hover card-accent-left",
       ].join(" ")}
     >
       <div className="flex items-start justify-between gap-4">
         <div>
-          <p className="text-lg font-semibold text-midnight">{c.title}</p>
-          <p className="mt-2 text-sm text-ink/75">{c.desc}</p>
+          <p className="text-lg font-semibold text-primary">{c.title}</p>
+          <p className={["mt-2 text-sm", dark ? "text-inverted/78" : "text-secondary/75"].join(" ")}>{c.desc}</p>
         </div>
-        {c.emphasis ? (
-          <span className="rounded-xl border border-[#16a6c8]/30 bg-[#16a6c8]/10 px-3 py-2 text-xs font-extrabold text-midnight">
+        {dark ? (
+          <span className="rounded-xl border border-brand/30 bg-brand px-3 py-2 text-xs font-extrabold text-accent-text">
             Common
           </span>
         ) : null}
@@ -29,8 +31,8 @@ function CardItem({ c }: { c: Card }) {
 
       <ul className="mt-6 space-y-2">
         {c.bullets.slice(0, 7).map((b) => (
-          <li key={b} className="flex gap-3 text-sm text-ink/80">
-            <span className="mt-1 inline-block h-2 w-2 rounded-full bg-[#16a6c8]/60" />
+          <li key={b} className={["flex gap-3 text-sm", dark ? "text-inverted/78" : "text-secondary/80"].join(" ")}>
+            <span className="mt-1 inline-block h-2 w-2 rounded-full bg-brand" />
             <span>{b}</span>
           </li>
         ))}
@@ -60,17 +62,17 @@ export default function PricingCards() {
   ];
 
   return (
-    <section className="relative w-full bg-[var(--tourm-bg)] py-14 sm:py-18">
+    <section className="relative w-full py-14 sm:py-18">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl">
-          <p className="inline-flex items-center gap-2 rounded-full border border-stone bg-white/70 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.22em] text-ink/70 shadow-sm backdrop-blur">
-            <span className="inline-block h-2 w-2 rounded-full bg-[#16a6c8]" />
+          <p className="inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.22em] text-secondary/70 shadow-sm backdrop-blur">
+            <span className="inline-block h-2 w-2 rounded-full bg-brand" />
             Components
           </p>
-          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-midnight sm:text-3xl">
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
             What makes up the total
           </h2>
-          <p className="mt-2 text-sm text-ink/75 sm:text-base">
+          <p className="mt-2 text-sm text-secondary/75 sm:text-base">
             We show a breakdown so you understand exactly what you’re paying for.
           </p>
         </div>
@@ -83,7 +85,7 @@ export default function PricingCards() {
       </div>
 
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-0 top-1/3 h-72 w-72 -translate-y-1/2 rounded-full bg-[#16a6c8]/10 blur-3xl" />
+        <div className="absolute left-0 top-1/3 h-72 w-72 -translate-y-1/2 rounded-full bg-accent-soft/80 blur-3xl" />
       </div>
     </section>
   );

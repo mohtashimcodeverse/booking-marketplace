@@ -31,9 +31,9 @@ export default function VendorLoginPage() {
   return (
     <Suspense
       fallback={
-        <main className="min-h-screen bg-white">
+        <main className="min-h-screen bg-surface">
           <div className="mx-auto max-w-md px-4 pb-24 pt-24 sm:px-6 lg:px-8">
-            <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm text-sm text-neutral-600">
+            <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm text-sm text-secondary">
               Loading vendor login...
             </div>
           </div>
@@ -109,54 +109,54 @@ function VendorLoginContent() {
   }
 
   return (
-    <main className="min-h-screen bg-white">
+    <main className="min-h-screen bg-surface">
       <div className="mx-auto max-w-md px-4 pb-24 pt-24 sm:px-6 lg:px-8">
-        <div className="rounded-2xl border border-neutral-200 bg-white p-6 shadow-sm">
-          <div className="text-lg font-semibold text-neutral-900">Vendor login</div>
-          <p className="mt-1 text-sm text-neutral-600">
+        <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <div className="text-lg font-semibold text-primary">Vendor login</div>
+          <p className="mt-1 text-sm text-secondary">
             Log in to manage listings, media, documents, review submissions, and publishing.
           </p>
 
           {err ? (
-            <div className="mt-4 whitespace-pre-wrap rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+            <div className="mt-4 whitespace-pre-wrap rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger">
               {err}
             </div>
           ) : null}
 
           <form onSubmit={onSubmit} className="mt-5 space-y-4">
             <label className="block">
-              <div className="text-sm font-semibold text-neutral-900">Email</div>
+              <div className="text-sm font-semibold text-primary">Email</div>
               <input
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 inputMode="email"
                 autoComplete="email"
                 placeholder="vendor@demo.com"
-                className="mt-2 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-neutral-900/10"
+                className="mt-2 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
               />
             </label>
 
             <label className="block">
-              <div className="text-sm font-semibold text-neutral-900">Password</div>
+              <div className="text-sm font-semibold text-primary">Password</div>
               <input
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 type="password"
                 autoComplete="current-password"
                 placeholder="••••••••"
-                className="mt-2 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-neutral-900/10"
+                className="mt-2 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
               />
             </label>
 
             <button
               type="submit"
               disabled={busy || email.trim().length === 0 || password.length === 0}
-              className="w-full rounded-xl bg-neutral-900 px-4 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+              className="w-full rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-50"
             >
               {busy ? "Signing in…" : "Sign in"}
             </button>
 
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-muted">
               Current portal auth uses a token stored in sessionStorage. Next step: upgrade to SSR-safe cookie auth so
               server components can fetch with auth too.
             </p>

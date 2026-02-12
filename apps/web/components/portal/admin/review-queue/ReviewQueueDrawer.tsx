@@ -174,14 +174,14 @@ export function ReviewQueueDrawer(props: {
     <div className="flex flex-col gap-3">
       <div className="flex items-start justify-between gap-3">
         <div className="min-w-0">
-          <div className="text-lg font-semibold text-slate-900 truncate">{props.item.title}</div>
-          <div className="mt-1 text-xs text-slate-500 font-mono break-all">{props.item.id}</div>
+          <div className="text-lg font-semibold text-primary truncate">{props.item.title}</div>
+          <div className="mt-1 text-xs text-muted font-mono break-all">{props.item.id}</div>
         </div>
 
         <button
           type="button"
           onClick={props.onClose}
-          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-black/10 bg-white hover:bg-slate-50 shadow-sm"
+          className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-line/80 bg-surface hover:bg-warm-alt shadow-sm"
           aria-label="Close"
         >
           <X className="h-4 w-4" />
@@ -190,13 +190,13 @@ export function ReviewQueueDrawer(props: {
 
       <div className="flex flex-wrap items-center gap-2">
         <StatusPill tone={toneForStatus(props.item.status)}>{props.item.status}</StatusPill>
-        <div className="text-sm text-slate-700">
+        <div className="text-sm text-secondary">
           {safeText(props.item.city)}
           {props.item.area ? ` • ${props.item.area}` : ""}
         </div>
 
         {props.busyLabel ? (
-          <div className="ml-auto rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">
+          <div className="ml-auto rounded-full bg-brand px-3 py-1 text-xs font-semibold text-accent-text">
             {props.busyLabel}
           </div>
         ) : null}
@@ -213,8 +213,8 @@ export function ReviewQueueDrawer(props: {
       subtitle={undefined}
       footer={
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="text-xs text-slate-500">
-            Backend approval allowed only from <span className="font-semibold text-slate-900">UNDER_REVIEW</span>.
+          <div className="text-xs text-muted">
+            Backend approval allowed only from <span className="font-semibold text-primary">UNDER_REVIEW</span>.
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
@@ -222,12 +222,12 @@ export function ReviewQueueDrawer(props: {
               <button
                 type="button"
                 onClick={() => void props.onApprove(props.item.id)}
-                className="rounded-2xl bg-[#16A6C8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                className="rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95"
               >
                 Approve
               </button>
             ) : (
-              <div className="rounded-2xl border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-900">
+              <div className="rounded-2xl border border-warning/30 bg-warning/12 px-3 py-2 text-xs font-semibold text-warning">
                 Approval locked
               </div>
             )}
@@ -238,7 +238,7 @@ export function ReviewQueueDrawer(props: {
                 const note = window.prompt("What changes are required? (optional):") ?? "";
                 await props.onRequestChanges(props.item.id, note.trim().length ? note.trim() : undefined);
               }}
-              className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
             >
               Request changes
             </button>
@@ -249,7 +249,7 @@ export function ReviewQueueDrawer(props: {
                 const reason = window.prompt("Reason (optional):") ?? "";
                 await props.onReject(props.item.id, reason.trim().length ? reason.trim() : undefined);
               }}
-              className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-800 shadow-sm hover:bg-rose-100"
+              className="rounded-2xl border border-danger/30 bg-danger/12 px-4 py-2 text-sm font-semibold text-danger shadow-sm hover:bg-danger/12"
             >
               Reject
             </button>
@@ -258,17 +258,17 @@ export function ReviewQueueDrawer(props: {
       }
     >
       <div className="space-y-5">
-        <div className="rounded-3xl border border-black/5 bg-white p-5 shadow-sm">
+        <div className="rounded-3xl border border-line/50 bg-surface p-5 shadow-sm">
           {header}
         </div>
 
         {!approveAllowed ? (
-          <div className="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+          <div className="rounded-3xl border border-warning/30 bg-warning/12 p-4 text-sm text-warning">
             <div className="flex items-start gap-2">
               <Info className="mt-0.5 h-4 w-4" />
               <div>
                 <div className="font-semibold">Approval locked by status rules</div>
-                <div className="mt-1 text-amber-800">
+                <div className="mt-1 text-warning">
                   This listing is <span className="font-semibold">{props.item.status}</span>. You can still request changes or reject.
                 </div>
               </div>
@@ -277,12 +277,12 @@ export function ReviewQueueDrawer(props: {
         ) : null}
 
         {/* Hero */}
-        <div className="overflow-hidden rounded-3xl border border-black/5 bg-[#f6f3ec]">
+        <div className="overflow-hidden rounded-3xl border border-line/50 bg-warm-base">
           {img ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={img} alt="Primary" className="h-64 w-full object-cover" />
           ) : (
-            <div className="flex h-64 w-full items-center justify-center text-slate-500">
+            <div className="flex h-64 w-full items-center justify-center text-muted">
               <div className="flex items-center gap-2 text-sm font-semibold">
                 <ImageIcon className="h-4 w-4" />
                 No photos uploaded yet
@@ -293,33 +293,33 @@ export function ReviewQueueDrawer(props: {
 
         {/* Summary */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
-            <div className="text-xs font-semibold text-slate-500">Vendor</div>
-            <div className="mt-1 text-sm font-semibold text-slate-900">{safeText(props.item.vendorName ?? null)}</div>
-            <div className="mt-1 text-xs text-slate-500">{safeText(props.item.vendorId ?? null)}</div>
+          <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
+            <div className="text-xs font-semibold text-muted">Vendor</div>
+            <div className="mt-1 text-sm font-semibold text-primary">{safeText(props.item.vendorName ?? null)}</div>
+            <div className="mt-1 text-xs text-muted">{safeText(props.item.vendorId ?? null)}</div>
           </div>
 
-          <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
-            <div className="text-xs font-semibold text-slate-500">Timestamps</div>
-            <div className="mt-2 space-y-1 text-xs text-slate-700">
+          <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
+            <div className="text-xs font-semibold text-muted">Timestamps</div>
+            <div className="mt-2 space-y-1 text-xs text-secondary">
               <div>
-                <span className="font-semibold text-slate-900">Created:</span> {niceDate(props.item.createdAt)}
+                <span className="font-semibold text-primary">Created:</span> {niceDate(props.item.createdAt)}
               </div>
               <div>
-                <span className="font-semibold text-slate-900">Updated:</span> {niceDate(props.item.updatedAt)}
+                <span className="font-semibold text-primary">Updated:</span> {niceDate(props.item.updatedAt)}
               </div>
               <div>
-                <span className="font-semibold text-slate-900">Submitted:</span> {niceDate(props.item.submittedAt ?? null)}
+                <span className="font-semibold text-primary">Submitted:</span> {niceDate(props.item.submittedAt ?? null)}
               </div>
             </div>
           </div>
         </div>
 
         {/* Photos */}
-        <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
+        <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-900">Photos</div>
-            <div className="text-xs text-slate-500">{mediaSorted.length} items</div>
+            <div className="text-sm font-semibold text-primary">Photos</div>
+            <div className="text-xs text-muted">{mediaSorted.length} items</div>
           </div>
 
           {mediaSorted.length ? (
@@ -327,10 +327,10 @@ export function ReviewQueueDrawer(props: {
               {mediaSorted.slice(0, 12).map((m, idx) => {
                 const key = m.id ?? `${m.url}_${idx}`;
                 return (
-                  <div key={key} className="overflow-hidden rounded-2xl border border-black/5 bg-[#f6f3ec]">
+                  <div key={key} className="overflow-hidden rounded-2xl border border-line/50 bg-warm-base">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={m.url} alt={m.category ?? "Photo"} className="h-28 w-full object-cover" />
-                    <div className="px-2 py-1 text-[11px] font-semibold text-slate-700 truncate">
+                    <div className="px-2 py-1 text-[11px] font-semibold text-secondary truncate">
                       {m.category ?? "PHOTO"}
                     </div>
                   </div>
@@ -338,15 +338,15 @@ export function ReviewQueueDrawer(props: {
               })}
             </div>
           ) : (
-            <div className="mt-3 text-sm text-slate-600">No media found in the queue payload.</div>
+            <div className="mt-3 text-sm text-secondary">No media found in the queue payload.</div>
           )}
         </div>
 
         {/* Documents */}
-        <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
+        <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
           <div className="flex items-center justify-between">
-            <div className="text-sm font-semibold text-slate-900">Documents</div>
-            <div className="text-xs text-slate-500">{docs.length} items</div>
+            <div className="text-sm font-semibold text-primary">Documents</div>
+            <div className="text-xs text-muted">{docs.length} items</div>
           </div>
 
           {docs.length ? (
@@ -354,14 +354,14 @@ export function ReviewQueueDrawer(props: {
               {docs.map((d) => (
                 <div
                   key={d.id}
-                  className="flex flex-col gap-3 rounded-2xl border border-black/5 bg-white px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
+                  className="flex flex-col gap-3 rounded-2xl border border-line/50 bg-surface px-3 py-3 sm:flex-row sm:items-center sm:justify-between"
                 >
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 text-sm font-semibold text-slate-900">
-                      <FileText className="h-4 w-4 text-slate-500" />
+                    <div className="flex items-center gap-2 text-sm font-semibold text-primary">
+                      <FileText className="h-4 w-4 text-muted" />
                       <span className="truncate">{d.type}</span>
                     </div>
-                    <div className="mt-0.5 text-xs text-slate-500 truncate">
+                    <div className="mt-0.5 text-xs text-muted truncate">
                       {safeText(d.originalName ?? null)} • {safeText(d.mimeType ?? null)}
                     </div>
                   </div>
@@ -377,7 +377,7 @@ export function ReviewQueueDrawer(props: {
                           mimeType: d.mimeType ?? null,
                         })
                       }
-                      className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
                     >
                       <Eye className="h-4 w-4" />
                       View
@@ -397,7 +397,7 @@ export function ReviewQueueDrawer(props: {
                         }
                       }}
                       className={cn(
-                        "inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50",
+                        "inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt",
                         downloadingDocId === d.id ? "opacity-60" : ""
                       )}
                     >
@@ -409,7 +409,7 @@ export function ReviewQueueDrawer(props: {
               ))}
             </div>
           ) : (
-            <div className="mt-3 text-sm text-slate-600">No documents found in the queue payload.</div>
+            <div className="mt-3 text-sm text-secondary">No documents found in the queue payload.</div>
           )}
         </div>
       </div>
@@ -423,11 +423,11 @@ export function ReviewQueueDrawer(props: {
         size="xl"
         footer={
           <div className="flex items-center justify-between gap-2">
-            <div className="text-xs text-slate-500">{viewerBusy ? "Loading…" : viewerUrl ? "Ready" : "—"}</div>
+            <div className="text-xs text-muted">{viewerBusy ? "Loading…" : viewerUrl ? "Ready" : "—"}</div>
             <button
               type="button"
               onClick={closeViewer}
-              className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
             >
               Close
             </button>
@@ -435,16 +435,16 @@ export function ReviewQueueDrawer(props: {
         }
       >
         {viewerBusy ? (
-          <div className="rounded-3xl border border-black/5 bg-[#f6f3ec] p-6 text-sm text-slate-700">{viewerBusy}</div>
+          <div className="rounded-3xl border border-line/50 bg-warm-base p-6 text-sm text-secondary">{viewerBusy}</div>
         ) : !viewerUrl ? (
-          <div className="rounded-3xl border border-black/5 bg-[#f6f3ec] p-6 text-sm text-slate-700">No preview available.</div>
+          <div className="rounded-3xl border border-line/50 bg-warm-base p-6 text-sm text-secondary">No preview available.</div>
         ) : viewerKind === "image" ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={viewerUrl} alt="Document preview" className="w-full rounded-3xl border border-black/5 object-contain" />
+          <img src={viewerUrl} alt="Document preview" className="w-full rounded-3xl border border-line/50 object-contain" />
         ) : viewerKind === "pdf" ? (
-          <iframe title="PDF preview" src={viewerUrl} className="h-[70vh] w-full rounded-3xl border border-black/5 bg-white" />
+          <iframe title="PDF preview" src={viewerUrl} className="h-[70vh] w-full rounded-3xl border border-line/50 bg-surface" />
         ) : (
-          <div className="rounded-3xl border border-black/5 bg-[#f6f3ec] p-6 text-sm text-slate-700">
+          <div className="rounded-3xl border border-line/50 bg-warm-base p-6 text-sm text-secondary">
             Preview is not supported for this file type. Please download it instead.
           </div>
         )}

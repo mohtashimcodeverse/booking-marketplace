@@ -24,7 +24,7 @@ export function RequireAuth({ children, redirectTo = "/login" }: RequireAuthProp
   if (status === "loading") {
     return (
       <div className="min-h-[40vh] flex items-center justify-center">
-        <div className="text-sm text-neutral-500">Checking session…</div>
+        <div className="text-sm text-muted">Checking session…</div>
       </div>
     );
   }
@@ -33,8 +33,8 @@ export function RequireAuth({ children, redirectTo = "/login" }: RequireAuthProp
     return (
       <div className="min-h-[40vh] flex items-center justify-center px-4">
         <div className="max-w-md rounded-xl border p-6 text-center">
-          <div className="text-sm font-medium text-neutral-900">Session check failed</div>
-          <div className="mt-2 text-sm text-neutral-600">Please refresh the page.</div>
+          <div className="text-sm font-medium text-primary">Session check failed</div>
+          <div className="mt-2 text-sm text-secondary">Please refresh the page.</div>
         </div>
       </div>
     );

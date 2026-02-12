@@ -36,11 +36,11 @@ export default function AmenitiesSection({
   const remaining = Math.max(0, cleaned.length - preview.length);
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
+    <section className="rounded-2xl border border-line bg-surface p-5">
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
-          <div className="text-sm font-semibold text-slate-900">{title}</div>
-          <p className="mt-1 text-xs text-slate-600">
+          <div className="text-sm font-semibold text-primary">{title}</div>
+          <p className="mt-1 text-xs text-secondary">
             Icon-first list, consistent across the site.
           </p>
         </div>
@@ -49,7 +49,7 @@ export default function AmenitiesSection({
           <button
             type="button"
             onClick={() => setOpen(true)}
-            className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-900 transition hover:bg-slate-50"
+            className="inline-flex items-center justify-center rounded-full border border-line bg-surface px-4 py-2 text-xs font-semibold text-primary transition hover:bg-warm-alt"
           >
             Show all ({cleaned.length})
           </button>
@@ -66,7 +66,7 @@ export default function AmenitiesSection({
       </div>
 
       {remaining > 0 ? (
-        <div className="mt-3 text-xs text-slate-600">
+        <div className="mt-3 text-xs text-secondary">
           + {remaining} more
         </div>
       ) : null}
@@ -79,22 +79,22 @@ export default function AmenitiesSection({
             type="button"
             aria-label="Close amenities modal"
             onClick={() => setOpen(false)}
-            className="absolute inset-0 bg-black/50"
+            className="absolute inset-0 bg-dark-1/50"
           />
 
           {/* Panel */}
-          <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-3xl rounded-t-3xl bg-white p-5 shadow-2xl sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:p-6">
+          <div className="absolute inset-x-0 bottom-0 mx-auto w-full max-w-3xl rounded-t-3xl bg-surface p-5 shadow-2xl sm:bottom-auto sm:top-1/2 sm:-translate-y-1/2 sm:rounded-3xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
-                <div className="text-base font-semibold text-slate-900">All amenities</div>
-                <div className="mt-1 text-xs text-slate-600">
+                <div className="text-base font-semibold text-primary">All amenities</div>
+                <div className="mt-1 text-xs text-secondary">
                   Everything included in this stay.
                 </div>
               </div>
               <button
                 type="button"
                 onClick={() => setOpen(false)}
-                className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+                className="rounded-full border border-line bg-surface px-4 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
               >
                 Close
               </button>
@@ -110,7 +110,7 @@ export default function AmenitiesSection({
               />
             </div>
 
-            <div className="mt-4 text-[11px] text-slate-500">
+            <div className="mt-4 text-[11px] text-muted">
               Amenities are shown based on the property’s structured catalog (or safe defaults until
               backend parity is enabled).
             </div>

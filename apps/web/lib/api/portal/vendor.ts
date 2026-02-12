@@ -125,6 +125,21 @@ export type VendorPropertyDeletionRequest = {
   updatedAt: string;
 };
 
+export type VendorPropertyUnpublishRequestStatus = "PENDING" | "APPROVED" | "REJECTED";
+
+export type VendorPropertyUnpublishRequest = {
+  id: string;
+  propertyId: string;
+  propertyTitleSnapshot: string;
+  propertyCitySnapshot: string | null;
+  status: VendorPropertyUnpublishRequestStatus;
+  reason: string | null;
+  reviewedAt: string | null;
+  adminNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
 export type VendorAmenityGroup = {
   id: string;
   name: string;
@@ -280,6 +295,46 @@ export async function getVendorCalendar(params?: {
       propertyId: params?.propertyId ?? "",
     },
   });
+  return unwrap(res);
+}
+
+export async function blockVendorPropertyDates(
+  propertyId: string,
+  input: { from: string; to: string; note?: string }
+): Promise<{ ok: true; blockedDays: number }> {
+  const res = await apiFetch<{ ok: true; blockedDays: number }>(
+    `/vendor/properties/${encodeURIComponent(propertyId)}/availability/block`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: {
+        from: input.from,
+        to: input.to,
+        note: input.note?.trim() || undefined,
+      },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function unblockVendorPropertyDates(
+  propertyId: string,
+  input: { from: string; to: string; note?: string }
+): Promise<{ ok: true; unblockedDays: number }> {
+  const res = await apiFetch<{ ok: true; unblockedDays: number }>(
+    `/vendor/properties/${encodeURIComponent(propertyId)}/availability/unblock`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: {
+        from: input.from,
+        to: input.to,
+        note: input.note?.trim() || undefined,
+      },
+    }
+  );
   return unwrap(res);
 }
 
@@ -562,13 +617,45 @@ export async function publishVendorProperty(propertyId: string): Promise<VendorP
   return unwrap(res);
 }
 
-export async function unpublishVendorProperty(propertyId: string): Promise<VendorPropertyDetail> {
-  const res = await apiFetch<VendorPropertyDetail>(
+export async function unpublishVendorProperty(
+  propertyId: string
+): Promise<VendorPropertyUnpublishRequest> {
+  const res = await apiFetch<VendorPropertyUnpublishRequest>(
     `/vendor/properties/${encodeURIComponent(propertyId)}/unpublish`,
     {
       method: "POST",
       credentials: "include",
       cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
+export async function getVendorPropertyUnpublishRequest(
+  propertyId: string
+): Promise<VendorPropertyUnpublishRequest | null> {
+  const res = await apiFetch<VendorPropertyUnpublishRequest | null>(
+    `/vendor/properties/${encodeURIComponent(propertyId)}/unpublish-request`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
+export async function requestVendorPropertyUnpublish(
+  propertyId: string,
+  reason?: string
+): Promise<VendorPropertyUnpublishRequest> {
+  const res = await apiFetch<VendorPropertyUnpublishRequest>(
+    `/vendor/properties/${encodeURIComponent(propertyId)}/unpublish-request`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: { reason: reason?.trim() || undefined },
     }
   );
   return unwrap(res);

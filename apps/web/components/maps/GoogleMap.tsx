@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { ENV } from "@/lib/env";
 import type { MapPoint } from "@/lib/types/search";
+import { useCurrency } from "@/lib/currency/CurrencyProvider";
 
 type LatLng = { lat: number; lng: number };
 type ViewportBounds = { north: number; south: number; east: number; west: number };
@@ -60,12 +61,6 @@ function clearMarkers(markers: google.maps.Marker[]) {
   markers.length = 0;
 }
 
-function formatPriceLabel(p: MapPoint): string {
-  const cur = p.currency ?? "AED";
-  const n = typeof p.priceFrom === "number" ? p.priceFrom : 0;
-  return `${cur} ${n.toLocaleString()}`;
-}
-
 export default function GoogleMap(props: {
   center: LatLng;
   zoom: number;
@@ -92,6 +87,7 @@ export default function GoogleMap(props: {
 
   const [ready, setReady] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const { formatFromAed } = useCurrency();
 
   const apiKey = ENV.googleMapsApiKey;
   const safeClassName = className ?? "h-[520px] w-full rounded-2xl";
@@ -160,7 +156,10 @@ export default function GoogleMap(props: {
         position: { lat: p.lat, lng: p.lng },
         title: p.title,
         label: {
-          text: formatPriceLabel(p),
+          text:
+            typeof p.priceFrom === "number"
+              ? formatFromAed(p.priceFrom, { maximumFractionDigits: 0 })
+              : "AED --",
           fontSize: "12px",
           fontWeight: "600",
         },
@@ -173,7 +172,7 @@ export default function GoogleMap(props: {
 
       h.markers.push(marker);
     }
-  }, [points, onMarkerClick, ready]);
+  }, [formatFromAed, onMarkerClick, points, ready]);
 
   // Emit viewport changes after pan/zoom settles.
   useEffect(() => {
@@ -215,9 +214,9 @@ export default function GoogleMap(props: {
   if (!apiKey) {
     return (
       <div className={safeClassName}>
-        <div className="grid h-full w-full place-items-center rounded-2xl border border-slate-200 bg-slate-50 p-6 text-sm text-slate-600">
+        <div className="grid h-full w-full place-items-center rounded-2xl border border-line bg-warm-alt p-6 text-sm text-secondary">
           Add{" "}
-          <code className="mx-1 rounded bg-white px-1">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>{" "}
+          <code className="mx-1 rounded bg-surface px-1">NEXT_PUBLIC_GOOGLE_MAPS_API_KEY</code>{" "}
           to enable map.
         </div>
       </div>
@@ -227,11 +226,11 @@ export default function GoogleMap(props: {
   if (errorMsg) {
     return (
       <div className={safeClassName}>
-        <div className="grid h-full w-full place-items-center rounded-2xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-700">
+        <div className="grid h-full w-full place-items-center rounded-2xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
           <div className="max-w-[520px] text-center">
             <div className="font-semibold">Google Maps failed to load</div>
-            <div className="mt-2 break-words text-xs text-rose-700/90">{errorMsg}</div>
-            <div className="mt-3 text-xs text-rose-700/80">
+            <div className="mt-2 break-words text-xs text-danger/90">{errorMsg}</div>
+            <div className="mt-3 text-xs text-danger/80">
               Check: billing enabled, key restrictions include <code>http://localhost:3000/*</code>,
               and Maps JavaScript API is enabled.
             </div>

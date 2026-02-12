@@ -120,10 +120,10 @@ export default function VendorStatementsPage() {
         className: "col-span-4",
         render: (row) => (
           <div>
-            <div className="font-semibold text-slate-900">
+            <div className="font-semibold text-primary">
               {monthLabel(row.periodStart)}
             </div>
-            <div className="mt-1 text-xs text-slate-600">
+            <div className="mt-1 text-xs text-secondary">
               <span className="font-mono">{row.id}</span>
             </div>
           </div>
@@ -140,9 +140,9 @@ export default function VendorStatementsPage() {
         header: "Net Payable",
         className: "col-span-3",
         render: (row) => (
-          <div className="text-slate-900">
+          <div className="text-primary">
             <MoneyText amount={row.netPayable} currency={row.currency} />
-            <div className="mt-1 text-xs text-slate-600">
+            <div className="mt-1 text-xs text-secondary">
               Gross: <MoneyText amount={row.grossBookings} currency={row.currency} />
             </div>
           </div>
@@ -170,11 +170,11 @@ export default function VendorStatementsPage() {
           <SkeletonTable rows={8} />
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm font-semibold text-slate-900">
+        <div className="rounded-2xl border bg-surface p-6">
+          <div className="text-sm font-semibold text-primary">
             Could not load statements
           </div>
-          <div className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">
+          <div className="mt-2 text-sm text-secondary whitespace-pre-wrap">
             {state.message}
           </div>
         </div>
@@ -196,7 +196,7 @@ export default function VendorStatementsPage() {
             rowActions={(row) => (
               <Link
                 href={`/vendor/statements/${encodeURIComponent(row.id)}`}
-                className="rounded-lg border bg-white px-3 py-1.5 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+                className="rounded-lg border bg-surface px-3 py-1.5 text-xs font-semibold text-primary hover:bg-warm-alt"
               >
                 View
               </Link>
@@ -208,18 +208,18 @@ export default function VendorStatementsPage() {
               type="button"
               disabled={!canPrev}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-xl border bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
             >
               Prev
             </button>
-            <div className="text-sm text-slate-600">
+            <div className="text-sm text-secondary">
               Page {state.page} {state.total ? `· ${state.total} total` : ""}
             </div>
             <button
               type="button"
               disabled={!canNext}
               onClick={() => setPage((p) => p + 1)}
-              className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-xl border bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
             >
               Next
             </button>

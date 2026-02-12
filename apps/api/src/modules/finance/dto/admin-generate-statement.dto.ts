@@ -24,7 +24,7 @@ export class AdminGenerateStatementDto {
 
   @ApiPropertyOptional({
     description:
-      'Optional currency override for generated statements. Default uses vendor statement currency (PKR by default).',
+      'Optional currency override for generated statements. Default uses vendor statement currency (AED by default).',
   })
   @IsOptional()
   @IsString()

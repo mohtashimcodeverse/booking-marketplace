@@ -166,24 +166,24 @@ function SignupPageContent() {
       showBackHome
       width="xl"
       footnote={
-        <div className="text-center text-xs text-[color:var(--tourm-muted)]">
+        <div className="text-center text-xs text-secondary">
           Already have an account?{" "}
-          <Link href={qsLogin} className="font-semibold text-[color:var(--tourm-ink)] hover:underline">
+          <Link href={qsLogin} className="font-semibold text-brand hover:underline">
             Sign in
           </Link>{" "}
           •{" "}
-          <Link href={qsGateway} className="font-semibold text-[color:var(--tourm-ink)] hover:underline">
+          <Link href={qsGateway} className="font-semibold text-brand hover:underline">
             Switch role
           </Link>
         </div>
       }
     >
       <div className="mb-5 flex items-center justify-between gap-3">
-        <div className="inline-flex items-center gap-2 rounded-full bg-black/5 px-3 py-1 text-xs font-semibold text-[color:var(--tourm-ink)]">
-          <span className="text-[color:var(--tourm-primary)]">{roleIcon}</span>
+        <div className="inline-flex items-center gap-2 rounded-full border border-line bg-brand-soft px-3 py-1 text-xs font-semibold text-primary">
+          <span className="text-brand">{roleIcon}</span>
           {roleLabel} signup
         </div>
-        <Link href={qsGateway} className="text-xs font-semibold text-[color:var(--tourm-ink)] hover:underline">
+        <Link href={qsGateway} className="text-xs font-semibold text-brand hover:underline">
           Switch
         </Link>
       </div>
@@ -235,7 +235,7 @@ function SignupPageContent() {
 
         {error ? (
           <motion.p
-            className="rounded-2xl bg-red-50 px-4 py-3 text-sm text-red-700 ring-1 ring-red-200"
+            className="rounded-2xl bg-danger/12 px-4 py-3 text-sm text-danger ring-1 ring-danger/30"
             initial={{ opacity: 0, y: 6 }}
             animate={{ opacity: 1, y: 0 }}
           >
@@ -247,13 +247,13 @@ function SignupPageContent() {
           type="submit"
           disabled={loading}
           whileTap={{ scale: 0.98 }}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--tourm-primary)] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(22,166,200,0.20)] hover:brightness-[0.98] disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-brand px-5 py-3.5 text-sm font-semibold text-text-invert shadow-brand-soft hover:bg-brand-hover disabled:opacity-60"
         >
           {loading ? "Creating account…" : "Create account"}
           <ArrowRight className="h-4 w-4" />
         </motion.button>
 
-        <p className="text-center text-[11px] text-[color:var(--tourm-muted)]">
+        <p className="text-center text-[11px] text-secondary">
           We’ll use your details to personalize your experience. You can edit them later.
         </p>
       </motion.form>
@@ -264,7 +264,7 @@ function SignupPageContent() {
 function Field(props: { label: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="mb-1.5 block text-xs font-semibold text-[color:var(--tourm-ink)]">
+      <label className="mb-1.5 block text-xs font-semibold text-primary">
         {props.label}
       </label>
       {props.children}
@@ -287,7 +287,7 @@ function Input(props: {
       placeholder={props.placeholder}
       value={props.value}
       onChange={(e) => props.onChange(e.target.value)}
-      className="w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 text-sm text-[color:var(--tourm-ink)] shadow-sm outline-none placeholder:text-black/30 focus:border-[color:var(--tourm-primary)] focus:ring-4 focus:ring-[color:var(--tourm-primary)]/15"
+      className="premium-input w-full rounded-2xl px-4 py-3 text-sm text-primary shadow-sm outline-none placeholder:text-muted"
     />
   );
 }
@@ -308,12 +308,12 @@ function PasswordInput(props: {
         placeholder="••••••••"
         value={props.value}
         onChange={(e) => props.onChange(e.target.value)}
-        className="w-full rounded-2xl border border-black/10 bg-white/70 px-4 py-3 pr-12 text-sm text-[color:var(--tourm-ink)] shadow-sm outline-none placeholder:text-black/30 focus:border-[color:var(--tourm-primary)] focus:ring-4 focus:ring-[color:var(--tourm-primary)]/15"
+        className="premium-input w-full rounded-2xl px-4 py-3 pr-12 text-sm text-primary shadow-sm outline-none placeholder:text-muted"
       />
       <button
         type="button"
         onClick={() => props.setShow(!props.show)}
-        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-[color:var(--tourm-muted)] hover:bg-black/5 hover:text-[color:var(--tourm-ink)]"
+        className="absolute right-2 top-1/2 -translate-y-1/2 rounded-xl p-2 text-secondary hover:bg-brand-soft-2 hover:text-primary"
         aria-label={props.show ? "Hide password" : "Show password"}
       >
         {props.show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

@@ -68,7 +68,7 @@ export default function AdminAnalyticsPage() {
 
     if (state.kind === "error") {
       return (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800 whitespace-pre-wrap">
+        <div className="rounded-2xl border border-danger/30 bg-danger/12 p-5 text-sm text-danger whitespace-pre-wrap">
           {state.message}
         </div>
       );
@@ -81,12 +81,17 @@ export default function AdminAnalyticsPage() {
       <div className="space-y-6">
         {Object.keys(kpis).length ? (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {Object.entries(kpis).slice(0, 9).map(([k, v]) => (
-              <StatCard key={k} label={k} value={v} />
+            {Object.entries(kpis).slice(0, 9).map(([k, v], idx) => (
+              <StatCard
+                key={k}
+                label={k}
+                value={v}
+                variant={idx === 0 ? "dark" : "tinted"}
+              />
             ))}
           </div>
         ) : (
-          <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">
+          <div className="premium-card premium-card-tinted rounded-2xl p-6 text-sm text-secondary">
             No KPI data available for this range.
           </div>
         )}
@@ -116,8 +121,8 @@ export default function AdminAnalyticsPage() {
                   type="button"
                   onClick={() => setRange(r)}
                   className={[
-                    "rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-slate-200",
-                    range === r ? "bg-slate-900 text-white" : "bg-white text-slate-900 hover:bg-slate-50",
+                    "rounded-full px-4 py-2 text-sm font-semibold ring-1 ring-line",
+                    range === r ? "bg-brand text-accent-text" : "bg-surface text-primary hover:bg-warm-alt",
                   ].join(" ")}
                 >
                   {r}

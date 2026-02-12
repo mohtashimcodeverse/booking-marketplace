@@ -1,9 +1,15 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { createVendorPropertyDraft } from "@/lib/api/portal/vendor";
+import {
+  listServicePlans,
+  upsertPropertyServiceConfig,
+  type ServicePlan,
+  type ServicePlanType,
+} from "@/lib/api/operator";
 
 function clampInt(value: string, fallback: number, min: number, max: number) {
   const n = Number(value);
@@ -26,10 +32,10 @@ function nowStamp(): string {
 function StepCard(props: { title: string; desc: string; tone: "current" | "todo" | "done" }) {
   const cls =
     props.tone === "current"
-      ? "border-slate-900 bg-slate-50"
+      ? "border-brand bg-warm-alt"
       : props.tone === "done"
-        ? "border-emerald-200 bg-emerald-50"
-        : "border-slate-200 bg-white";
+        ? "border-success/30 bg-success/12"
+        : "border-line bg-surface";
 
   const badge =
     props.tone === "current"
@@ -41,21 +47,21 @@ function StepCard(props: { title: string; desc: string; tone: "current" | "todo"
   return (
     <div className={`rounded-xl border p-4 ${cls}`}>
       <div className="flex items-center justify-between gap-3">
-        <div className="text-sm font-semibold text-slate-900">{props.title}</div>
+        <div className="text-sm font-semibold text-primary">{props.title}</div>
         <span
           className={[
             "inline-flex items-center rounded-full px-2.5 py-1 text-xs font-semibold",
             props.tone === "done"
-              ? "bg-emerald-600 text-white"
+              ? "bg-success text-inverted"
               : props.tone === "current"
-                ? "bg-slate-900 text-white"
-                : "bg-slate-100 text-slate-700",
+                ? "bg-brand text-accent-text"
+                : "bg-warm-alt text-secondary",
           ].join(" ")}
         >
           {badge}
         </span>
       </div>
-      <div className="mt-1 text-sm text-slate-600">{props.desc}</div>
+      <div className="mt-1 text-sm text-secondary">{props.desc}</div>
     </div>
   );
 }
@@ -64,11 +70,48 @@ function Field(props: { label: string; hint?: string; children: React.ReactNode 
   return (
     <label className="block">
       <div className="flex items-end justify-between gap-3">
-        <div className="text-sm font-semibold text-slate-900">{props.label}</div>
-        {props.hint ? <div className="text-xs text-slate-500">{props.hint}</div> : null}
+        <div className="text-sm font-semibold text-primary">{props.label}</div>
+        {props.hint ? <div className="text-xs text-muted">{props.hint}</div> : null}
       </div>
       <div className="mt-2">{props.children}</div>
     </label>
+  );
+}
+
+function ServicePlanCard(props: {
+  title: string;
+  subtitle: string;
+  bullets: string[];
+  active: boolean;
+  onClick: () => void;
+  badge?: string;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={props.onClick}
+      className={[
+        "w-full rounded-2xl border p-4 text-left transition",
+        props.active
+          ? "border-brand bg-accent-soft/80 shadow-sm"
+          : "border-line bg-surface hover:bg-warm-alt",
+      ].join(" ")}
+    >
+      <div className="flex items-center justify-between gap-2">
+        <div className="text-sm font-semibold text-primary">{props.title}</div>
+        {props.badge ? (
+          <span className="rounded-full bg-brand px-2.5 py-1 text-[11px] font-semibold text-accent-text">
+            {props.badge}
+          </span>
+        ) : null}
+      </div>
+      <div className="mt-1 text-xs text-secondary">{props.subtitle}</div>
+      <ul className="mt-3 space-y-1 text-xs text-secondary">
+        {props.bullets.map((item) => (
+          <li key={item}>• {item}</li>
+        ))}
+      </ul>
+    </button>
   );
 }
 
@@ -94,14 +137,36 @@ export default function VendorNewPropertyPage() {
 
   const [basePrice, setBasePrice] = useState("25000");
   const [cleaningFee, setCleaningFee] = useState("0");
-  const [currency, setCurrency] = useState<"PKR" | "AED" | "USD">("PKR");
+  const [currency, setCurrency] = useState<"AED" | "USD" | "EUR" | "GBP">("AED");
 
   const [maxGuests, setMaxGuests] = useState("2");
   const [bedrooms, setBedrooms] = useState("1");
   const [bathrooms, setBathrooms] = useState("1");
 
+  const [servicePlans, setServicePlans] = useState<ServicePlan[]>([]);
+  const [selectedPlanType, setSelectedPlanType] = useState<ServicePlanType>("LISTING_ONLY");
+  const [furnishingOption, setFurnishingOption] = useState(false);
+
   const [busy, setBusy] = useState(false);
   const [err, setErr] = useState<string | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    async function loadPlans() {
+      try {
+        const plans = await listServicePlans();
+        if (!alive) return;
+        setServicePlans(plans);
+      } catch {
+        if (!alive) return;
+        setServicePlans([]);
+      }
+    }
+    void loadPlans();
+    return () => {
+      alive = false;
+    };
+  }, []);
 
   const canCreate = !busy && city.trim().length > 0 && basePrice.trim().length > 0;
 
@@ -132,6 +197,20 @@ export default function VendorNewPropertyPage() {
         currency,
       });
 
+      const selectedPlan = servicePlans.find((plan) => plan.type === selectedPlanType);
+      if (selectedPlan) {
+        await upsertPropertyServiceConfig({
+          propertyId: draft.id,
+          servicePlanId: selectedPlan.id,
+          currency: "AED",
+          cleaningRequired: selectedPlan.type !== "LISTING_ONLY",
+          inspectionRequired: selectedPlan.type !== "LISTING_ONLY",
+          linenChangeRequired: selectedPlan.type === "FULLY_MANAGED",
+          restockRequired: selectedPlan.type === "FULLY_MANAGED" && furnishingOption,
+          maintenanceIncluded: selectedPlan.type !== "LISTING_ONLY",
+        });
+      }
+
       router.replace(`/vendor/properties/${encodeURIComponent(draft.id)}/edit`);
     } catch (e) {
       setErr(e instanceof Error ? e.message : "Failed to create draft");
@@ -144,12 +223,12 @@ export default function VendorNewPropertyPage() {
     <PortalShell role="vendor" title="Create property" nav={nav}>
       <div className="space-y-6">
         {/* Header card (match edit-page feel) */}
-        <header className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+        <header className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
           <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
             <div>
-              <div className="text-xs font-semibold text-slate-500">Vendor Portal</div>
-              <h1 className="mt-1 text-xl font-semibold text-slate-900">Start a new listing</h1>
-              <p className="mt-2 max-w-2xl text-sm text-slate-600">
+              <div className="text-xs font-semibold text-muted">Vendor Portal</div>
+              <h1 className="mt-1 text-xl font-semibold text-primary">Start a new listing</h1>
+              <p className="mt-2 max-w-2xl text-sm text-secondary">
                 Create a draft first. After that you’ll complete amenities, upload photos by room, upload ownership proof,
                 submit for admin review, then publish.
               </p>
@@ -160,7 +239,7 @@ export default function VendorNewPropertyPage() {
                 type="button"
                 disabled={!canCreate}
                 onClick={() => void submit()}
-                className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+                className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-60"
               >
                 {busy ? "Creating…" : "Create draft"}
               </button>
@@ -168,15 +247,15 @@ export default function VendorNewPropertyPage() {
           </div>
 
           {err ? (
-            <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 whitespace-pre-wrap">
+            <div className="mt-4 rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger whitespace-pre-wrap">
               {err}
             </div>
           ) : null}
         </header>
 
         {/* Steps / timeline */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-semibold text-slate-900">Listing pipeline</div>
+        <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <div className="text-sm font-semibold text-primary">Listing pipeline</div>
           <div className="mt-4 grid gap-3 lg:grid-cols-4">
             <StepCard
               title="1) Draft"
@@ -200,15 +279,60 @@ export default function VendorNewPropertyPage() {
             />
           </div>
 
-          <div className="mt-4 rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-700">
+          <div className="mt-4 rounded-xl border bg-warm-alt px-4 py-3 text-sm text-secondary">
             Reminder: backend enforces gates (location pin, min 4 photos + required room categories, ownership proof) on submit.
           </div>
         </section>
 
+        <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <div className="text-sm font-semibold text-primary">Choose your service plan</div>
+          <p className="mt-1 text-sm text-secondary">
+            This selection maps directly into Operator Service Config for the listing.
+          </p>
+
+          <div className="mt-4 grid gap-3 lg:grid-cols-3">
+            <ServicePlanCard
+              title="Listing-only"
+              subtitle="You handle operations; we handle platform distribution."
+              bullets={["Lowest management fee", "Owner-managed operations", "Calendar + listing support"]}
+              active={selectedPlanType === "LISTING_ONLY"}
+              onClick={() => setSelectedPlanType("LISTING_ONLY")}
+              badge="Entry"
+            />
+            <ServicePlanCard
+              title="Semi-managed"
+              subtitle="Shared model with operator support on key tasks."
+              bullets={["Shared cleaning & inspections", "Balanced fee structure", "Ops oversight"]}
+              active={selectedPlanType === "SEMI_MANAGED"}
+              onClick={() => setSelectedPlanType("SEMI_MANAGED")}
+              badge="Popular"
+            />
+            <ServicePlanCard
+              title="Fully-managed"
+              subtitle="Operator-led full service with optional furnishing support."
+              bullets={["Full operational handling", "Cleaning, linen, inspection", "Hands-off management"]}
+              active={selectedPlanType === "FULLY_MANAGED"}
+              onClick={() => setSelectedPlanType("FULLY_MANAGED")}
+              badge="Premium"
+            />
+          </div>
+
+          {selectedPlanType === "FULLY_MANAGED" ? (
+            <label className="mt-4 inline-flex items-center gap-2 rounded-xl border border-line/80 bg-warm-alt px-3 py-2 text-sm font-semibold text-primary">
+              <input
+                type="checkbox"
+                checked={furnishingOption}
+                onChange={(event) => setFurnishingOption(event.target.checked)}
+              />
+              Add furnishing setup option
+            </label>
+          ) : null}
+        </section>
+
         {/* Form */}
-        <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="text-sm font-semibold text-slate-900">Draft details</div>
-          <p className="mt-1 text-sm text-slate-600">
+        <section className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
+          <div className="text-sm font-semibold text-primary">Draft details</div>
+          <p className="mt-1 text-sm text-secondary">
             Keep this minimal — you’ll complete everything inside the edit page after draft creation.
           </p>
 
@@ -217,7 +341,7 @@ export default function VendorNewPropertyPage() {
               <input
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
                 placeholder="e.g., Modern Marina Apartment"
               />
             </Field>
@@ -226,7 +350,7 @@ export default function VendorNewPropertyPage() {
               <input
                 value={city}
                 onChange={(e) => setCity(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
                 placeholder="Dubai"
               />
             </Field>
@@ -235,7 +359,7 @@ export default function VendorNewPropertyPage() {
               <input
                 value={area}
                 onChange={(e) => setArea(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
                 placeholder="e.g., JBR"
               />
             </Field>
@@ -244,7 +368,7 @@ export default function VendorNewPropertyPage() {
               <input
                 value={address}
                 onChange={(e) => setAddress(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
                 placeholder="Building / street (kept private)"
               />
             </Field>
@@ -252,12 +376,13 @@ export default function VendorNewPropertyPage() {
             <Field label="Currency">
               <select
                 value={currency}
-                onChange={(e) => setCurrency(e.target.value as "PKR" | "AED" | "USD")}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                onChange={(e) => setCurrency(e.target.value as "AED" | "USD" | "EUR" | "GBP")}
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
               >
                 <option value="AED">AED</option>
                 <option value="USD">USD</option>
-                <option value="PKR">PKR</option>
+                <option value="EUR">EUR</option>
+                <option value="GBP">GBP</option>
               </select>
             </Field>
 
@@ -266,7 +391,7 @@ export default function VendorNewPropertyPage() {
                 inputMode="numeric"
                 value={basePrice}
                 onChange={(e) => setBasePrice(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
                 placeholder="25000"
               />
             </Field>
@@ -276,7 +401,7 @@ export default function VendorNewPropertyPage() {
                 inputMode="numeric"
                 value={cleaningFee}
                 onChange={(e) => setCleaningFee(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
                 placeholder="0"
               />
             </Field>
@@ -286,7 +411,7 @@ export default function VendorNewPropertyPage() {
                 inputMode="numeric"
                 value={maxGuests}
                 onChange={(e) => setMaxGuests(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
               />
             </Field>
 
@@ -295,7 +420,7 @@ export default function VendorNewPropertyPage() {
                 inputMode="numeric"
                 value={bedrooms}
                 onChange={(e) => setBedrooms(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
               />
             </Field>
 
@@ -304,7 +429,7 @@ export default function VendorNewPropertyPage() {
                 inputMode="numeric"
                 value={bathrooms}
                 onChange={(e) => setBathrooms(e.target.value)}
-                className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:ring-2 focus:ring-slate-900/10"
+                className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
               />
             </Field>
           </div>
@@ -314,7 +439,7 @@ export default function VendorNewPropertyPage() {
               type="button"
               disabled={!canCreate}
               onClick={() => void submit()}
-              className="rounded-xl bg-slate-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+              className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-60"
             >
               {busy ? "Creating…" : "Create draft"}
             </button>

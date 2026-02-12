@@ -26,12 +26,13 @@ export default async function CheckoutPage(props: PageProps) {
   const backToPropertyHref = slug ? `/properties/${encodeURIComponent(slug)}` : `/properties`;
 
   return (
-    <main className="min-h-screen bg-white">
-      <div className="mx-auto max-w-3xl px-4 pb-24 pt-28 sm:px-6 lg:px-8">
+    <main className="min-h-screen bg-warm-base">
+      <div className="mx-auto max-w-3xl px-4 pb-24 pt-12 sm:px-6 sm:pt-14 lg:px-8">
+        <div className="premium-card premium-card-dark rounded-3xl p-6">
         <div className="flex flex-wrap items-end justify-between gap-3">
           <div>
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-900">Checkout</h1>
-            <p className="mt-2 text-sm text-slate-700">
+            <h1 className="text-3xl font-semibold tracking-tight text-primary">Checkout</h1>
+            <p className="mt-2 text-sm text-secondary">
               Convert your hold into a booking. Booking becomes <span className="font-semibold">CONFIRMED</span> only
               after verified payment webhooks (later).
             </p>
@@ -40,72 +41,73 @@ export default async function CheckoutPage(props: PageProps) {
           <div className="flex flex-wrap gap-2">
             <Link
               href={backToPropertyHref}
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-900 transition hover:bg-slate-50"
+              className="inline-flex items-center justify-center rounded-full border border-inverted/35 bg-transparent px-4 py-2 text-xs font-semibold text-inverted transition hover:bg-accent-soft/16"
             >
               Back to property
             </Link>
 
             <Link
               href="/properties"
-              className="inline-flex items-center justify-center rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-900 transition hover:bg-slate-50"
+              className="inline-flex items-center justify-center rounded-full border border-inverted/35 bg-transparent px-4 py-2 text-xs font-semibold text-inverted transition hover:bg-accent-soft/16"
             >
               Browse stays
             </Link>
           </div>
         </div>
+        </div>
 
-        <div className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
+        <div className="premium-card premium-card-tinted mt-6 rounded-2xl p-6">
           <div className="flex flex-wrap items-start justify-between gap-4">
             <div>
-              <div className="text-sm font-semibold text-slate-900">Your reservation flow</div>
-              <p className="mt-1 text-xs text-slate-600">
+              <div className="text-sm font-semibold text-primary">Your reservation flow</div>
+              <p className="mt-1 text-xs text-secondary">
                 Frank Porter–style: hold prevents double-booking, booking is payment-gated and webhook-confirmed.
               </p>
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-900">
+              <div className="rounded-full border border-line bg-warm-alt px-4 py-2 text-xs font-semibold text-primary">
                 Property ID: <span className="font-mono">{propertyId}</span>
               </div>
 
               {holdId ? (
-                <div className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-900">
+                <div className="rounded-full border border-line bg-warm-alt px-4 py-2 text-xs font-semibold text-primary">
                   Hold ID: <span className="font-mono">{holdId}</span>
                 </div>
               ) : null}
             </div>
           </div>
 
-          <ol className="mt-5 grid gap-3 text-sm text-slate-700 sm:grid-cols-3">
-            <li className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="text-xs font-semibold text-slate-500">Step 1</div>
-              <div className="mt-1 font-semibold text-slate-900">Hold created</div>
-              <div className="mt-1 text-xs text-slate-600">Inventory is reserved temporarily.</div>
+          <ol className="mt-5 grid gap-3 text-sm text-secondary sm:grid-cols-3">
+            <li className="premium-card premium-card-tinted rounded-2xl p-4">
+              <div className="text-xs font-semibold text-muted">Step 1</div>
+              <div className="mt-1 font-semibold text-primary">Hold created</div>
+              <div className="mt-1 text-xs text-secondary">Inventory is reserved temporarily.</div>
             </li>
 
-            <li className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="text-xs font-semibold text-slate-500">Step 2</div>
-              <div className="mt-1 font-semibold text-slate-900">Create booking</div>
-              <div className="mt-1 text-xs text-slate-600">Status: PENDING_PAYMENT</div>
+            <li className="premium-card premium-card-tinted rounded-2xl p-4">
+              <div className="text-xs font-semibold text-muted">Step 2</div>
+              <div className="mt-1 font-semibold text-primary">Create booking</div>
+              <div className="mt-1 text-xs text-secondary">Status: PENDING_PAYMENT</div>
             </li>
 
-            <li className="rounded-2xl border border-slate-200 bg-white p-4">
-              <div className="text-xs font-semibold text-slate-500">Step 3</div>
-              <div className="mt-1 font-semibold text-slate-900">Hosted payment</div>
-              <div className="mt-1 text-xs text-slate-600">Webhooks confirm booking.</div>
+            <li className="premium-card premium-card-tinted rounded-2xl p-4">
+              <div className="text-xs font-semibold text-muted">Step 3</div>
+              <div className="mt-1 font-semibold text-primary">Hosted payment</div>
+              <div className="mt-1 text-xs text-secondary">Webhooks confirm booking.</div>
             </li>
           </ol>
 
-          <div className="mt-5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+          <div className="mt-5 rounded-xl border border-line bg-warm-alt px-4 py-3 text-xs text-secondary">
             <span className="font-semibold">Important:</span> if payment fails or expires, the booking may be cancelled
             automatically and availability is released safely.
           </div>
         </div>
 
         {!holdId ? (
-          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 p-6 text-sm text-amber-900">
+          <div className="mt-6 rounded-2xl border border-warning/30 bg-warning/12 p-6 text-sm text-warning">
             <div className="font-semibold">No hold found</div>
-            <p className="mt-2 text-amber-900/80">
+            <p className="mt-2 text-warning/80">
               This page requires <span className="font-semibold">holdId</span>. Go back to the property, select dates,
               and click <span className="font-semibold">Reserve (hold inventory)</span>.
             </p>
@@ -113,7 +115,7 @@ export default async function CheckoutPage(props: PageProps) {
             <div className="mt-4">
               <Link
                 href={backToPropertyHref}
-                className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800"
+                className="inline-flex items-center justify-center rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-accent-text transition hover:bg-brand-hover"
               >
                 Back to property
               </Link>

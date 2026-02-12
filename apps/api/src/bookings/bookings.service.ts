@@ -63,7 +63,7 @@ export class BookingsService {
     const fees = property.cleaningFee ?? 0;
 
     return {
-      currency: property.currency ?? 'PKR',
+      currency: property.currency ?? 'AED',
       total: subtotal + fees,
     };
   }

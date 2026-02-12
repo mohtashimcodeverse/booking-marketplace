@@ -9,29 +9,29 @@ type Tone = "neutral" | "danger" | "success" | "warning";
 function toneClasses(tone: Tone): { iconBg: string; iconColor: string; primaryBtn: string } {
   if (tone === "danger") {
     return {
-      iconBg: "bg-rose-50",
-      iconColor: "text-rose-700",
-      primaryBtn: "bg-rose-600 text-white hover:bg-rose-700",
+      iconBg: "bg-danger/12",
+      iconColor: "text-danger",
+      primaryBtn: "bg-danger text-inverted hover:bg-danger",
     };
   }
   if (tone === "success") {
     return {
-      iconBg: "bg-emerald-50",
-      iconColor: "text-emerald-700",
-      primaryBtn: "bg-emerald-600 text-white hover:bg-emerald-700",
+      iconBg: "bg-success/12",
+      iconColor: "text-success",
+      primaryBtn: "bg-success text-inverted hover:bg-success",
     };
   }
   if (tone === "warning") {
     return {
-      iconBg: "bg-amber-50",
-      iconColor: "text-amber-800",
-      primaryBtn: "bg-slate-900 text-white hover:bg-slate-800",
+      iconBg: "bg-warning/12",
+      iconColor: "text-warning",
+      primaryBtn: "bg-brand text-accent-text hover:bg-brand-hover",
     };
   }
   return {
-    iconBg: "bg-slate-50",
-    iconColor: "text-slate-700",
-    primaryBtn: "bg-slate-900 text-white hover:bg-slate-800",
+    iconBg: "bg-warm-alt",
+    iconColor: "text-secondary",
+    primaryBtn: "bg-brand text-accent-text hover:bg-brand-hover",
   };
 }
 
@@ -66,7 +66,7 @@ export function ConfirmDialog(props: {
           <button
             type="button"
             onClick={props.onCancel}
-            className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+            className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
           >
             {props.cancelText ?? "Cancel"}
           </button>
@@ -94,9 +94,9 @@ export function ConfirmDialog(props: {
         </div>
 
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-slate-900">{props.title}</div>
+          <div className="text-sm font-semibold text-primary">{props.title}</div>
           {props.description ? (
-            <div className="mt-1 text-sm text-slate-600">{props.description}</div>
+            <div className="mt-1 text-sm text-secondary">{props.description}</div>
           ) : null}
         </div>
       </div>

@@ -24,7 +24,7 @@ export function RequireRole({ roles, children, redirectTo = "/" }: RequireRolePr
   if (status === "loading") {
     return (
       <div className="min-h-[40vh] flex items-center justify-center">
-        <div className="text-sm text-neutral-500">Loading…</div>
+        <div className="text-sm text-muted">Loading…</div>
       </div>
     );
   }

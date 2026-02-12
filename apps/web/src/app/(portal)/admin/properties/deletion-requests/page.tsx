@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { CardList, type CardListItem } from "@/components/portal/ui/CardList";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
@@ -58,7 +58,7 @@ export default function AdminDeletionRequestsPage() {
     };
   }, [status]);
 
-  async function refresh() {
+  const refresh = useCallback(async () => {
     setState({ kind: "loading" });
     try {
       const data = await getAdminPropertyDeletionRequests({
@@ -73,7 +73,7 @@ export default function AdminDeletionRequestsPage() {
         message: error instanceof Error ? error.message : "Failed to reload",
       });
     }
-  }
+  }, [status]);
 
   const items = useMemo<CardListItem[]>(() => {
     if (state.kind !== "ready") return [];
@@ -90,9 +90,9 @@ export default function AdminDeletionRequestsPage() {
         status: <StatusPill status={request.status}>{request.status}</StatusPill>,
         meta: (
           <div className="space-y-2 text-xs">
-            <div className="text-slate-700">Created: {formatDate(request.createdAt)}</div>
-            {request.reason ? <div className="text-slate-700">Reason: {request.reason}</div> : null}
-            {request.adminNotes ? <div className="text-slate-700">Admin note: {request.adminNotes}</div> : null}
+            <div className="text-secondary">Created: {formatDate(request.createdAt)}</div>
+            {request.reason ? <div className="text-secondary">Reason: {request.reason}</div> : null}
+            {request.adminNotes ? <div className="text-secondary">Admin note: {request.adminNotes}</div> : null}
           </div>
         ),
         actions:
@@ -108,7 +108,7 @@ export default function AdminDeletionRequestsPage() {
                     .then(() => refresh())
                     .finally(() => setBusy(null));
                 }}
-                className="rounded-xl bg-emerald-600 px-3 py-2 text-xs font-semibold text-white hover:bg-emerald-700 disabled:opacity-60"
+                className="rounded-xl bg-success px-3 py-2 text-xs font-semibold text-inverted hover:bg-success disabled:opacity-60"
               >
                 Approve
               </button>
@@ -122,7 +122,7 @@ export default function AdminDeletionRequestsPage() {
                     .then(() => refresh())
                     .finally(() => setBusy(null));
                 }}
-                className="rounded-xl bg-rose-600 px-3 py-2 text-xs font-semibold text-white hover:bg-rose-700 disabled:opacity-60"
+                className="rounded-xl bg-danger px-3 py-2 text-xs font-semibold text-inverted hover:bg-danger disabled:opacity-60"
               >
                 Reject
               </button>
@@ -130,7 +130,7 @@ export default function AdminDeletionRequestsPage() {
           ) : null,
       };
     });
-  }, [busy, state]);
+  }, [busy, refresh, state]);
 
   return (
     <PortalShell
@@ -139,7 +139,7 @@ export default function AdminDeletionRequestsPage() {
       subtitle="Approve or reject vendor listing deletion requests"
     >
       <div className="space-y-5">
-        <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
+        <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
           <div className="flex flex-wrap items-center gap-2">
             {(["ALL", "PENDING", "APPROVED", "REJECTED"] as const).map((value) => (
               <button
@@ -149,15 +149,15 @@ export default function AdminDeletionRequestsPage() {
                 className={[
                   "rounded-full px-4 py-2 text-sm font-semibold",
                   status === value
-                    ? "bg-slate-900 text-white"
-                    : "bg-white text-slate-900 ring-1 ring-black/10 hover:bg-slate-50",
+                    ? "bg-brand text-accent-text"
+                    : "bg-surface text-primary ring-1 ring-line/90 hover:bg-warm-alt",
                 ].join(" ")}
               >
                 {value}
               </button>
             ))}
           </div>
-          {busy ? <div className="mt-3 text-xs font-semibold text-slate-700">{busy}</div> : null}
+          {busy ? <div className="mt-3 text-xs font-semibold text-secondary">{busy}</div> : null}
         </div>
 
         {state.kind === "loading" ? (
@@ -166,7 +166,7 @@ export default function AdminDeletionRequestsPage() {
             <SkeletonBlock className="h-24" />
           </div>
         ) : state.kind === "error" ? (
-          <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+          <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
             {state.message}
           </div>
         ) : (

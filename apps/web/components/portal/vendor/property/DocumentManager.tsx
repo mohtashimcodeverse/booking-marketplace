@@ -124,15 +124,15 @@ export function DocumentManager({ property, onChanged }: Props) {
   }
 
   return (
-    <section className="space-y-4 rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+    <section className="space-y-4 rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h3 className="text-base font-semibold text-neutral-900">Documents</h3>
-          <p className="mt-1 text-sm text-neutral-600">
+          <h3 className="text-base font-semibold text-primary">Documents</h3>
+          <p className="mt-1 text-sm text-secondary">
             Documents are private and never public. Required for review: ownership proof,
             owner ID, and authorization letter.
           </p>
-          <div className="mt-2 text-xs font-semibold text-neutral-700">
+          <div className="mt-2 text-xs font-semibold text-secondary">
             Required uploaded: {requiredProgress.uploaded}/{requiredProgress.total}
           </div>
         </div>
@@ -141,7 +141,7 @@ export function DocumentManager({ property, onChanged }: Props) {
           <select
             value={selectedType}
             onChange={(event) => setSelectedType(event.target.value as PropertyDocumentType)}
-            className="h-10 rounded-xl border border-neutral-200 bg-white px-3 text-sm font-semibold text-neutral-900"
+            className="h-10 rounded-xl border border-line bg-surface px-3 text-sm font-semibold text-primary"
           >
             {REQUIRED_TYPES.map((item) => (
               <option key={item.type} value={item.type}>
@@ -165,7 +165,7 @@ export function DocumentManager({ property, onChanged }: Props) {
 
           <label
             htmlFor="vendor-doc-upload"
-            className="cursor-pointer rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800"
+            className="cursor-pointer rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
           >
             Upload document
           </label>
@@ -173,13 +173,13 @@ export function DocumentManager({ property, onChanged }: Props) {
       </div>
 
       {busy ? (
-        <div className="rounded-xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700">
+        <div className="rounded-xl border border-line bg-warm-alt p-3 text-sm text-secondary">
           {busy}
         </div>
       ) : null}
 
       {error ? (
-        <div className="whitespace-pre-wrap rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+        <div className="whitespace-pre-wrap rounded-xl border border-danger/30 bg-danger/12 p-3 text-sm text-danger">
           {error}
         </div>
       ) : null}
@@ -188,11 +188,11 @@ export function DocumentManager({ property, onChanged }: Props) {
         {REQUIRED_TYPES.map((item) => {
           const uploaded = latestMap.get(item.type) ?? null;
           return (
-            <div key={item.type} className="rounded-2xl border border-neutral-200 bg-white p-4">
+            <div key={item.type} className="rounded-2xl border border-line bg-surface p-4">
               <div className="flex items-center justify-between gap-2">
                 <div>
-                  <div className="text-sm font-semibold text-neutral-900">{item.title}</div>
-                  <div className="mt-1 text-xs text-neutral-500">
+                  <div className="text-sm font-semibold text-primary">{item.title}</div>
+                  <div className="mt-1 text-xs text-muted">
                     {item.required ? "Required" : "Optional"}
                   </div>
                 </div>
@@ -203,9 +203,9 @@ export function DocumentManager({ property, onChanged }: Props) {
               </div>
 
               {uploaded ? (
-                <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-neutral-50 p-3">
-                  <div className="min-w-0 text-xs text-neutral-600">
-                    <div className="truncate font-semibold text-neutral-900">
+                <div className="mt-3 flex items-center justify-between gap-3 rounded-xl bg-warm-alt p-3">
+                  <div className="min-w-0 text-xs text-secondary">
+                    <div className="truncate font-semibold text-primary">
                       {uploaded.originalName ?? "Unnamed file"}
                     </div>
                     <div className="mt-1">{uploaded.mimeType ?? "Unknown mime"}</div>
@@ -215,13 +215,13 @@ export function DocumentManager({ property, onChanged }: Props) {
                     type="button"
                     disabled={busy !== null}
                     onClick={() => void download(uploaded)}
-                    className="shrink-0 rounded-xl bg-neutral-900 px-3 py-2 text-xs font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+                    className="shrink-0 rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-50"
                   >
                     Download
                   </button>
                 </div>
               ) : (
-                <div className="mt-3 rounded-xl bg-neutral-50 p-3 text-xs text-neutral-600">
+                <div className="mt-3 rounded-xl bg-warm-alt p-3 text-xs text-secondary">
                   No document uploaded for this type yet.
                 </div>
               )}
@@ -231,32 +231,32 @@ export function DocumentManager({ property, onChanged }: Props) {
       </div>
 
       <div className="space-y-2">
-        <div className="text-sm font-semibold text-neutral-900">All documents</div>
+        <div className="text-sm font-semibold text-primary">All documents</div>
 
         {property.documents.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-neutral-300 bg-white p-4 text-sm text-neutral-700">
+          <div className="rounded-xl border border-dashed border-line-strong bg-surface p-4 text-sm text-secondary">
             No documents uploaded yet.
           </div>
         ) : (
           <ul className="space-y-2">
             {property.documents.map((document) => (
-              <li key={document.id} className="rounded-xl border border-neutral-200 bg-white p-4">
+              <li key={document.id} className="rounded-xl border border-line bg-surface p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
-                    <div className="text-sm font-semibold text-neutral-900">
+                    <div className="text-sm font-semibold text-primary">
                       {prettyDocType(document.type)}
                     </div>
-                    <div className="mt-1 break-words text-sm text-neutral-600">
+                    <div className="mt-1 break-words text-sm text-secondary">
                       {document.originalName ?? "Unnamed"} - {document.mimeType ?? "unknown"}
                     </div>
-                    <div className="mt-1 text-xs text-neutral-500">ID: {document.id}</div>
+                    <div className="mt-1 text-xs text-muted">ID: {document.id}</div>
                   </div>
 
                   <button
                     type="button"
                     disabled={busy !== null}
                     onClick={() => void download(document)}
-                    className="shrink-0 rounded-xl bg-neutral-900 px-4 py-2 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+                    className="shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-50"
                   >
                     Download
                   </button>

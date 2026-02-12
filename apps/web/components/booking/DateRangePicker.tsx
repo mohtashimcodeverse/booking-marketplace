@@ -27,7 +27,7 @@ export default function DateRangePicker(props: {
   }, [props.value.from, props.value.to]);
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-3">
+    <div className="rounded-2xl border border-line bg-surface p-3">
       <DayPicker
         mode="range"
         selected={selected}

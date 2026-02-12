@@ -10,10 +10,14 @@ export const metadata: Metadata = {
 
 export default function GalleryPage() {
   return (
-    <main className="min-h-screen bg-[var(--tourm-bg)]">
+    <main className="min-h-screen bg-warm-base">
       <GalleryHero />
-      <GalleryGrid />
-      <GalleryCta />
+      <div className="bg-warm-alt/90">
+        <GalleryGrid />
+      </div>
+      <div className="section-dark-band">
+        <GalleryCta />
+      </div>
       <div className="h-10 sm:h-16" />
     </main>
   );

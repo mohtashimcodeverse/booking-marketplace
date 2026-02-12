@@ -52,11 +52,11 @@ function ResetPasswordContent() {
     <AuthCard title="Set a new password" subtitle="Use your reset token to create a new password">
       {done ? (
         <div className="space-y-4">
-          <p className="text-sm text-neutral-700">Your password has been updated.</p>
+          <p className="text-sm text-secondary">Your password has been updated.</p>
           <button
             type="button"
             onClick={() => router.push("/login")}
-            className="w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-800"
+            className="w-full rounded-xl bg-brand py-3 text-sm font-medium text-text-invert shadow-brand-soft hover:bg-brand-hover"
           >
             Continue to login
           </button>
@@ -69,7 +69,7 @@ function ResetPasswordContent() {
             placeholder="Reset token"
             value={token}
             onChange={(e) => setToken(e.target.value)}
-            className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            className="premium-input w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
           />
 
           <input
@@ -79,21 +79,21 @@ function ResetPasswordContent() {
             placeholder="New password"
             value={newPassword}
             onChange={(e) => setNewPassword(e.target.value)}
-            className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            className="premium-input w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
           />
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-sm text-danger">{error}</p> : null}
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
+            className="w-full rounded-xl bg-brand py-3 text-sm font-medium text-text-invert shadow-brand-soft hover:bg-brand-hover disabled:opacity-60"
           >
             {submitting ? "Updating…" : "Update password"}
           </button>
 
           <div className="text-center">
-            <Link href="/login" className="text-sm text-neutral-600 hover:underline">
+            <Link href="/login" className="text-sm font-semibold text-brand hover:underline">
               Back to login
             </Link>
           </div>

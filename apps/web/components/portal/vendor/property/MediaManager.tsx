@@ -195,23 +195,23 @@ export function MediaManager({ property, onChanged }: Props) {
     const count = grouped.get(props.category)?.length ?? 0;
 
     return (
-      <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+      <div className="rounded-2xl border border-line/80 bg-surface p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div>
             <div className="flex items-center gap-2">
-              <div className="text-sm font-semibold text-slate-900">{props.title}</div>
+              <div className="text-sm font-semibold text-primary">{props.title}</div>
               <span
                 className={cn(
                   "rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
                   props.accent === "required"
-                    ? "bg-amber-50 text-amber-800 ring-amber-200"
-                    : "bg-slate-50 text-slate-700 ring-slate-200"
+                    ? "bg-warning/12 text-warning ring-warning/30"
+                    : "bg-warm-alt text-secondary ring-line"
                 )}
               >
                 {props.help}
               </span>
             </div>
-            <div className="mt-1 text-xs text-slate-500">{count} uploaded</div>
+            <div className="mt-1 text-xs text-muted">{count} uploaded</div>
           </div>
 
           <div className="flex items-center gap-2">
@@ -232,7 +232,7 @@ export function MediaManager({ property, onChanged }: Props) {
             />
             <label
               htmlFor={`upload-${props.category}`}
-              className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              className="cursor-pointer rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
             >
               Upload
             </label>
@@ -249,11 +249,11 @@ export function MediaManager({ property, onChanged }: Props) {
 
   return (
     <section className="space-y-4">
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line/80 bg-surface p-5 shadow-sm">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-slate-900">Photos</h3>
-            <p className="mt-1 text-sm text-slate-600">
+            <h3 className="text-base font-semibold text-primary">Photos</h3>
+            <p className="mt-1 text-sm text-secondary">
               Upload photos in the correct sections. Required categories:
               <span className="font-medium"> LIVING_ROOM, BEDROOM, BATHROOM, KITCHEN</span>.
               Optional categories are available for balcony, view, building, amenities, etc.
@@ -262,13 +262,13 @@ export function MediaManager({ property, onChanged }: Props) {
         </div>
 
         {busy ? (
-          <div className="mt-4 rounded-xl border border-black/10 bg-[#f6f3ec] p-3 text-sm text-slate-700">
+          <div className="mt-4 rounded-xl border border-line/80 bg-warm-base p-3 text-sm text-secondary">
             {busy}
           </div>
         ) : null}
 
         {error ? (
-          <div className="mt-4 whitespace-pre-wrap rounded-xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700">
+          <div className="mt-4 whitespace-pre-wrap rounded-xl border border-danger/30 bg-danger/12 p-3 text-sm text-danger">
             {error}
           </div>
         ) : null}
@@ -281,16 +281,16 @@ export function MediaManager({ property, onChanged }: Props) {
         ))}
 
         {/* Other uploader with selectable category */}
-        <div className="rounded-2xl border border-black/10 bg-white p-4 shadow-sm">
+        <div className="rounded-2xl border border-line/80 bg-surface p-4 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <div className="text-sm font-semibold text-slate-900">Other photos</div>
-                <span className="rounded-full bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-slate-200">
+                <div className="text-sm font-semibold text-primary">Other photos</div>
+                <span className="rounded-full bg-warm-alt px-2.5 py-1 text-xs font-semibold text-secondary ring-1 ring-line">
                   Optional
                 </span>
               </div>
-              <div className="mt-1 text-xs text-slate-500">Upload cover, balcony, view, amenities, building, etc.</div>
+              <div className="mt-1 text-xs text-muted">Upload cover, balcony, view, amenities, building, etc.</div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -300,7 +300,7 @@ export function MediaManager({ property, onChanged }: Props) {
                   const v = e.target.value;
                   if (isMediaCategory(v)) setOtherCategory(v);
                 }}
-                className="rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900"
+                className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary"
               >
                 {otherCategoryOptions.map((c) => (
                   <option key={c} value={c}>
@@ -326,7 +326,7 @@ export function MediaManager({ property, onChanged }: Props) {
               />
               <label
                 htmlFor="upload-other"
-                className="cursor-pointer rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+                className="cursor-pointer rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
               >
                 Upload
               </label>
@@ -336,16 +336,16 @@ export function MediaManager({ property, onChanged }: Props) {
       </div>
 
       {/* Gallery grid */}
-      <div className="rounded-2xl border border-black/10 bg-white p-5 shadow-sm">
-        <div className="text-sm font-semibold text-slate-900">All photos</div>
+      <div className="rounded-2xl border border-line/80 bg-surface p-5 shadow-sm">
+        <div className="text-sm font-semibold text-primary">All photos</div>
 
         <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {media.map((m, idx) => {
             const safeCategory = normalizeIncomingCategory(m.category);
 
             return (
-              <div key={m.id} className="overflow-hidden rounded-2xl border border-black/10 bg-white">
-                <div className="relative aspect-[4/3] w-full bg-[#f6f3ec]">
+              <div key={m.id} className="overflow-hidden rounded-2xl border border-line/80 bg-surface">
+                <div className="relative aspect-[4/3] w-full bg-warm-base">
                   <Image
                     src={m.url}
                     alt={m.alt ?? `Photo ${idx + 1}`}
@@ -353,16 +353,16 @@ export function MediaManager({ property, onChanged }: Props) {
                     className="object-cover"
                     sizes="(max-width: 1024px) 50vw, 33vw"
                   />
-                  <div className="absolute left-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-slate-900 shadow-sm">
+                  <div className="absolute left-3 top-3 rounded-full bg-surface/90 px-2.5 py-1 text-xs font-semibold text-primary shadow-sm">
                     #{m.sortOrder}
                   </div>
-                  <div className="absolute right-3 top-3 rounded-full bg-white/90 px-2.5 py-1 text-xs font-semibold text-slate-900 shadow-sm">
+                  <div className="absolute right-3 top-3 rounded-full bg-surface/90 px-2.5 py-1 text-xs font-semibold text-primary shadow-sm">
                     {safeCategory}
                   </div>
                 </div>
 
                 <div className="space-y-3 p-4">
-                  <div className="text-xs font-semibold text-slate-600">Change category</div>
+                  <div className="text-xs font-semibold text-secondary">Change category</div>
 
                   <select
                     value={safeCategory}
@@ -370,7 +370,7 @@ export function MediaManager({ property, onChanged }: Props) {
                       const v = e.target.value;
                       if (isMediaCategory(v)) void setCategory(m.id, v);
                     }}
-                    className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900"
+                    className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary"
                     disabled={busy !== null}
                   >
                     {ALL_CATEGORIES.map((c) => (
@@ -385,7 +385,7 @@ export function MediaManager({ property, onChanged }: Props) {
                       type="button"
                       onClick={() => void move(m.id, -1)}
                       disabled={busy !== null || m.sortOrder === 0}
-                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary hover:bg-warm-alt disabled:opacity-50"
                     >
                       Up
                     </button>
@@ -393,7 +393,7 @@ export function MediaManager({ property, onChanged }: Props) {
                       type="button"
                       onClick={() => void move(m.id, 1)}
                       disabled={busy !== null || idx === media.length - 1}
-                      className="w-full rounded-xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-50"
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary hover:bg-warm-alt disabled:opacity-50"
                     >
                       Down
                     </button>
@@ -403,12 +403,12 @@ export function MediaManager({ property, onChanged }: Props) {
                     type="button"
                     onClick={() => void removeMedia(m.id)}
                     disabled={busy !== null}
-                    className="w-full rounded-xl border border-rose-200 bg-rose-50 px-3 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                    className="w-full rounded-xl border border-danger/30 bg-danger/12 px-3 py-2 text-sm font-semibold text-danger hover:bg-danger/12 disabled:opacity-50"
                   >
                     Delete photo
                   </button>
 
-                  <p className="text-xs text-slate-500">
+                  <p className="text-xs text-muted">
                     Tip: set your best image as <span className="font-medium">Cover</span>.
                   </p>
                 </div>
@@ -417,7 +417,7 @@ export function MediaManager({ property, onChanged }: Props) {
           })}
 
           {media.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-black/20 bg-[#f6f3ec] p-6 text-sm text-slate-700">
+            <div className="rounded-2xl border border-dashed border-line/80 bg-warm-base p-6 text-sm text-secondary">
               No photos yet. Upload at least 4 images and tag the required room categories.
             </div>
           ) : null}

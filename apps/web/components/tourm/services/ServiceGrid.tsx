@@ -6,17 +6,17 @@ type Service = {
 
 function ServiceCard({ s }: { s: Service }) {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white/70 p-6 backdrop-blur">
+    <div className="premium-card premium-card-tinted premium-card-hover card-accent-left rounded-2xl p-6">
       <div className="flex items-center justify-between">
-        <p className="text-lg font-semibold text-slate-900">{s.title}</p>
-        <div className="h-10 w-10 rounded-2xl border border-black/10 bg-[#16A6C8]/10" />
+        <p className="text-lg font-semibold text-primary">{s.title}</p>
+        <div className="card-icon-plate h-10 w-10" />
       </div>
-      <p className="mt-2 text-sm leading-relaxed text-slate-700">{s.desc}</p>
+      <p className="mt-2 text-sm leading-relaxed text-secondary">{s.desc}</p>
 
       <ul className="mt-5 space-y-2">
         {s.bullets.slice(0, 5).map((b) => (
-          <li key={b} className="flex gap-3 text-sm text-slate-700">
-            <span className="mt-1 inline-block h-2 w-2 rounded-full bg-[#16A6C8]/70" />
+          <li key={b} className="flex gap-3 text-sm text-secondary">
+            <span className="mt-1 inline-block h-2 w-2 rounded-full bg-brand/70" />
             <span>{b}</span>
           </li>
         ))}
@@ -63,11 +63,11 @@ export default function ServiceGrid() {
     <section className="relative w-full py-14 sm:py-18">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">What we do</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">What we do</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
             Services that make stays reliable
           </h2>
-          <p className="mt-2 text-sm text-slate-700 sm:text-base">
+          <p className="mt-2 text-sm text-secondary sm:text-base">
             These are operational capabilities we’re building into the product — aligned with booking states and audited backend workflows.
           </p>
         </div>
@@ -80,7 +80,7 @@ export default function ServiceGrid() {
       </div>
 
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-0 top-1/3 h-72 w-72 -translate-y-1/2 rounded-full bg-[#16A6C8]/10 blur-3xl" />
+        <div className="absolute left-0 top-1/3 h-72 w-72 -translate-y-1/2 rounded-full bg-accent-soft/80 blur-3xl" />
       </div>
     </section>
   );

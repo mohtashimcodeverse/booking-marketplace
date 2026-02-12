@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SearchResponse } from "@/lib/types/search";
+import { useCurrency } from "@/lib/currency/CurrencyProvider";
 
 type Item = SearchResponse["items"][number];
 
@@ -20,12 +21,6 @@ type DragState = {
   startLeft: number;
 };
 
-function formatMoney(currency: string | null | undefined, amount: number | null | undefined) {
-  if (amount === null || amount === undefined) return null;
-  const cur = currency ?? "AED";
-  return `${cur} ${amount.toLocaleString()}`;
-}
-
 function clamp(n: number, min: number, max: number) {
   return Math.max(min, Math.min(max, n));
 }
@@ -40,7 +35,11 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
   const beds = item.capacity?.bedrooms ?? null;
   const baths = item.capacity?.bathrooms ?? null;
 
-  const price = formatMoney(item.pricing?.currency ?? null, item.pricing?.nightly ?? null);
+  const { currency, formatFromAed, formatBaseAed } = useCurrency();
+  const baseNightly = item.pricing?.nightly ?? null;
+  const price = baseNightly === null ? null : formatFromAed(baseNightly);
+  const basePriceHint =
+    currency !== "AED" && baseNightly !== null ? `Base: ${formatBaseAed(baseNightly)}` : null;
 
   const slides = useMemo<Slide[]>(() => {
     const output: Slide[] = [];
@@ -202,7 +201,7 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
   }, [scrollToIndex]);
 
   return (
-    <article className="group relative overflow-hidden rounded-2xl border border-black/10 bg-white shadow-sm transition-transform duration-300 hover:-translate-y-1 hover:shadow-md">
+    <article className="premium-card premium-card-hover group relative overflow-hidden rounded-2xl border-line-strong shadow-card">
       <div className="relative aspect-[5/4] w-full overflow-hidden">
         {slideCount > 0 ? (
           <div
@@ -243,25 +242,28 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
             ))}
           </div>
         ) : (
-          <div className="h-full w-full bg-gradient-to-br from-slate-100 to-slate-50" />
+          <div className="h-full w-full bg-gradient-to-br from-warm-alt to-warm-base" />
         )}
 
-        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-black/55 via-black/10 to-transparent opacity-90" />
+        <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-ink/42 via-ink/10 to-transparent opacity-90" />
 
         {price ? (
-          <div className="absolute left-3 top-3 rounded-xl border border-white/30 bg-black/45 px-3 py-2 text-xs font-semibold text-white backdrop-blur">
-            {price} <span className="font-normal text-white/85">/ night</span>
+          <div className="absolute left-3 top-3 rounded-xl border border-line bg-brand-soft px-3 py-2 text-xs font-semibold text-primary backdrop-blur">
+            {price} <span className="font-normal text-secondary">/ night</span>
+            {basePriceHint ? (
+              <div className="mt-1 text-[10px] font-medium text-secondary">{basePriceHint}</div>
+            ) : null}
           </div>
         ) : null}
 
         {item.flags?.instantBook ? (
-          <div className="absolute right-3 top-3 rounded-xl border border-white/30 bg-white/20 px-3 py-2 text-xs font-semibold text-white backdrop-blur">
+          <div className="absolute right-3 top-3 rounded-xl border border-line bg-surface/95 px-3 py-2 text-xs font-semibold text-primary shadow-sm">
             Instant book
           </div>
         ) : null}
 
         {hasMultipleSlides ? (
-          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5 rounded-full border border-white/25 bg-black/35 px-2.5 py-1.5 backdrop-blur-sm">
+          <div className="absolute bottom-3 left-1/2 z-20 flex -translate-x-1/2 items-center gap-1.5">
             {slides.map((slide, idx) => {
               const active = idx === activeIndex;
               return (
@@ -269,7 +271,10 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
                   key={slide.key}
                   type="button"
                   onClick={() => scrollToIndex(idx)}
-                  className={["h-1.5 rounded-full transition", active ? "w-5 bg-white" : "w-1.5 bg-white/55 hover:bg-white/80"].join(" ")}
+                  className={[
+                    "rounded-full transition",
+                    active ? "h-1.5 w-5 bg-surface" : "h-1.5 w-1.5 bg-surface/55 hover:bg-surface/80",
+                  ].join(" ")}
                   aria-label={`Show image ${idx + 1}`}
                 />
               );
@@ -280,28 +285,28 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
 
       <div className="space-y-2.5 p-5">
         <div className="flex items-start justify-between gap-3">
-          <h3 className="line-clamp-2 text-lg font-semibold tracking-tight text-slate-900">
-            <Link href={`/properties/${item.slug}`} className="transition hover:text-slate-700">
+          <h3 className="line-clamp-2 text-lg font-semibold tracking-tight text-primary">
+            <Link href={`/properties/${item.slug}`} className="transition hover:text-secondary">
               {title}
             </Link>
           </h3>
         </div>
 
-        {meta ? <p className="text-sm text-slate-600">{meta}</p> : <div className="h-5" />}
+        {meta ? <p className="text-sm text-secondary">{meta}</p> : <div className="h-5" />}
 
         <div className="flex flex-wrap gap-2 pt-1">
           {guests ? (
-            <span className="rounded-lg border border-black/10 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700">
+            <span className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-primary transition group-hover:bg-brand-soft-2">
               {guests} guests
             </span>
           ) : null}
           {beds ? (
-            <span className="rounded-lg border border-black/10 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700">
+            <span className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-primary transition group-hover:bg-brand-soft-2">
               {beds} beds
             </span>
           ) : null}
           {baths ? (
-            <span className="rounded-lg border border-black/10 bg-slate-50 px-2.5 py-1.5 text-xs text-slate-700">
+            <span className="rounded-lg border border-line bg-surface px-2.5 py-1.5 text-xs text-primary transition group-hover:bg-brand-soft-2">
               {baths} baths
             </span>
           ) : null}

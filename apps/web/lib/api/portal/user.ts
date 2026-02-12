@@ -58,6 +58,42 @@ export type UserPortalRefundsResponse = {
   total: number;
 };
 
+export type BookingDocumentType =
+  | "PASSPORT"
+  | "EMIRATES_ID"
+  | "VISA"
+  | "ARRIVAL_FORM"
+  | "OTHER";
+
+export type UserBookingDocument = {
+  id: string;
+  bookingId: string;
+  uploadedByUserId: string;
+  type: BookingDocumentType;
+  notes: string | null;
+  originalName: string;
+  mimeType: string | null;
+  sizeBytes: number;
+  createdAt: string;
+};
+
+export type UserReview = {
+  id: string;
+  bookingId: string;
+  propertyId: string;
+  rating: number;
+  title: string | null;
+  comment: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  createdAt: string;
+  property: {
+    id: string;
+    title: string;
+    slug: string;
+    city: string;
+  };
+};
+
 export async function getUserOverview(): Promise<UserPortalOverviewResponse> {
   const res = await apiFetch<UserPortalOverviewResponse>("/portal/user/overview", {
     method: "GET",
@@ -112,6 +148,110 @@ export async function getUserCalendar(params?: {
       from: params?.from ?? "",
       to: params?.to ?? "",
       propertyId: params?.propertyId ?? "",
+    },
+  });
+  return unwrap(res);
+}
+
+export async function uploadUserBookingDocument(
+  bookingId: string,
+  input: {
+    file: File;
+    type?: BookingDocumentType;
+    notes?: string;
+  }
+): Promise<UserBookingDocument> {
+  const form = new FormData();
+  form.append("file", input.file);
+  if (input.type) form.append("type", input.type);
+  if (input.notes?.trim()) form.append("notes", input.notes.trim());
+
+  const res = await apiFetch<UserBookingDocument>(
+    `/portal/user/bookings/${encodeURIComponent(bookingId)}/documents`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: form,
+    }
+  );
+  return unwrap(res);
+}
+
+export async function listUserBookingDocuments(
+  bookingId: string
+): Promise<UserBookingDocument[]> {
+  const res = await apiFetch<UserBookingDocument[]>(
+    `/portal/user/bookings/${encodeURIComponent(bookingId)}/documents`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
+export async function downloadUserBookingDocument(
+  bookingId: string,
+  documentId: string
+): Promise<Blob> {
+  const res = await apiFetch<Blob>(
+    `/portal/user/bookings/${encodeURIComponent(bookingId)}/documents/${encodeURIComponent(documentId)}/download`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      responseType: "blob",
+      headers: {
+        Accept: "application/octet-stream",
+      },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function createUserReview(input: {
+  bookingId: string;
+  rating: number;
+  title?: string;
+  comment?: string;
+}): Promise<UserReview> {
+  const res = await apiFetch<UserReview>("/portal/user/reviews", {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    body: {
+      bookingId: input.bookingId,
+      rating: input.rating,
+      title: input.title?.trim() || undefined,
+      comment: input.comment?.trim() || undefined,
+    },
+  });
+  return unwrap(res);
+}
+
+export async function listUserReviews(params?: {
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  items: UserReview[];
+  page: number;
+  pageSize: number;
+  total: number;
+}> {
+  const res = await apiFetch<{
+    items: UserReview[];
+    page: number;
+    pageSize: number;
+    total: number;
+  }>("/portal/user/reviews", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    query: {
+      page: params?.page ?? 1,
+      pageSize: params?.pageSize ?? 20,
     },
   });
   return unwrap(res);

@@ -5,10 +5,10 @@ import type React from "react";
 type Tone = "neutral" | "success" | "warning" | "danger";
 
 const TONES: Record<Tone, { bg: string; fg: string; ring: string }> = {
-  neutral: { bg: "bg-slate-50", fg: "text-slate-700", ring: "ring-slate-200" },
-  success: { bg: "bg-emerald-50", fg: "text-emerald-700", ring: "ring-emerald-200" },
-  warning: { bg: "bg-amber-50", fg: "text-amber-700", ring: "ring-amber-200" },
-  danger: { bg: "bg-rose-50", fg: "text-rose-700", ring: "ring-rose-200" },
+  neutral: { bg: "bg-warm-alt", fg: "text-secondary", ring: "ring-line" },
+  success: { bg: "bg-success/12", fg: "text-success", ring: "ring-success/30" },
+  warning: { bg: "bg-warning/12", fg: "text-warning", ring: "ring-warning/30" },
+  danger: { bg: "bg-danger/12", fg: "text-danger", ring: "ring-danger/30" },
 };
 
 function cn(...xs: Array<string | false | null | undefined>) {

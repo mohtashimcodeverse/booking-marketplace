@@ -80,19 +80,19 @@ export default function VendorPropertyEditPage() {
             <SkeletonBlock className="h-56 w-full" />
           </div>
         ) : state.kind === "error" ? (
-          <div className="rounded-2xl border border-black/10 bg-white p-6">
-            <div className="text-lg font-semibold text-black">Couldn’t load property</div>
-            <p className="mt-2 whitespace-pre-wrap text-sm text-black/70">{state.message}</p>
+          <div className="rounded-2xl border border-line/80 bg-surface p-6">
+            <div className="text-lg font-semibold text-primary">Couldn’t load property</div>
+            <p className="mt-2 whitespace-pre-wrap text-sm text-primary/70">{state.message}</p>
             <div className="mt-4 flex gap-3">
               <button
                 onClick={() => load()}
-                className="rounded-xl bg-black px-4 py-2 text-sm font-semibold text-white"
+                className="rounded-xl bg-dark-1 px-4 py-2 text-sm font-semibold text-inverted"
               >
                 Retry
               </button>
               <a
                 href="/vendor/properties"
-                className="rounded-xl border border-black/15 bg-white px-4 py-2 text-sm font-semibold text-black"
+                className="rounded-xl border border-line/90 bg-surface px-4 py-2 text-sm font-semibold text-primary"
               >
                 Back to properties
               </a>

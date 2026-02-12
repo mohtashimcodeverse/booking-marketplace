@@ -88,21 +88,26 @@ export function PaymentResultCard(props: { tone: Tone; bookingId?: string }) {
   }, [bookingId]);
 
   const pill = useMemo(() => {
-    if (!status) return { label: "—", cls: "border-slate-200 bg-slate-50 text-slate-700" };
-    if (s.includes("CONFIRM")) return { label: "CONFIRMED", cls: "border-emerald-200 bg-emerald-50 text-emerald-800" };
-    if (s.includes("PENDING")) return { label: "PENDING", cls: "border-amber-200 bg-amber-50 text-amber-900" };
-    if (s.includes("CANCEL")) return { label: "CANCELLED", cls: "border-rose-200 bg-rose-50 text-rose-800" };
-    if (s.includes("EXPIRE")) return { label: "EXPIRED", cls: "border-rose-200 bg-rose-50 text-rose-800" };
-    return { label: status, cls: "border-slate-200 bg-slate-50 text-slate-700" };
+    if (!status) return { label: "—", cls: "border-line bg-warm-alt text-secondary" };
+    if (s.includes("CONFIRM")) return { label: "CONFIRMED", cls: "border-success/30 bg-success/12 text-success" };
+    if (s.includes("PENDING")) return { label: "PENDING", cls: "border-warning/30 bg-warning/12 text-warning" };
+    if (s.includes("CANCEL")) return { label: "CANCELLED", cls: "border-danger/30 bg-danger/12 text-danger" };
+    if (s.includes("EXPIRE")) return { label: "EXPIRED", cls: "border-danger/30 bg-danger/12 text-danger" };
+    return { label: status, cls: "border-line bg-warm-alt text-secondary" };
   }, [s, status]);
 
+  const toneShell =
+    props.tone === "success"
+      ? "premium-card premium-card-dark"
+      : "premium-card premium-card-tinted";
+
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className={`${toneShell} rounded-2xl p-6`}>
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <div className="text-xs font-semibold tracking-wide text-slate-500">Payment</div>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight text-slate-900">{headline(props.tone)}</h1>
-          <p className="mt-2 text-sm text-slate-600">{subline(props.tone)}</p>
+          <div className="text-xs font-semibold tracking-wide text-muted">Payment</div>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-primary">{headline(props.tone)}</h1>
+          <p className="mt-2 text-sm text-secondary">{subline(props.tone)}</p>
         </div>
 
         <span className={`inline-flex items-center rounded-xl border px-3 py-1.5 text-xs font-semibold ${pill.cls}`}>
@@ -110,35 +115,35 @@ export function PaymentResultCard(props: { tone: Tone; bookingId?: string }) {
         </span>
       </div>
 
-      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 p-4">
-        <div className="text-xs font-semibold text-slate-600">Booking</div>
-        <div className="mt-1 text-sm text-slate-900">
+      <div className="premium-card premium-card-tinted mt-4 rounded-xl p-4">
+        <div className="text-xs font-semibold text-secondary">Booking</div>
+        <div className="mt-1 text-sm text-primary">
           ID: <span className="font-mono text-xs">{bookingId || "—"}</span>
         </div>
-        <div className="mt-1 text-sm text-slate-700">
+        <div className="mt-1 text-sm text-secondary">
           Status: <span className="font-semibold">{status || "—"}</span>
         </div>
 
         {latest?.totalAmount != null && latest?.currency ? (
-          <div className="mt-1 text-sm text-slate-700">
+          <div className="mt-1 text-sm text-secondary">
             Total: <span className="font-semibold">{moneyFromCents(latest.totalAmount, latest.currency)}</span>
           </div>
         ) : null}
 
         {latest?.expiresAt ? (
-          <div className="mt-1 text-xs text-slate-600">
+          <div className="mt-1 text-xs text-secondary">
             Expires at: <span className="font-semibold">{fmtDate(latest.expiresAt)}</span>
           </div>
         ) : null}
 
         {poll.remainingMs != null && s.includes("PENDING") ? (
-          <div className="mt-2 text-xs text-amber-800">
+          <div className="mt-2 text-xs text-warning">
             Payment window remaining: <span className="font-semibold">{Math.ceil(poll.remainingMs / 1000)}s</span>
           </div>
         ) : null}
 
         {state.kind === "error" ? (
-          <div className="mt-3 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">
+          <div className="mt-3 rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-xs text-danger">
             <span className="font-semibold">Error:</span> {state.message}
           </div>
         ) : null}
@@ -148,20 +153,20 @@ export function PaymentResultCard(props: { tone: Tone; bookingId?: string }) {
             type="button"
             onClick={() => void refresh()}
             disabled={state.kind !== "idle"}
-            className="inline-flex items-center justify-center rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+            className="inline-flex items-center justify-center rounded-xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-accent-soft/55 disabled:opacity-60"
           >
             {state.kind === "refreshing" ? "Refreshing…" : "Refresh status"}
           </button>
 
           <Link
             href="/account/bookings"
-            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            className="inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
           >
             View my bookings
           </Link>
         </div>
 
-        <div className="mt-3 text-xs text-slate-600">
+        <div className="mt-3 text-xs text-secondary">
           Note: bookings become <span className="font-semibold">CONFIRMED</span> only via verified provider webhooks.
         </div>
       </div>
@@ -169,7 +174,7 @@ export function PaymentResultCard(props: { tone: Tone; bookingId?: string }) {
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
         <Link
           href="/properties"
-          className="inline-flex items-center justify-center rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-accent-soft/55"
         >
           Continue browsing
         </Link>

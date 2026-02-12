@@ -7,18 +7,7 @@ import { quote, reserve } from "@/lib/api/properties";
 import type { QuoteResponse, ReserveResponse } from "@/lib/types/property";
 import { CalendarDays, Users, ShieldCheck, Timer, Sparkles, ChevronDown } from "lucide-react";
 import Link from "next/link";
-
-function formatMoney(currency: string, value: number): string {
-  try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(value);
-  } catch {
-    return `${currency} ${Math.round(value)}`;
-  }
-}
+import { useCurrency } from "@/lib/currency/CurrencyProvider";
 
 function formatIsoShort(iso: string): string {
   const d = new Date(iso);
@@ -52,8 +41,8 @@ type Props = {
 
 function TrustChip(props: { icon: React.ReactNode; text: string }) {
   return (
-    <div className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-800">
-      <span className="text-slate-600">{props.icon}</span>
+    <div className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-3 py-1.5 text-xs font-semibold text-primary">
+      <span className="text-secondary">{props.icon}</span>
       <span className="whitespace-nowrap">{props.text}</span>
     </div>
   );
@@ -62,8 +51,8 @@ function TrustChip(props: { icon: React.ReactNode; text: string }) {
 function LabelRow(props: { label: string; value: string; emphasize?: boolean }) {
   return (
     <div className="flex items-center justify-between gap-3">
-      <span className="text-slate-700">{props.label}</span>
-      <span className={`${props.emphasize ? "text-base" : ""} font-semibold text-slate-900`}>
+      <span className="text-secondary">{props.label}</span>
+      <span className={`${props.emphasize ? "text-base" : ""} font-semibold text-primary`}>
         {props.value}
       </span>
     </div>
@@ -72,7 +61,8 @@ function LabelRow(props: { label: string; value: string; emphasize?: boolean }) 
 
 const GUEST_PRESETS = [1, 2, 3, 4, 5, 6, 7, 8] as const;
 
-export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
+export default function QuotePanel({ propertyId, priceFrom }: Props) {
+  const selectedCurrency = useCurrency();
   const [dates, setDates] = useState<DateRangeValue>({ from: null, to: null });
   const [guests, setGuests] = useState<number>(2);
   const [ui, setUi] = useState<UiState>({ kind: "idle" });
@@ -118,23 +108,26 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
   ? `/checkout/${encodeURIComponent(propertyId)}?holdId=${encodeURIComponent(hold.id)}`
   : `/checkout/${encodeURIComponent(propertyId)}`;
 
+  const displayMoney = (amount: number) =>
+    selectedCurrency.formatFromAed(amount, { maximumFractionDigits: 0 });
+  const baseMoney = (amount: number) => selectedCurrency.formatBaseAed(amount);
 
   return (
     <>
       <motion.aside
-        className="hidden lg:block sticky top-28 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm"
+        className="hidden lg:block sticky top-28 rounded-2xl border border-line bg-surface p-5 shadow-sm"
         initial={{ y: 8, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
       >
         <div className="flex items-end justify-between gap-4">
           <div>
-            <div className="text-xs text-slate-600">From</div>
-            <div className="text-2xl font-semibold text-slate-900">
-              {formatMoney(currency, priceFrom)}
+            <div className="text-xs text-secondary">From</div>
+            <div className="text-2xl font-semibold text-primary">
+              {displayMoney(priceFrom)}
             </div>
           </div>
-          <div className="text-xs text-slate-600">per night baseline</div>
+          <div className="text-xs text-secondary">per night baseline</div>
         </div>
 
         <div className="mt-4 flex flex-wrap gap-2">
@@ -145,8 +138,8 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
 
         <div className="mt-5 grid gap-4">
           <div>
-            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-              <CalendarDays className="h-4 w-4 text-slate-500" />
+            <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
+              <CalendarDays className="h-4 w-4 text-muted" />
               Dates
             </div>
             <DateRangePicker value={dates} onChange={setDates} minDate={new Date()} />
@@ -158,73 +151,79 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
             type="button"
             disabled={!canQuote || ui.kind === "loadingQuote"}
             onClick={runQuote}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-accent-text transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             {ui.kind === "loadingQuote" ? "Checking price…" : "Get exact price"}
           </button>
 
           {breakdown ? (
-            <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm">
-              <div className="text-xs font-semibold text-slate-900">Price breakdown</div>
+            <div className="rounded-2xl border border-line bg-warm-alt p-4 text-sm">
+              <div className="text-xs font-semibold text-primary">Price breakdown</div>
               <div className="mt-3 space-y-2">
                 <LabelRow label="Nights" value={`${breakdown.nights}`} />
-                <LabelRow label="Base" value={formatMoney(breakdown.currency, breakdown.baseAmount)} />
+                <LabelRow label="Base" value={displayMoney(breakdown.baseAmount)} />
                 <LabelRow
                   label="Cleaning"
-                  value={formatMoney(breakdown.currency, breakdown.cleaningFee)}
+                  value={displayMoney(breakdown.cleaningFee)}
                 />
                 <LabelRow
                   label="Service fee"
-                  value={formatMoney(breakdown.currency, breakdown.serviceFee)}
+                  value={displayMoney(breakdown.serviceFee)}
                 />
-                <LabelRow label="Taxes" value={formatMoney(breakdown.currency, breakdown.taxes)} />
+                <LabelRow label="Taxes" value={displayMoney(breakdown.taxes)} />
               </div>
 
-              <div className="mt-3 border-t border-slate-200 pt-3">
+              <div className="mt-3 border-t border-line pt-3">
                 <LabelRow
                   label="Total"
-                  value={formatMoney(breakdown.currency, breakdown.total)}
+                  value={displayMoney(breakdown.total)}
                   emphasize
                 />
               </div>
+
+              {selectedCurrency.currency !== "AED" ? (
+                <div className="mt-2 text-right text-xs text-muted">
+                  Base: {baseMoney(breakdown.total)}
+                </div>
+              ) : null}
 
               <button
                 type="button"
                 onClick={runReserve}
                 disabled={ui.kind === "reserving"}
-                className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 shadow-sm ring-1 ring-slate-200 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60"
+                className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-surface px-4 py-3 text-sm font-semibold text-primary shadow-sm ring-1 ring-line transition hover:bg-warm-alt disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {ui.kind === "reserving" ? "Reserving…" : "Reserve (hold inventory)"}
               </button>
 
-              <div className="mt-3 text-xs text-slate-600">
+              <div className="mt-3 text-xs text-secondary">
                 Reserving creates a time-limited hold. You won’t be charged yet.
               </div>
             </div>
           ) : null}
 
           {ui.kind === "reserved" && hold ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+            <div className="rounded-2xl border border-success/30 bg-success/12 p-4 text-sm text-success">
               <div className="font-semibold">Hold created</div>
-              <div className="mt-1 text-xs text-emerald-900/80">
+              <div className="mt-1 text-xs text-success/80">
                 Expires: <span className="font-semibold">{formatIsoShort(hold.expiresAt)}</span>
               </div>
 
               <Link
                 href={checkoutHref}
-                className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-success px-4 py-3 text-sm font-semibold text-inverted transition hover:bg-success"
               >
                 Continue to checkout
               </Link>
 
-              <div className="mt-3 text-xs text-emerald-900/80">
+              <div className="mt-3 text-xs text-success/80">
                 Next: convert hold → booking in checkout.
               </div>
             </div>
           ) : null}
 
           {ui.kind === "error" ? (
-            <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+            <div className="rounded-2xl border border-danger/30 bg-danger/12 p-4 text-sm text-danger">
               {ui.message}
             </div>
           ) : null}
@@ -233,20 +232,20 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
 
       {/* MOBILE BAR */}
       <div className="lg:hidden">
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 backdrop-blur">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-line bg-surface/95 backdrop-blur">
           <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
             <div className="min-w-0">
-              <div className="text-[11px] text-slate-600">From</div>
-              <div className="truncate text-sm font-semibold text-slate-900">
-                {formatMoney(currency, priceFrom)}
-                <span className="ml-1 text-xs font-medium text-slate-600">/ night</span>
+              <div className="text-[11px] text-secondary">From</div>
+              <div className="truncate text-sm font-semibold text-primary">
+                {displayMoney(priceFrom)}
+                <span className="ml-1 text-xs font-medium text-secondary">/ night</span>
               </div>
             </div>
 
             <button
               type="button"
               onClick={() => setMobileOpen((v) => !v)}
-              className="inline-flex items-center justify-center gap-2 rounded-full bg-slate-900 px-4 py-2 text-xs font-semibold text-white"
+              className="inline-flex items-center justify-center gap-2 rounded-full bg-brand px-4 py-2 text-xs font-semibold text-accent-text"
             >
               {breakdown ? "View price" : "Check availability"}
               <ChevronDown className={`h-4 w-4 transition ${mobileOpen ? "rotate-180" : ""}`} />
@@ -260,21 +259,21 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
               type="button"
               aria-label="Close quote panel"
               onClick={() => setMobileOpen(false)}
-              className="absolute inset-0 bg-black/40"
+              className="absolute inset-0 bg-dark-1/40"
             />
 
-            <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-white p-4 shadow-2xl">
+            <div className="absolute inset-x-0 bottom-0 rounded-t-3xl bg-surface p-4 shadow-2xl">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Your stay</div>
-                  <div className="mt-1 text-xs text-slate-600">
+                  <div className="text-sm font-semibold text-primary">Your stay</div>
+                  <div className="mt-1 text-xs text-secondary">
                     Select dates and guests to get an exact price.
                   </div>
                 </div>
                 <button
                   type="button"
                   onClick={() => setMobileOpen(false)}
-                  className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-semibold text-slate-900"
+                  className="rounded-full border border-line bg-surface px-4 py-2 text-xs font-semibold text-primary"
                 >
                   Close
                 </button>
@@ -282,8 +281,8 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
 
               <div className="mt-4 grid gap-4 pb-3">
                 <div>
-                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-                    <CalendarDays className="h-4 w-4 text-slate-500" />
+                  <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
+                    <CalendarDays className="h-4 w-4 text-muted" />
                     Dates
                   </div>
                   <DateRangePicker value={dates} onChange={setDates} minDate={new Date()} />
@@ -295,21 +294,21 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
                   type="button"
                   disabled={!canQuote || ui.kind === "loadingQuote"}
                   onClick={runQuote}
-                  className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex w-full items-center justify-center rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-accent-text transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   {ui.kind === "loadingQuote" ? "Checking price…" : "Get exact price"}
                 </button>
 
                 {ui.kind === "reserved" && hold ? (
-                  <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+                  <div className="rounded-2xl border border-success/30 bg-success/12 p-4 text-sm text-success">
                     <div className="font-semibold">Hold created</div>
-                    <div className="mt-1 text-xs text-emerald-900/80">
+                    <div className="mt-1 text-xs text-success/80">
                       Expires: <span className="font-semibold">{formatIsoShort(hold.expiresAt)}</span>
                     </div>
 
                     <Link
                       href={checkoutHref}
-                      className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-emerald-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-emerald-800"
+                      className="mt-4 inline-flex w-full items-center justify-center rounded-xl bg-success px-4 py-3 text-sm font-semibold text-inverted transition hover:bg-success"
                     >
                       Continue to checkout
                     </Link>
@@ -329,8 +328,8 @@ export default function QuotePanel({ propertyId, currency, priceFrom }: Props) {
 function GuestsBlock(props: { guests: number; onChange: (n: number) => void }) {
   return (
     <div>
-      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-slate-900">
-        <Users className="h-4 w-4 text-slate-500" />
+      <div className="mb-2 flex items-center gap-2 text-sm font-semibold text-primary">
+        <Users className="h-4 w-4 text-muted" />
         Guests
       </div>
 
@@ -344,8 +343,8 @@ function GuestsBlock(props: { guests: number; onChange: (n: number) => void }) {
               onClick={() => props.onChange(n)}
               className={`rounded-xl border px-3 py-2 text-sm font-semibold transition ${
                 active
-                  ? "border-slate-900 bg-slate-900 text-white"
-                  : "border-slate-200 bg-white text-slate-900 hover:bg-slate-50"
+                  ? "border-brand bg-brand text-accent-text"
+                  : "border-line bg-surface text-primary hover:bg-warm-alt"
               }`}
             >
               {n}
@@ -360,10 +359,10 @@ function GuestsBlock(props: { guests: number; onChange: (n: number) => void }) {
             max={16}
             value={props.guests}
             onChange={(e) => props.onChange(Number(e.target.value))}
-            className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm outline-none focus:border-slate-400"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-line-strong"
             aria-label="Guests"
           />
-          <div className="mt-1 text-[11px] text-slate-600">Max 16 guests.</div>
+          <div className="mt-1 text-[11px] text-secondary">Max 16 guests.</div>
         </div>
       </div>
     </div>

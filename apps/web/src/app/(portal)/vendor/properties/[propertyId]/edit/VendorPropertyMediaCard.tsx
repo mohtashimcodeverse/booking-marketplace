@@ -125,11 +125,11 @@ export function VendorPropertyMediaCard(props: {
   }
 
   return (
-    <div className="rounded-2xl border bg-white p-6 space-y-5">
+    <div className="rounded-2xl border bg-surface p-6 space-y-5">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-sm font-semibold text-slate-900">Photos (by room)</div>
-          <div className="mt-1 text-sm text-slate-600">
+          <div className="text-sm font-semibold text-primary">Photos (by room)</div>
+          <div className="mt-1 text-sm text-secondary">
             Upload photos into the correct section. We auto-tag images to match backend review rules.
           </div>
 
@@ -141,7 +141,7 @@ export function VendorPropertyMediaCard(props: {
                   key={r.key}
                   className={[
                     "inline-flex items-center gap-2 rounded-full px-3 py-1 ring-1",
-                    ok ? "bg-emerald-50 text-emerald-900 ring-emerald-200" : "bg-amber-50 text-amber-900 ring-amber-200",
+                    ok ? "bg-success/12 text-success ring-success/30" : "bg-warning/12 text-warning ring-warning/30",
                   ].join(" ")}
                 >
                   <span className="h-1.5 w-1.5 rounded-full bg-current opacity-70" />
@@ -154,14 +154,14 @@ export function VendorPropertyMediaCard(props: {
         </div>
 
         <div className="text-right">
-          <div className="text-xs text-slate-500">Total photos</div>
-          <div className="mt-1 text-2xl font-semibold text-slate-900">{props.media.length}</div>
-          <div className="mt-1 text-xs text-slate-500">{busy ? "Working…" : " "}</div>
+          <div className="text-xs text-muted">Total photos</div>
+          <div className="mt-1 text-2xl font-semibold text-primary">{props.media.length}</div>
+          <div className="mt-1 text-xs text-muted">{busy ? "Working…" : " "}</div>
         </div>
       </div>
 
       {err ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 whitespace-pre-wrap">
+        <div className="rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger whitespace-pre-wrap">
           {err}
         </div>
       ) : null}
@@ -191,7 +191,7 @@ export function VendorPropertyMediaCard(props: {
         />
       </div>
 
-      <div className="rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      <div className="rounded-xl border bg-warm-alt px-4 py-3 text-sm text-secondary">
         Backend review rule reminder: minimum 4 photos + must include Living + Bedroom + Bathroom + Kitchen.
       </div>
     </div>
@@ -208,15 +208,15 @@ function RoomSection(props: {
   onChangeCategory: (mediaId: string, category: MediaCategory) => void;
 }) {
   return (
-    <div className="rounded-2xl border bg-white overflow-hidden">
-      <div className="border-b bg-slate-50 px-5 py-3">
+    <div className="rounded-2xl border bg-surface overflow-hidden">
+      <div className="border-b bg-warm-alt px-5 py-3">
         <div className="flex items-start justify-between gap-4">
           <div>
-            <div className="text-sm font-semibold text-slate-900">{props.title}</div>
-            <div className="mt-1 text-xs text-slate-600">{props.hint}</div>
+            <div className="text-sm font-semibold text-primary">{props.title}</div>
+            <div className="mt-1 text-xs text-secondary">{props.hint}</div>
           </div>
 
-          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">
+          <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-accent-text hover:bg-brand-hover">
             <input
               type="file"
               accept="image/*"
@@ -231,12 +231,12 @@ function RoomSection(props: {
       </div>
 
       {props.items.length === 0 ? (
-        <div className="p-5 text-sm text-slate-600">No photos yet.</div>
+        <div className="p-5 text-sm text-secondary">No photos yet.</div>
       ) : (
         <div className="p-5 grid grid-cols-2 gap-3">
           {props.items.map((m) => (
-            <div key={m.id} className="rounded-xl border bg-white overflow-hidden">
-              <div className="relative aspect-[4/3] bg-slate-100">
+            <div key={m.id} className="rounded-xl border bg-surface overflow-hidden">
+              <div className="relative aspect-[4/3] bg-warm-alt">
                 <Image
                   src={m.url}
                   alt={m.alt ?? props.title}
@@ -244,19 +244,19 @@ function RoomSection(props: {
                   className="object-cover"
                   sizes="(max-width: 1024px) 50vw, 25vw"
                 />
-                <div className="absolute left-2 top-2 rounded-full bg-white/90 px-2 py-1 text-[11px] font-semibold text-slate-900">
+                <div className="absolute left-2 top-2 rounded-full bg-surface/90 px-2 py-1 text-[11px] font-semibold text-primary">
                   {labelForCategory(m.category)}
                 </div>
               </div>
 
               <div className="p-3 space-y-2">
                 <div className="flex items-center justify-between gap-2">
-                  <div className="text-xs text-slate-600">Order: {m.sortOrder}</div>
+                  <div className="text-xs text-secondary">Order: {m.sortOrder}</div>
                   <div className="flex items-center gap-1">
                     <button
                       type="button"
                       disabled={props.busy}
-                      className="rounded-lg border bg-white px-2 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                      className="rounded-lg border bg-surface px-2 py-1 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
                       onClick={() => props.onMove(m.id, -1)}
                       title="Move up"
                     >
@@ -265,7 +265,7 @@ function RoomSection(props: {
                     <button
                       type="button"
                       disabled={props.busy}
-                      className="rounded-lg border bg-white px-2 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                      className="rounded-lg border bg-surface px-2 py-1 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
                       onClick={() => props.onMove(m.id, 1)}
                       title="Move down"
                     >
@@ -275,12 +275,12 @@ function RoomSection(props: {
                 </div>
 
                 <label className="grid gap-1">
-                  <span className="text-[11px] font-semibold text-slate-600">Category</span>
+                  <span className="text-[11px] font-semibold text-secondary">Category</span>
                   <select
                     disabled={props.busy}
                     value={m.category}
                     onChange={(e) => props.onChangeCategory(m.id, e.target.value as MediaCategory)}
-                    className="w-full rounded-xl border bg-white px-3 py-2 text-sm text-slate-900 focus:outline-none focus:ring-2 focus:ring-slate-900/20 disabled:opacity-60"
+                    className="w-full rounded-xl border bg-surface px-3 py-2 text-sm text-primary focus:outline-none focus:ring-2 focus:ring-brand/20 disabled:opacity-60"
                   >
                     <option value="LIVING_ROOM">Living room</option>
                     <option value="BEDROOM">Bedroom</option>

@@ -121,8 +121,8 @@ export default function AdminReviewQueuePage() {
         className: "col-span-5",
         render: (row) => (
           <div className="min-w-0">
-            <div className="truncate font-semibold text-slate-900">{row.title}</div>
-            <div className="mt-1 truncate font-mono text-xs text-slate-500">{row.id}</div>
+            <div className="truncate font-semibold text-primary">{row.title}</div>
+            <div className="mt-1 truncate font-mono text-xs text-muted">{row.id}</div>
           </div>
         ),
       },
@@ -132,8 +132,8 @@ export default function AdminReviewQueuePage() {
         className: "col-span-3",
         render: (row) => (
           <div>
-            <div className="text-slate-900">{row.city}</div>
-            <div className="truncate text-xs text-slate-500">{row.area ?? "—"}</div>
+            <div className="text-primary">{row.city}</div>
+            <div className="truncate text-xs text-muted">{row.area ?? "—"}</div>
           </div>
         ),
       },
@@ -143,8 +143,8 @@ export default function AdminReviewQueuePage() {
         className: "col-span-2",
         render: (row) => (
           <div>
-            <div className="truncate text-slate-900">{row.vendorName ?? "—"}</div>
-            <div className="truncate text-xs text-slate-500">{row.vendorId ?? "—"}</div>
+            <div className="truncate text-primary">{row.vendorName ?? "—"}</div>
+            <div className="truncate text-xs text-muted">{row.vendorId ?? "—"}</div>
           </div>
         ),
       },
@@ -168,7 +168,7 @@ export default function AdminReviewQueuePage() {
         subtitle="Approve, reject, or request changes for vendor listings."
         right={
           busy ? (
-            <div className="rounded-full bg-slate-900 px-3 py-1 text-xs font-semibold text-white">{busy}</div>
+            <div className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-accent-text">{busy}</div>
           ) : null
         }
       >
@@ -190,7 +190,7 @@ export default function AdminReviewQueuePage() {
                     }}
                     className={[
                       "rounded-full px-4 py-2 text-sm font-semibold transition",
-                      status === s ? "bg-[#16A6C8] text-white" : "bg-white text-slate-900 ring-1 ring-black/10 hover:bg-slate-50",
+                      status === s ? "bg-brand text-accent-text" : "bg-surface text-primary ring-1 ring-line/90 hover:bg-warm-alt",
                     ].join(" ")}
                   >
                     {s}
@@ -203,7 +203,7 @@ export default function AdminReviewQueuePage() {
           {state.kind === "loading" ? (
             <SkeletonTable rows={8} />
           ) : state.kind === "error" ? (
-            <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">{state.message}</div>
+            <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">{state.message}</div>
           ) : filteredItems.length === 0 ? (
             <EmptyState title="No listings in this queue" description="There are no properties matching the selected status or search." />
           ) : (
@@ -212,8 +212,8 @@ export default function AdminReviewQueuePage() {
               count={filteredItems.length}
               subtitle={
                 <>
-                  Showing <span className="font-semibold text-slate-900">{filteredItems.length}</span> of{" "}
-                  <span className="font-semibold text-slate-900">{state.total}</span>
+                  Showing <span className="font-semibold text-primary">{filteredItems.length}</span> of{" "}
+                  <span className="font-semibold text-primary">{state.total}</span>
                 </>
               }
               columns={columns}
@@ -223,7 +223,7 @@ export default function AdminReviewQueuePage() {
                 <>
                   <button
                     onClick={() => setDrawer(row)}
-                    className="rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                    className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
                   >
                     Review
                   </button>
@@ -231,7 +231,7 @@ export default function AdminReviewQueuePage() {
                   {canApprove(row.status) ? (
                     <button
                       onClick={() => void approveAdminProperty(row.id)}
-                      className="rounded-2xl bg-[#16A6C8] px-3 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                      className="rounded-2xl bg-brand px-3 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95"
                     >
                       Approve
                     </button>

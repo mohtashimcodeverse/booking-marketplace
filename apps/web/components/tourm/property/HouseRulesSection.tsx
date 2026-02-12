@@ -75,9 +75,9 @@ export default function HouseRulesSection({
   if (!items.length) return null;
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-5">
-      <div className="text-sm font-semibold text-slate-900">{title}</div>
-      <p className="mt-1 text-xs text-slate-600">
+    <section className="rounded-2xl border border-line bg-surface p-5">
+      <div className="text-sm font-semibold text-primary">{title}</div>
+      <p className="mt-1 text-xs text-secondary">
         Clear, structured rules for a smooth stay.
       </p>
 
@@ -89,16 +89,16 @@ export default function HouseRulesSection({
           return (
             <div
               key={`${String(r.key)}-${idx}`}
-              className="flex items-start gap-3 rounded-xl border border-slate-200 bg-white px-4 py-3"
+              className="flex items-start gap-3 rounded-xl border border-line bg-surface px-4 py-3"
             >
-              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl border border-slate-200 bg-slate-50">
-                <Icon className="h-5 w-5 text-slate-700" />
+              <div className="mt-0.5 flex h-10 w-10 items-center justify-center rounded-xl border border-line bg-warm-alt">
+                <Icon className="h-5 w-5 text-secondary" />
               </div>
 
               <div className="min-w-0">
-                <div className="text-sm font-semibold text-slate-900">{label}</div>
+                <div className="text-sm font-semibold text-primary">{label}</div>
                 {detail ? (
-                  <div className="mt-0.5 text-xs text-slate-600">{detail}</div>
+                  <div className="mt-0.5 text-xs text-secondary">{detail}</div>
                 ) : null}
               </div>
             </div>

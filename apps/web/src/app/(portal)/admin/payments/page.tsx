@@ -69,15 +69,15 @@ function Drawer(props: {
         type="button"
         aria-label="Close"
         onClick={props.onClose}
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-dark-1/40"
       />
-      <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-xl">
+      <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-surface shadow-xl">
         <div className="flex items-center justify-between border-b px-5 py-4">
-          <div className="text-sm font-semibold text-slate-900">{props.title}</div>
+          <div className="text-sm font-semibold text-primary">{props.title}</div>
           <button
             type="button"
             onClick={props.onClose}
-            className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+            className="rounded-lg border px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-warm-alt"
           >
             Close
           </button>
@@ -160,14 +160,14 @@ export default function AdminPaymentsPage() {
 
   const content = useMemo(() => {
     if (state.kind === "loading") {
-      return <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">Loading payments…</div>;
+      return <div className="rounded-2xl border bg-surface p-6 text-sm text-secondary">Loading payments…</div>;
     }
 
     if (state.kind === "error") {
       return (
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="font-semibold text-slate-900">Could not load payments</div>
-          <div className="mt-2 text-sm text-slate-600">{state.message}</div>
+        <div className="rounded-2xl border bg-surface p-6">
+          <div className="font-semibold text-primary">Could not load payments</div>
+          <div className="mt-2 text-sm text-secondary">{state.message}</div>
         </div>
       );
     }
@@ -175,9 +175,9 @@ export default function AdminPaymentsPage() {
     return (
       <div className="space-y-4">
         {/* Filters */}
-        <div className="rounded-2xl border bg-white p-4">
+        <div className="rounded-2xl border bg-surface p-4">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="text-sm font-semibold text-slate-900">Payments</div>
+            <div className="text-sm font-semibold text-primary">Payments</div>
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
               <input
                 value={filters.q}
@@ -227,20 +227,20 @@ export default function AdminPaymentsPage() {
                 key={id}
                 type="button"
                 onClick={() => setSelected(p)}
-                className="w-full text-left rounded-2xl border bg-white p-5 hover:bg-slate-50/60 transition"
+                className="w-full text-left rounded-2xl border bg-surface p-5 hover:bg-warm-alt/60 transition"
               >
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                   <div>
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-primary">
                       Payment {id}
                     </div>
-                    <div className="mt-1 text-xs text-slate-600">
+                    <div className="mt-1 text-xs text-secondary">
                       Booking: {bookingId ?? "—"} • {provider}
                     </div>
                   </div>
 
                   <div className="flex items-center gap-3">
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-primary">
                       {fmtMoney(amount, currency)}
                     </div>
                     <StatusPill tone={toneForStatus(status)}>
@@ -262,17 +262,17 @@ export default function AdminPaymentsPage() {
           {selected ? (
             <div className="space-y-4 text-sm">
               <div>
-                <div className="text-xs text-slate-500">Provider</div>
+                <div className="text-xs text-muted">Provider</div>
                 <div className="font-semibold">{getString(selected, "provider") ?? "—"}</div>
               </div>
 
               <div>
-                <div className="text-xs text-slate-500">Booking ID</div>
+                <div className="text-xs text-muted">Booking ID</div>
                 <div className="font-mono text-xs">{getString(selected, "bookingId") ?? "—"}</div>
               </div>
 
               <div>
-                <div className="text-xs text-slate-500">Amount</div>
+                <div className="text-xs text-muted">Amount</div>
                 <div className="font-semibold">
                   {fmtMoney(
                     getNumber(selected, "amountCaptured") ??
@@ -284,14 +284,14 @@ export default function AdminPaymentsPage() {
               </div>
 
               <div>
-                <div className="text-xs text-slate-500">Status</div>
+                <div className="text-xs text-muted">Status</div>
                 <StatusPill tone={toneForStatus(getString(selected, "status"))}>
                   {getString(selected, "status") ?? "—"}
                 </StatusPill>
               </div>
 
               <div>
-                <div className="text-xs text-slate-500">Created</div>
+                <div className="text-xs text-muted">Created</div>
                 <div className="font-semibold">
                   {fmtDate(getString(selected, "createdAt"))}
                 </div>

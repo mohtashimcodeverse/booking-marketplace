@@ -105,15 +105,15 @@ export default function CreateBookingCard(props: { holdId: string }) {
   }
 
   return (
-    <section className="rounded-2xl border border-slate-200 bg-white p-6">
+    <section className="rounded-2xl border border-line bg-surface p-6">
       <div>
-        <div className="text-sm font-semibold text-slate-900">Create booking</div>
-        <p className="mt-1 text-xs text-slate-600">
+        <div className="text-sm font-semibold text-primary">Create booking</div>
+        <p className="mt-1 text-xs text-secondary">
           Converts your hold into a booking (PENDING_PAYMENT). Payment confirmation happens via verified webhooks.
         </p>
       </div>
 
-      <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+      <div className="mt-4 rounded-xl border border-line bg-warm-alt px-4 py-3 text-xs text-secondary">
         Hold ID: <span className="font-mono font-semibold">{holdId}</span>
       </div>
 
@@ -122,7 +122,7 @@ export default function CreateBookingCard(props: { holdId: string }) {
           type="button"
           onClick={onCreate}
           disabled={!canCreate || ui.kind === "creating" || ui.kind === "created"}
-          className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-3 text-sm font-semibold text-white transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+          className="inline-flex w-full items-center justify-center rounded-xl bg-brand px-4 py-3 text-sm font-semibold text-accent-text transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
         >
           {ui.kind === "creating"
             ? "Creating booking…"
@@ -132,29 +132,29 @@ export default function CreateBookingCard(props: { holdId: string }) {
         </button>
 
         {ui.kind === "created" ? (
-          <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-900">
+          <div className="rounded-2xl border border-success/30 bg-success/12 p-4 text-sm text-success">
             <div className="font-semibold">Booking created</div>
-            <div className="mt-2 text-xs text-emerald-900/80">
+            <div className="mt-2 text-xs text-success/80">
               Booking ID: <span className="font-mono font-semibold">{ui.bookingId}</span>
             </div>
-            <div className="mt-1 text-xs text-emerald-900/80">
+            <div className="mt-1 text-xs text-success/80">
               Status: <span className="font-semibold">{ui.status}</span>
             </div>
-            <div className="mt-1 text-xs text-emerald-900/80">
+            <div className="mt-1 text-xs text-success/80">
               Total: <span className="font-semibold">{formatMoney(ui.currency, ui.totalAmount)}</span>
             </div>
-            <div className="mt-1 text-xs text-emerald-900/80">
+            <div className="mt-1 text-xs text-success/80">
               Payment window expires: <span className="font-semibold">{formatIsoShort(ui.expiresAt)}</span>
             </div>
 
-            <div className="mt-4 rounded-xl border border-emerald-200 bg-white px-4 py-3 text-xs text-emerald-900/80">
+            <div className="mt-4 rounded-xl border border-success/30 bg-surface px-4 py-3 text-xs text-success/80">
               Next step (coming next): start hosted payment (Stripe/Telr). Booking becomes CONFIRMED only after webhook verification.
             </div>
           </div>
         ) : null}
 
         {ui.kind === "error" ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+          <div className="rounded-2xl border border-danger/30 bg-danger/12 p-4 text-sm text-danger">
             {ui.message}
           </div>
         ) : null}

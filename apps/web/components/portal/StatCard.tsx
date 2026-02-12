@@ -16,29 +16,47 @@ export interface StatCardProps {
     direction: "up" | "down";
     label: string;
   };
+
+  /** Visual hierarchy variant for executive dashboards */
+  variant?: "standard" | "tinted" | "dark";
 }
 
 export function StatCard(props: StatCardProps) {
+  const variant = props.variant ?? "tinted";
+  const shellClass =
+    variant === "dark"
+      ? "premium-card premium-card-dark"
+      : variant === "tinted"
+        ? "premium-card premium-card-tinted premium-card-hover card-accent-left"
+        : "premium-card premium-card-hover card-accent-left";
+
   return (
-    <div className="group relative overflow-hidden rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
+    <div className={`${shellClass} group relative overflow-hidden rounded-3xl p-6`}>
       {/* subtle decorative gradient */}
       <div className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-        <div className="absolute -right-24 -top-24 h-48 w-48 rounded-full bg-[#16A6C8]/10 blur-3xl" />
+        <div className="absolute -right-24 -top-24 h-48 w-48 rounded-full bg-accent-soft/80 blur-3xl" />
       </div>
 
       <div className="relative">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-xs font-semibold tracking-wide text-slate-500">
+            <div className="text-xs font-semibold tracking-wide text-muted">
               {props.label}
             </div>
-            <div className="mt-2 text-3xl font-semibold text-slate-900">
+            <div className="mt-2 text-3xl font-semibold text-primary">
               {props.value}
             </div>
           </div>
 
           {props.icon ? (
-            <div className="flex h-10 w-10 items-center justify-center rounded-2xl border border-black/5 bg-[#f6f3ec] text-slate-700">
+            <div
+              className={[
+                "flex h-10 w-10 items-center justify-center rounded-2xl",
+                variant === "dark"
+                  ? "border border-inverted/24 bg-dark-1/35 text-brand"
+                  : "card-icon-plate",
+              ].join(" ")}
+            >
               {props.icon}
             </div>
           ) : null}
@@ -51,8 +69,8 @@ export function StatCard(props: StatCardProps) {
                 className={[
                   "inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold",
                   props.trend.direction === "up"
-                    ? "bg-emerald-50 text-emerald-700"
-                    : "bg-rose-50 text-rose-700",
+                    ? "bg-success/12 text-success"
+                    : "bg-danger/12 text-danger",
                 ].join(" ")}
               >
                 {props.trend.direction === "up" ? (
@@ -67,7 +85,7 @@ export function StatCard(props: StatCardProps) {
             )}
 
             {props.helper ? (
-              <div className="text-xs text-slate-500">{props.helper}</div>
+              <div className="text-xs text-muted">{props.helper}</div>
             ) : null}
           </div>
         ) : null}

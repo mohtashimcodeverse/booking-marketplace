@@ -10,6 +10,11 @@ export const metadata: Metadata = {
   },
   description:
     "Luxury short-term rental management in Dubai — professionally operated homes for owners and premium stays for guests.",
+  icons: {
+    icon: "/brand/logo.svg",
+    shortcut: "/brand/logo.svg",
+    apple: "/brand/logo.svg",
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

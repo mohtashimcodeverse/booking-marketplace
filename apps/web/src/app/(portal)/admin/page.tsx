@@ -66,16 +66,16 @@ export default function AdminDashboardPage() {
           {Array.from({ length: 6 }).map((_, i) => (
             <div
               key={i}
-              className="h-[120px] animate-pulse rounded-3xl border border-black/5 bg-white"
+              className="h-[120px] animate-pulse rounded-3xl border border-line/50 bg-surface"
             />
           ))}
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6">
-          <div className="text-sm font-semibold text-rose-900">
+        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6">
+          <div className="text-sm font-semibold text-danger">
             Unable to load admin dashboard
           </div>
-          <div className="mt-2 text-sm text-rose-800">
+          <div className="mt-2 text-sm text-danger">
             {state.message}
           </div>
         </div>
@@ -83,7 +83,7 @@ export default function AdminDashboardPage() {
         <div className="space-y-10">
           {/* KPI section */}
           <section>
-            <div className="mb-4 text-sm font-semibold text-slate-900">
+            <div className="mb-4 text-sm font-semibold text-primary">
               Platform snapshot
             </div>
 
@@ -93,6 +93,7 @@ export default function AdminDashboardPage() {
                 value={kpis?.pendingListings ?? "—"}
                 icon={<ShieldCheck className="h-4 w-4" />}
                 helper="Awaiting admin action"
+                variant="dark"
               />
 
               <StatCard
@@ -100,6 +101,7 @@ export default function AdminDashboardPage() {
                 value={kpis?.activeProperties ?? "—"}
                 icon={<Building2 className="h-4 w-4" />}
                 helper="Published & bookable"
+                variant="tinted"
               />
 
               <StatCard
@@ -107,6 +109,7 @@ export default function AdminDashboardPage() {
                 value={kpis?.approvedVendors ?? "—"}
                 icon={<Users className="h-4 w-4" />}
                 helper="Verified partners"
+                variant="tinted"
               />
 
               <StatCard
@@ -114,6 +117,7 @@ export default function AdminDashboardPage() {
                 value={kpis?.upcomingBookings ?? "—"}
                 icon={<ClipboardCheck className="h-4 w-4" />}
                 helper="Next 30 days"
+                variant="tinted"
               />
 
               <StatCard
@@ -121,6 +125,7 @@ export default function AdminDashboardPage() {
                 value={kpis?.paymentsCaptured ?? "—"}
                 icon={<CreditCard className="h-4 w-4" />}
                 helper="Successful transactions"
+                variant="tinted"
               />
 
               <StatCard
@@ -128,6 +133,7 @@ export default function AdminDashboardPage() {
                 value={kpis?.opsAlerts ?? "—"}
                 icon={<AlertTriangle className="h-4 w-4" />}
                 helper="Issues requiring attention"
+                variant="tinted"
               />
             </div>
           </section>
@@ -135,7 +141,7 @@ export default function AdminDashboardPage() {
           {/* Queues section */}
           {queues && Object.keys(queues).length > 0 ? (
             <section>
-              <div className="mb-4 text-sm font-semibold text-slate-900">
+              <div className="mb-4 text-sm font-semibold text-primary">
                 Review & operational queues
               </div>
 
@@ -146,6 +152,7 @@ export default function AdminDashboardPage() {
                     label={key.replace(/_/g, " ")}
                     value={value}
                     helper="Current queue size"
+                    variant="tinted"
                   />
                 ))}
               </div>

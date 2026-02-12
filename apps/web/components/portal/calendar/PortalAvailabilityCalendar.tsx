@@ -106,22 +106,22 @@ function rangeLabel(range: DateRange): string {
 function dayCellTone(tone: "booked" | "blocked" | "held" | "available", selected: boolean): string {
   if (tone === "booked") {
     return selected
-      ? "bg-[#16A6C8] text-white ring-[#16A6C8]"
-      : "bg-[#16A6C8]/12 text-slate-900 ring-[#16A6C8]/30 hover:bg-[#16A6C8]/20";
+      ? "bg-brand text-accent-text ring-brand"
+      : "bg-brand/12 text-primary ring-brand/30 hover:bg-brand/20";
   }
   if (tone === "blocked") {
     return selected
-      ? "bg-rose-600 text-white ring-rose-600"
-      : "bg-rose-50 text-rose-900 ring-rose-200 hover:bg-rose-100";
+      ? "bg-danger text-inverted ring-danger/70"
+      : "bg-danger/12 text-danger ring-danger/30 hover:bg-danger/12";
   }
   if (tone === "held") {
     return selected
-      ? "bg-amber-600 text-white ring-amber-600"
-      : "bg-amber-50 text-amber-900 ring-amber-200 hover:bg-amber-100";
+      ? "bg-warning text-inverted ring-warning/70"
+      : "bg-warning/12 text-warning ring-warning/30 hover:bg-warning/12";
   }
   return selected
-    ? "bg-slate-900 text-white ring-slate-900"
-    : "bg-white text-slate-800 ring-black/10 hover:bg-slate-50";
+    ? "bg-brand text-accent-text ring-brand"
+    : "bg-surface text-primary ring-line/70 hover:bg-warm-alt";
 }
 
 function roleIntro(role: RoleView): string {
@@ -137,9 +137,30 @@ export function PortalAvailabilityCalendar(props: {
     to: string;
     propertyId?: string;
   }) => Promise<PortalCalendarResponse>;
+  allowBlockControls?: boolean;
+  onBlockRange?: (params: {
+    propertyId: string;
+    from: string;
+    to: string;
+    note?: string;
+  }) => Promise<{ ok: true } | { ok: true; blockedDays: number }>;
+  onUnblockRange?: (params: {
+    propertyId: string;
+    from: string;
+    to: string;
+    note?: string;
+  }) => Promise<{ ok: true } | { ok: true; unblockedDays: number }>;
 }) {
+  const { loadData, role } = props;
   const [month, setMonth] = useState<Date>(startOfMonth(new Date()));
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
+  const [refreshTick, setRefreshTick] = useState(0);
+  const [rangeFrom, setRangeFrom] = useState<string>("");
+  const [rangeTo, setRangeTo] = useState<string>("");
+  const [rangeNote, setRangeNote] = useState<string>("");
+  const [rangeBusy, setRangeBusy] = useState<string | null>(null);
+  const [rangeMessage, setRangeMessage] = useState<string | null>(null);
+  const [rangeError, setRangeError] = useState<string | null>(null);
 
   const [state, setState] = useState<
     | { kind: "loading" }
@@ -159,7 +180,7 @@ export function PortalAvailabilityCalendar(props: {
         const from = toIsoDay(startOfMonth(month));
         const to = toIsoDay(addMonths(startOfMonth(month), 1));
 
-        const data = await props.loadData({
+        const data = await loadData({
           from,
           to,
           propertyId: selectedPropertyId ?? undefined,
@@ -184,10 +205,17 @@ export function PortalAvailabilityCalendar(props: {
     return () => {
       alive = false;
     };
-  }, [month, selectedPropertyId]);
+  }, [loadData, month, refreshTick, selectedPropertyId]);
+
+  useEffect(() => {
+    const from = toIsoDay(startOfMonth(month));
+    const to = toIsoDay(addDays(startOfMonth(month), 1));
+    setRangeFrom(from);
+    setRangeTo(to);
+  }, [month]);
 
   const data = state.kind === "ready" ? state.data : null;
-  const events = data?.events ?? [];
+  const events = useMemo(() => data?.events ?? [], [data]);
 
   const gridDays = useMemo(() => {
     const start = startOfWeek(startOfMonth(month), { weekStartsOn: 1 });
@@ -237,31 +265,31 @@ export function PortalAvailabilityCalendar(props: {
 
   return (
     <div className="space-y-5">
-      <div className="rounded-3xl border border-black/5 bg-[#f6f3ec]/70 p-5">
+      <div className="rounded-3xl border border-line/50 bg-warm-base/70 p-5">
         <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
           <div>
-            <div className="text-sm font-semibold text-slate-900">Monthly availability</div>
-            <div className="mt-1 text-sm text-slate-600">{roleIntro(props.role)}</div>
+            <div className="text-sm font-semibold text-primary">Monthly availability</div>
+            <div className="mt-1 text-sm text-secondary">{roleIntro(role)}</div>
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setMonth((previous) => addMonths(previous, -1))}
-              className="inline-flex h-10 items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+              className="inline-flex h-10 items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
             >
               <ChevronLeft className="h-4 w-4" />
               Prev
             </button>
 
-            <div className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm">
+            <div className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm">
               {format(month, "MMMM yyyy")}
             </div>
 
             <button
               type="button"
               onClick={() => setMonth((previous) => addMonths(previous, 1))}
-              className="inline-flex h-10 items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+              className="inline-flex h-10 items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
             >
               Next
               <ChevronRight className="h-4 w-4" />
@@ -270,12 +298,12 @@ export function PortalAvailabilityCalendar(props: {
         </div>
 
         <div className="mt-4 grid gap-3 lg:grid-cols-[1fr_auto] lg:items-center">
-          <label className="flex items-center gap-3 rounded-2xl border border-black/10 bg-white px-4 py-3">
-            <span className="text-xs font-semibold tracking-wide text-slate-500">PROPERTY</span>
+          <label className="flex items-center gap-3 rounded-2xl border border-line/80 bg-surface px-4 py-3">
+            <span className="text-xs font-semibold tracking-wide text-muted">PROPERTY</span>
             <select
               value={selectedPropertyId ?? data?.selectedPropertyId ?? ""}
               onChange={(event) => setSelectedPropertyId(event.target.value || null)}
-              className="w-full bg-transparent text-sm font-semibold text-slate-900 outline-none"
+              className="w-full bg-transparent text-sm font-semibold text-primary outline-none"
               disabled={!data || data.properties.length === 0}
             >
               {(data?.properties ?? []).map((property) => (
@@ -288,20 +316,120 @@ export function PortalAvailabilityCalendar(props: {
           </label>
 
           <div className="flex flex-wrap items-center gap-2 text-xs font-semibold">
-            <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 ring-1 ring-black/10">
-              <span className="h-2.5 w-2.5 rounded-full bg-[#16A6C8]" /> Booked
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface px-3 py-1 ring-1 ring-line/90">
+              <span className="h-2.5 w-2.5 rounded-full bg-brand" /> Booked
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 ring-1 ring-black/10">
-              <span className="h-2.5 w-2.5 rounded-full bg-amber-400" /> Hold / unavailable
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface px-3 py-1 ring-1 ring-line/90">
+              <span className="h-2.5 w-2.5 rounded-full bg-warning/36" /> Hold / unavailable
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 ring-1 ring-black/10">
-              <span className="h-2.5 w-2.5 rounded-full bg-rose-500" /> Blocked
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface px-3 py-1 ring-1 ring-line/90">
+              <span className="h-2.5 w-2.5 rounded-full bg-danger" /> Blocked
             </span>
-            <span className="inline-flex items-center gap-1 rounded-full bg-white px-3 py-1 ring-1 ring-black/10">
-              <span className="h-2.5 w-2.5 rounded-full bg-slate-300" /> Available
+            <span className="inline-flex items-center gap-1 rounded-full bg-surface px-3 py-1 ring-1 ring-line/90">
+              <span className="h-2.5 w-2.5 rounded-full bg-accent-soft" /> Available
             </span>
           </div>
         </div>
+
+        {props.allowBlockControls && role === "vendor" ? (
+          <div className="mt-4 rounded-2xl border border-line/80 bg-surface p-3">
+            <div className="text-sm font-semibold text-primary">Owner-use date controls</div>
+            <div className="mt-1 text-xs text-secondary">
+              Block or unblock dates for owner-use. End date is checkout-style (exclusive).
+            </div>
+            <div className="mt-3 grid gap-2 lg:grid-cols-[1fr_1fr_2fr_auto_auto]">
+              <input
+                type="date"
+                value={rangeFrom}
+                onChange={(event) => setRangeFrom(event.target.value)}
+                className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+              />
+              <input
+                type="date"
+                value={rangeTo}
+                onChange={(event) => setRangeTo(event.target.value)}
+                className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+              />
+              <input
+                value={rangeNote}
+                onChange={(event) => setRangeNote(event.target.value)}
+                placeholder="Note (optional)"
+                className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+              />
+              <button
+                type="button"
+                disabled={!selectedPropertyId || !rangeFrom || !rangeTo || rangeBusy !== null}
+                onClick={async () => {
+                  if (!props.onBlockRange || !selectedPropertyId) return;
+                  setRangeError(null);
+                  setRangeMessage(null);
+                  setRangeBusy("Blocking...");
+                  try {
+                    await props.onBlockRange({
+                      propertyId: selectedPropertyId,
+                      from: rangeFrom,
+                      to: rangeTo,
+                      note: rangeNote.trim() || undefined,
+                    });
+                    setRangeMessage("Dates blocked successfully.");
+                    setRefreshTick((value) => value + 1);
+                  } catch (error) {
+                    setRangeError(
+                      error instanceof Error ? error.message : "Failed to block dates",
+                    );
+                  } finally {
+                    setRangeBusy(null);
+                  }
+                }}
+                className="rounded-xl bg-danger px-3 py-2 text-sm font-semibold text-inverted hover:bg-danger disabled:opacity-60"
+              >
+                Block
+              </button>
+              <button
+                type="button"
+                disabled={!selectedPropertyId || !rangeFrom || !rangeTo || rangeBusy !== null}
+                onClick={async () => {
+                  if (!props.onUnblockRange || !selectedPropertyId) return;
+                  setRangeError(null);
+                  setRangeMessage(null);
+                  setRangeBusy("Unblocking...");
+                  try {
+                    await props.onUnblockRange({
+                      propertyId: selectedPropertyId,
+                      from: rangeFrom,
+                      to: rangeTo,
+                      note: rangeNote.trim() || undefined,
+                    });
+                    setRangeMessage("Dates unblocked successfully.");
+                    setRefreshTick((value) => value + 1);
+                  } catch (error) {
+                    setRangeError(
+                      error instanceof Error ? error.message : "Failed to unblock dates",
+                    );
+                  } finally {
+                    setRangeBusy(null);
+                  }
+                }}
+                className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
+              >
+                Unblock
+              </button>
+            </div>
+            {rangeBusy ? (
+              <div className="mt-2 text-xs font-semibold text-secondary">{rangeBusy}</div>
+            ) : null}
+            {rangeMessage ? (
+              <div className="mt-2 rounded-xl border border-success/30 bg-success/12 p-2 text-xs text-success">
+                {rangeMessage}
+              </div>
+            ) : null}
+            {rangeError ? (
+              <div className="mt-2 rounded-xl border border-danger/30 bg-danger/12 p-2 text-xs text-danger">
+                {rangeError}
+              </div>
+            ) : null}
+          </div>
+        ) : null}
       </div>
 
       {state.kind === "loading" ? (
@@ -310,12 +438,12 @@ export function PortalAvailabilityCalendar(props: {
           <SkeletonBlock className="h-[420px]" />
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
           {state.message}
         </div>
       ) : (
-        <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm sm:p-5">
-          <div className="grid grid-cols-7 gap-2 text-center text-[11px] font-semibold tracking-wide text-slate-500">
+        <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm sm:p-5">
+          <div className="grid grid-cols-7 gap-2 text-center text-[11px] font-semibold tracking-wide text-muted">
             {[
               "MON",
               "TUE",
@@ -367,8 +495,8 @@ export function PortalAvailabilityCalendar(props: {
         size="lg"
       >
         <div className="space-y-4">
-          <div className="rounded-2xl border border-black/10 bg-[#f6f3ec] p-4 text-sm text-slate-700">
-            <div className="font-semibold text-slate-900">{rangeLabel(range)}</div>
+          <div className="rounded-2xl border border-line/80 bg-warm-base p-4 text-sm text-secondary">
+            <div className="font-semibold text-primary">{rangeLabel(range)}</div>
             <div className="mt-1">
               {(data?.properties ?? []).find((property) => property.id === (selectedPropertyId ?? data?.selectedPropertyId ?? ""))?.title ??
                 "Selected property"}
@@ -376,16 +504,16 @@ export function PortalAvailabilityCalendar(props: {
           </div>
 
           {detailEvents.length === 0 ? (
-            <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-4 text-sm text-emerald-800">
+            <div className="rounded-2xl border border-success/30 bg-success/12 p-4 text-sm text-success">
               <div className="font-semibold">Available</div>
               <div className="mt-1">No bookings, holds, or blocks overlap this date selection.</div>
             </div>
           ) : (
             <div className="space-y-3">
               {detailEvents.map((event) => (
-                <div key={`${event.type}:${event.id}`} className="rounded-2xl border border-black/10 bg-white p-4">
+                <div key={`${event.type}:${event.id}`} className="rounded-2xl border border-line/80 bg-surface p-4">
                   <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-slate-900">
+                    <div className="text-sm font-semibold text-primary">
                       {event.propertyTitle}
                     </div>
                     <StatusPill tone={statusTone(event)}>
@@ -393,38 +521,38 @@ export function PortalAvailabilityCalendar(props: {
                     </StatusPill>
                   </div>
 
-                  <div className="mt-3 grid gap-3 text-sm text-slate-700 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="mt-3 grid gap-3 text-sm text-secondary sm:grid-cols-2 lg:grid-cols-4">
                     <div>
-                      <div className="text-xs font-semibold text-slate-500">Check-in</div>
+                      <div className="text-xs font-semibold text-muted">Check-in</div>
                       <div className="mt-1">{format(parseISO(event.start), "MMM d, yyyy")}</div>
                     </div>
 
                     <div>
-                      <div className="text-xs font-semibold text-slate-500">Check-out</div>
+                      <div className="text-xs font-semibold text-muted">Check-out</div>
                       <div className="mt-1">{format(parseISO(event.end), "MMM d, yyyy")}</div>
                     </div>
 
                     <div>
-                      <div className="text-xs font-semibold text-slate-500">Guest</div>
+                      <div className="text-xs font-semibold text-muted">Guest</div>
                       <div className="mt-1">{event.guestDisplay ?? "-"}</div>
                     </div>
 
                     <div>
-                      <div className="text-xs font-semibold text-slate-500">Booking ref</div>
+                      <div className="text-xs font-semibold text-muted">Booking ref</div>
                       <div className="mt-1 font-mono text-xs">{event.bookingRef ?? "-"}</div>
                     </div>
                   </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-slate-600">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
+                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-secondary">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warm-alt px-3 py-1">
                       <CalendarCheck2 className="h-3.5 w-3.5" />
                       Status: {event.status}
                     </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-warm-alt px-3 py-1">
                       Value: {formatMoney(event.totalAmount, event.currency)}
                     </span>
                     {event.note ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-slate-100 px-3 py-1">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-warm-alt px-3 py-1">
                         Note: {event.note}
                       </span>
                     ) : null}

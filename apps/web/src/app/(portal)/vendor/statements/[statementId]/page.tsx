@@ -85,8 +85,8 @@ export default function VendorStatementDetailPage({
         className: "col-span-3",
         render: (row) => (
           <div>
-            <div className="font-semibold text-slate-900">{row.type}</div>
-            <div className="mt-1 text-xs text-slate-600">
+            <div className="font-semibold text-primary">{row.type}</div>
+            <div className="mt-1 text-xs text-secondary">
               {row.direction} {row.bookingId ? `· booking ${row.bookingId}` : ""}
             </div>
           </div>
@@ -97,7 +97,7 @@ export default function VendorStatementDetailPage({
         header: "Amount",
         className: "col-span-3",
         render: (row) => (
-          <div className="text-slate-900">
+          <div className="text-primary">
             <MoneyText amount={row.amount} currency={row.currency} />
           </div>
         ),
@@ -107,7 +107,7 @@ export default function VendorStatementDetailPage({
         header: "Refs",
         className: "col-span-3",
         render: (row) => (
-          <div className="text-xs text-slate-700 space-y-1">
+          <div className="text-xs text-secondary space-y-1">
             {row.propertyId ? (
               <div className="font-mono">property: {row.propertyId}</div>
             ) : null}
@@ -127,7 +127,7 @@ export default function VendorStatementDetailPage({
     if (state.kind === "loading") {
       return (
         <div className="space-y-4">
-          <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">
+          <div className="rounded-2xl border bg-surface p-6 text-sm text-secondary">
             Loading statement…
           </div>
           <SkeletonTable rows={8} />
@@ -137,17 +137,17 @@ export default function VendorStatementDetailPage({
 
     if (state.kind === "error") {
       return (
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm font-semibold text-slate-900">
+        <div className="rounded-2xl border bg-surface p-6">
+          <div className="text-sm font-semibold text-primary">
             Could not load statement
           </div>
-          <div className="mt-2 text-sm text-slate-600 whitespace-pre-wrap">
+          <div className="mt-2 text-sm text-secondary whitespace-pre-wrap">
             {state.message}
           </div>
           <div className="mt-4">
             <Link
               href="/vendor/statements"
-              className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+              className="rounded-xl border bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-warm-alt"
             >
               Back to statements
             </Link>
@@ -161,13 +161,13 @@ export default function VendorStatementDetailPage({
 
     return (
       <div className="space-y-5">
-        <div className="rounded-2xl border bg-white p-6">
+        <div className="rounded-2xl border bg-surface p-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <div>
-              <div className="text-sm font-semibold text-slate-900">
+              <div className="text-sm font-semibold text-primary">
                 Statement · {period}
               </div>
-              <div className="mt-1 text-xs text-slate-600 font-mono">
+              <div className="mt-1 text-xs text-secondary font-mono">
                 {s.id}
               </div>
               <div className="mt-3">
@@ -178,7 +178,7 @@ export default function VendorStatementDetailPage({
             <div className="flex flex-wrap gap-2">
               <Link
                 href="/vendor/statements"
-                className="rounded-xl border bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                className="rounded-xl border bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-warm-alt"
               >
                 Back
               </Link>
@@ -186,51 +186,51 @@ export default function VendorStatementDetailPage({
           </div>
 
           <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="text-xs font-semibold text-slate-600">Gross</div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border bg-surface p-4">
+              <div className="text-xs font-semibold text-secondary">Gross</div>
+              <div className="mt-1 text-sm font-semibold text-primary">
                 <MoneyText amount={s.grossBookings} currency={s.currency} />
               </div>
             </div>
 
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="text-xs font-semibold text-slate-600">Mgmt fees</div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border bg-surface p-4">
+              <div className="text-xs font-semibold text-secondary">Mgmt fees</div>
+              <div className="mt-1 text-sm font-semibold text-primary">
                 <MoneyText amount={s.managementFees} currency={s.currency} />
               </div>
             </div>
 
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="text-xs font-semibold text-slate-600">Refunds</div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border bg-surface p-4">
+              <div className="text-xs font-semibold text-secondary">Refunds</div>
+              <div className="mt-1 text-sm font-semibold text-primary">
                 <MoneyText amount={s.refunds} currency={s.currency} />
               </div>
             </div>
 
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="text-xs font-semibold text-slate-600">Adjustments</div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border bg-surface p-4">
+              <div className="text-xs font-semibold text-secondary">Adjustments</div>
+              <div className="mt-1 text-sm font-semibold text-primary">
                 <MoneyText amount={s.adjustments} currency={s.currency} />
               </div>
             </div>
 
-            <div className="rounded-2xl border bg-white p-4">
-              <div className="text-xs font-semibold text-slate-600">Net payable</div>
-              <div className="mt-1 text-sm font-semibold text-slate-900">
+            <div className="rounded-2xl border bg-surface p-4">
+              <div className="text-xs font-semibold text-secondary">Net payable</div>
+              <div className="mt-1 text-sm font-semibold text-primary">
                 <MoneyText amount={s.netPayable} currency={s.currency} />
               </div>
             </div>
           </div>
 
           {s.payout ? (
-            <div className="mt-5 rounded-2xl border bg-slate-50 p-4">
-              <div className="text-xs font-semibold text-slate-600">Payout</div>
+            <div className="mt-5 rounded-2xl border bg-warm-alt p-4">
+              <div className="text-xs font-semibold text-secondary">Payout</div>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="text-sm text-slate-900">
+                <div className="text-sm text-primary">
                   <span className="font-semibold">Status:</span>{" "}
                   <span className="font-mono">{s.payout.status}</span>
                 </div>
-                <div className="text-sm text-slate-900">
+                <div className="text-sm text-primary">
                   <span className="font-semibold">Amount:</span>{" "}
                   <MoneyText amount={s.payout.amount} currency={s.payout.currency} />
                 </div>

@@ -157,27 +157,27 @@ export function VendorPropertyAmenitiesSection({ property, onChanged }: Props) {
   const showingCount = view?.total ?? 0;
 
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm space-y-4">
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm space-y-4">
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div>
-          <h3 className="text-base font-semibold text-neutral-900">Amenities</h3>
-          <p className="mt-1 text-sm text-neutral-600">
+          <h3 className="text-base font-semibold text-primary">Amenities</h3>
+          <p className="mt-1 text-sm text-secondary">
             Tick what the property has. Guests use this to filter and it also appears on the listing page.
           </p>
-          <div className="mt-2 text-xs text-neutral-500">
+          <div className="mt-2 text-xs text-muted">
             Catalog: {catalogCount} amenities • Showing: {showingCount}
           </div>
         </div>
 
         <div className="flex flex-wrap items-center gap-2">
-          <span className="rounded-full bg-neutral-900 px-3 py-1 text-xs font-semibold text-white">
+          <span className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-accent-text">
             Selected: {selectedCount}
           </span>
           <button
             type="button"
             onClick={selectAllInView}
             disabled={!view || busy !== null}
-            className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-neutral-900 ring-1 ring-neutral-200 hover:bg-neutral-50 disabled:opacity-50"
+            className="rounded-xl bg-surface px-3 py-2 text-sm font-semibold text-primary ring-1 ring-line hover:bg-warm-alt disabled:opacity-50"
           >
             Select all (view)
           </button>
@@ -185,7 +185,7 @@ export function VendorPropertyAmenitiesSection({ property, onChanged }: Props) {
             type="button"
             onClick={clearAll}
             disabled={busy !== null}
-            className="rounded-xl bg-white px-3 py-2 text-sm font-semibold text-neutral-900 ring-1 ring-neutral-200 hover:bg-neutral-50 disabled:opacity-50"
+            className="rounded-xl bg-surface px-3 py-2 text-sm font-semibold text-primary ring-1 ring-line hover:bg-warm-alt disabled:opacity-50"
           >
             Clear all
           </button>
@@ -194,12 +194,12 @@ export function VendorPropertyAmenitiesSection({ property, onChanged }: Props) {
 
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="block">
-          <div className="text-xs font-semibold text-neutral-600">Search amenities</div>
+          <div className="text-xs font-semibold text-secondary">Search amenities</div>
           <input
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="e.g., WiFi, Pool, Parking"
-            className="mt-2 w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900 outline-none focus:ring-2 focus:ring-neutral-900/10"
+            className="mt-2 w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary outline-none focus:ring-2 focus:ring-brand/10"
           />
         </label>
 
@@ -208,7 +208,7 @@ export function VendorPropertyAmenitiesSection({ property, onChanged }: Props) {
             type="button"
             disabled={busy !== null || !changed}
             onClick={() => void save()}
-            className="rounded-xl bg-neutral-900 px-5 py-2.5 text-sm font-semibold text-white hover:bg-neutral-800 disabled:opacity-50"
+            className="rounded-xl bg-brand px-5 py-2.5 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-50"
           >
             {busy ? "Working…" : "Save amenities"}
           </button>
@@ -216,38 +216,38 @@ export function VendorPropertyAmenitiesSection({ property, onChanged }: Props) {
       </div>
 
       {busy ? (
-        <div className="rounded-xl border border-neutral-200 bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+        <div className="rounded-xl border border-line bg-warm-alt px-4 py-3 text-sm text-secondary">
           {busy}
         </div>
       ) : null}
 
       {ok ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-800">
+        <div className="rounded-xl border border-success/30 bg-success/12 px-4 py-3 text-sm text-success">
           {ok}
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-800 whitespace-pre-wrap">
+        <div className="rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger whitespace-pre-wrap">
           {error}
         </div>
       ) : null}
 
       {!catalog ? (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-700">
+        <div className="rounded-xl border border-dashed border-line-strong bg-warm-alt p-6 text-sm text-secondary">
           Loading catalog…
         </div>
       ) : !view || view.total === 0 ? (
-        <div className="rounded-xl border border-dashed border-neutral-300 bg-neutral-50 p-6 text-sm text-neutral-700">
+        <div className="rounded-xl border border-dashed border-line-strong bg-warm-alt p-6 text-sm text-secondary">
           No amenities match your search.
         </div>
       ) : (
         <div className="space-y-4">
           {view.groups.map((g) => (
-            <div key={g.group.id} className="rounded-2xl border border-neutral-100 bg-neutral-50 p-4">
+            <div key={g.group.id} className="rounded-2xl border border-line/70 bg-warm-alt p-4">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-sm font-semibold text-neutral-900">{g.group.name}</div>
-                <div className="text-xs text-neutral-500">{g.amenities.length} items</div>
+                <div className="text-sm font-semibold text-primary">{g.group.name}</div>
+                <div className="text-xs text-muted">{g.amenities.length} items</div>
               </div>
 
               <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
@@ -259,7 +259,7 @@ export function VendorPropertyAmenitiesSection({ property, onChanged }: Props) {
                       key={id}
                       className={[
                         "flex cursor-pointer items-center gap-3 rounded-xl border px-3 py-2 text-sm",
-                        checked ? "border-neutral-900 bg-white" : "border-neutral-200 bg-white hover:bg-neutral-50",
+                        checked ? "border-brand bg-surface" : "border-line bg-surface hover:bg-warm-alt",
                       ].join(" ")}
                       title={a.key}
                     >
@@ -269,8 +269,8 @@ export function VendorPropertyAmenitiesSection({ property, onChanged }: Props) {
                         checked={checked}
                         onChange={() => toggleAmenity(id)}
                       />
-                      <span className="font-medium text-neutral-900">{a.name}</span>
-                      <span className="ml-auto text-xs text-neutral-500">{a.key}</span>
+                      <span className="font-medium text-primary">{a.name}</span>
+                      <span className="ml-auto text-xs text-muted">{a.key}</span>
                     </label>
                   );
                 })}
@@ -280,7 +280,7 @@ export function VendorPropertyAmenitiesSection({ property, onChanged }: Props) {
         </div>
       )}
 
-      <div className="rounded-xl border bg-neutral-50 px-4 py-3 text-sm text-neutral-700">
+      <div className="rounded-xl border bg-warm-alt px-4 py-3 text-sm text-secondary">
         Tip: Amenities power guest filters. Accurate amenities = better conversion and fewer complaints.
       </div>
     </section>

@@ -104,7 +104,7 @@ function AccountRefundsContent() {
       subtitle: `Booking ${refund.bookingId.slice(0, 8)} - ${formatDate(refund.createdAt)}`,
       status: <StatusPill status={refund.status}>{refund.status}</StatusPill>,
       meta: (
-        <div className="text-xs font-semibold text-slate-700">
+        <div className="text-xs font-semibold text-secondary">
           Amount: {formatMoney(refund.amount, refund.currency)}
         </div>
       ),
@@ -129,7 +129,7 @@ function AccountRefundsContent() {
           <SkeletonBlock className="h-24" />
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
           {state.message}
         </div>
       ) : (
@@ -144,7 +144,7 @@ function AccountRefundsContent() {
 
           {pageMeta ? (
             <div className="flex items-center justify-between">
-              <div className="text-sm text-slate-600">
+              <div className="text-sm text-secondary">
                 Page {pageMeta.currentPage} of {pageMeta.totalPages}
               </div>
 
@@ -153,7 +153,7 @@ function AccountRefundsContent() {
                   href={`/account/refunds?page=${Math.max(1, pageMeta.currentPage - 1)}&pageSize=${pageMeta.pageSize}`}
                   aria-disabled={pageMeta.currentPage <= 1}
                   className={cn(
-                    "rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm",
+                    "rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm",
                     pageMeta.currentPage <= 1 && "pointer-events-none opacity-50",
                   )}
                 >
@@ -164,7 +164,7 @@ function AccountRefundsContent() {
                   href={`/account/refunds?page=${Math.min(pageMeta.totalPages, pageMeta.currentPage + 1)}&pageSize=${pageMeta.pageSize}`}
                   aria-disabled={pageMeta.currentPage >= pageMeta.totalPages}
                   className={cn(
-                    "rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm",
+                    "rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm",
                     pageMeta.currentPage >= pageMeta.totalPages && "pointer-events-none opacity-50",
                   )}
                 >

@@ -45,13 +45,13 @@ export default function VendorAnalyticsPage() {
 
   const content = useMemo(() => {
     if (state.kind === "loading") {
-      return <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">Loading analytics…</div>;
+      return <div className="premium-card premium-card-tinted rounded-2xl p-6 text-sm text-secondary">Loading analytics…</div>;
     }
     if (state.kind === "error") {
       return (
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm font-semibold text-slate-900">Could not load analytics</div>
-          <div className="mt-2 text-sm text-slate-600">{state.message}</div>
+        <div className="premium-card premium-card-tinted rounded-2xl p-6">
+          <div className="text-sm font-semibold text-primary">Could not load analytics</div>
+          <div className="mt-2 text-sm text-secondary">{state.message}</div>
         </div>
       );
     }
@@ -64,7 +64,9 @@ export default function VendorAnalyticsPage() {
       <div className="space-y-6">
         {kpiEntries.length === 0 ? null : (
           <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-            {kpiEntries.map(([k, v]) => <StatCard key={k} label={k} value={v} />)}
+            {kpiEntries.map(([k, v], idx) => (
+              <StatCard key={k} label={k} value={v} variant={idx === 0 ? "dark" : "tinted"} />
+            ))}
           </div>
         )}
 

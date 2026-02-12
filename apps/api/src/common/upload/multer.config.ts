@@ -17,6 +17,13 @@ const DOCS_DIR = join(
   'documents',
 );
 
+const BOOKING_DOCS_DIR = join(
+  process.cwd(),
+  'private_uploads',
+  'bookings',
+  'documents',
+);
+
 export const imageUploadStorage = diskStorage({
   destination: (_req, _file, cb) => {
     mkdirSync(IMAGES_DIR, { recursive: true });
@@ -32,6 +39,17 @@ export const documentUploadStorage = diskStorage({
   destination: (_req, _file, cb) => {
     mkdirSync(DOCS_DIR, { recursive: true });
     cb(null, DOCS_DIR);
+  },
+  filename: (_req, file, cb) => {
+    const uniqueName = `${randomUUID()}${extname(file.originalname)}`;
+    cb(null, uniqueName);
+  },
+});
+
+export const bookingDocumentUploadStorage = diskStorage({
+  destination: (_req, _file, cb) => {
+    mkdirSync(BOOKING_DOCS_DIR, { recursive: true });
+    cb(null, BOOKING_DOCS_DIR);
   },
   filename: (_req, file, cb) => {
     const uniqueName = `${randomUUID()}${extname(file.originalname)}`;

@@ -32,22 +32,22 @@ export default function ServicesFaq() {
     <section className="relative w-full py-14 sm:py-18">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl">
-          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-600">FAQs</p>
-          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">
+          <p className="text-xs font-semibold uppercase tracking-[0.22em] text-secondary">FAQs</p>
+          <h2 className="mt-2 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
             Questions owners ask most
           </h2>
-          <p className="mt-2 text-sm text-slate-700 sm:text-base">
+          <p className="mt-2 text-sm text-secondary sm:text-base">
             Clear answers about operations, management levels, and how this connects to bookings.
           </p>
         </div>
 
         <div className="mt-10 grid gap-4 lg:grid-cols-2">
           {faqs.map((f) => (
-            <details key={f.q} className="group rounded-2xl border border-black/10 bg-white/70 p-6 backdrop-blur">
-              <summary className="cursor-pointer list-none text-base font-semibold text-slate-900">
+            <details key={f.q} className="premium-card premium-card-tinted premium-card-hover group rounded-2xl p-6">
+              <summary className="cursor-pointer list-none text-base font-semibold text-primary">
                 {f.q}
               </summary>
-              <p className="mt-3 text-sm leading-relaxed text-slate-700">{f.a}</p>
+              <p className="mt-3 text-sm leading-relaxed text-secondary">{f.a}</p>
             </details>
           ))}
         </div>

@@ -91,10 +91,10 @@ export function VendorPropertyMediaSection(props: {
   }
 
   return (
-    <div className="rounded-2xl border bg-white p-6 space-y-5">
+    <div className="rounded-2xl border bg-surface p-6 space-y-5">
       <div>
-        <div className="text-sm font-semibold text-slate-900">Photos by room</div>
-        <div className="mt-1 text-sm text-slate-600">
+        <div className="text-sm font-semibold text-primary">Photos by room</div>
+        <div className="mt-1 text-sm text-secondary">
           Upload images in the correct section. Backend requires at least 4 images total and all required categories.
         </div>
       </div>
@@ -108,10 +108,10 @@ export function VendorPropertyMediaSection(props: {
             <div key={r.key} className="rounded-2xl border p-5">
               <div className="flex items-start justify-between gap-4">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">{r.title}</div>
-                  <div className="mt-1 text-xs text-slate-600">{r.subtitle}</div>
+                  <div className="text-sm font-semibold text-primary">{r.title}</div>
+                  <div className="mt-1 text-xs text-secondary">{r.subtitle}</div>
                 </div>
-                <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800">
+                <label className="inline-flex cursor-pointer items-center justify-center rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover">
                   {uploading ? "Uploading…" : "Upload"}
                   <input
                     type="file"
@@ -125,12 +125,12 @@ export function VendorPropertyMediaSection(props: {
               </div>
 
               {items.length === 0 ? (
-                <div className="mt-4 text-sm text-slate-600">No photos yet.</div>
+                <div className="mt-4 text-sm text-secondary">No photos yet.</div>
               ) : (
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   {items.map((m) => (
                     <div key={m.id} className="rounded-xl border overflow-hidden">
-                      <div className="relative aspect-[4/3] bg-slate-100">
+                      <div className="relative aspect-[4/3] bg-warm-alt">
                         <Image
                           src={m.url}
                           alt=""
@@ -140,13 +140,13 @@ export function VendorPropertyMediaSection(props: {
                         />
                       </div>
                       <div className="flex items-center justify-between gap-2 px-3 py-2">
-                        <div className="text-xs text-slate-600">#{m.sortOrder}</div>
+                        <div className="text-xs text-secondary">#{m.sortOrder}</div>
                         <div className="flex items-center gap-2">
                           <button
                             type="button"
                             disabled={busy === m.id}
                             onClick={() => void moveMedia(m.id, "up")}
-                            className="rounded-lg border bg-white px-2 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                            className="rounded-lg border bg-surface px-2 py-1 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
                           >
                             Up
                           </button>
@@ -154,7 +154,7 @@ export function VendorPropertyMediaSection(props: {
                             type="button"
                             disabled={busy === m.id}
                             onClick={() => void moveMedia(m.id, "down")}
-                            className="rounded-lg border bg-white px-2 py-1 text-xs font-semibold text-slate-900 hover:bg-slate-50 disabled:opacity-60"
+                            className="rounded-lg border bg-surface px-2 py-1 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
                           >
                             Down
                           </button>
@@ -170,12 +170,12 @@ export function VendorPropertyMediaSection(props: {
       </div>
 
       {err ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 whitespace-pre-wrap">
+        <div className="rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger whitespace-pre-wrap">
           {err}
         </div>
       ) : null}
 
-      <div className="rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-700">
+      <div className="rounded-xl border bg-warm-alt px-4 py-3 text-sm text-secondary">
         Next: Upload ownership proof → Submit for review.
       </div>
     </div>

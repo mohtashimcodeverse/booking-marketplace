@@ -36,18 +36,18 @@ function Drawer(props: { open: boolean; title: string; subtitle?: string; onClos
   if (!props.open) return null;
   return (
     <div className="fixed inset-0 z-[90]">
-      <button type="button" aria-label="Close drawer" onClick={props.onClose} className="absolute inset-0 bg-black/40" />
-      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl">
-        <div className="border-b border-black/5 bg-[#f6f3ec]/60 px-5 py-4">
+      <button type="button" aria-label="Close drawer" onClick={props.onClose} className="absolute inset-0 bg-dark-1/40" />
+      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-surface shadow-2xl">
+        <div className="border-b border-line/50 bg-warm-base/60 px-5 py-4">
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-slate-900">{props.title}</div>
-              <div className="mt-1 text-xs text-slate-600">{props.subtitle ?? "Payout lifecycle"}</div>
+              <div className="truncate text-sm font-semibold text-primary">{props.title}</div>
+              <div className="mt-1 text-xs text-secondary">{props.subtitle ?? "Payout lifecycle"}</div>
             </div>
             <button
               type="button"
               onClick={props.onClose}
-              className="rounded-2xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+              className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:bg-warm-alt"
             >
               Close
             </button>
@@ -188,8 +188,8 @@ export default function AdminPayoutsPage() {
         className: "col-span-5",
         render: (row) => (
           <div className="min-w-0">
-            <div className="truncate font-semibold text-slate-900">{row.id}</div>
-            <div className="mt-1 truncate text-xs text-slate-600 font-mono">statement: {row.statementId}</div>
+            <div className="truncate font-semibold text-primary">{row.id}</div>
+            <div className="mt-1 truncate text-xs text-secondary font-mono">statement: {row.statementId}</div>
           </div>
         ),
       },
@@ -210,9 +210,9 @@ export default function AdminPayoutsPage() {
         header: "Provider",
         className: "col-span-3",
         render: (row) => (
-          <div className="text-xs text-slate-700">
-            <div className="font-semibold text-slate-900">{row.provider}</div>
-            <div className="mt-1 truncate font-mono text-[11px] text-slate-500">{row.providerRef ?? "—"}</div>
+          <div className="text-xs text-secondary">
+            <div className="font-semibold text-primary">{row.provider}</div>
+            <div className="mt-1 truncate font-mono text-[11px] text-muted">{row.providerRef ?? "—"}</div>
           </div>
         ),
       },
@@ -322,7 +322,7 @@ export default function AdminPayoutsPage() {
                 <button
                   type="button"
                   onClick={() => void refresh(1)}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                  className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
                 >
                   <RefreshCw className="h-4 w-4" />
                   Refresh
@@ -331,7 +331,7 @@ export default function AdminPayoutsPage() {
                 <button
                   type="button"
                   onClick={() => setCreateOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-[#16A6C8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95"
                 >
                   <Plus className="h-4 w-4" />
                   Create payout
@@ -342,7 +342,7 @@ export default function AdminPayoutsPage() {
           <SkeletonTable rows={10} />
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800 whitespace-pre-wrap">
+        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger whitespace-pre-wrap">
           {state.message}
         </div>
       ) : (
@@ -354,15 +354,15 @@ export default function AdminPayoutsPage() {
             searchPlaceholder="Search payouts…"
             right={
               <div className="flex flex-wrap items-center gap-2">
-                <div className="hidden items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-700 shadow-sm md:flex">
-                  <Settings2 className="h-4 w-4 text-slate-500" />
+                <div className="hidden items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-secondary shadow-sm md:flex">
+                  <Settings2 className="h-4 w-4 text-muted" />
                   <select
                     value={status}
                     onChange={(e) => {
                       setStatus(e.target.value);
                       setPage(1);
                     }}
-                    className="bg-transparent text-sm font-semibold text-slate-900 outline-none"
+                    className="bg-transparent text-sm font-semibold text-primary outline-none"
                   >
                     <option value="ALL">All statuses</option>
                     {derived?.statuses.map((s) => (
@@ -373,14 +373,14 @@ export default function AdminPayoutsPage() {
                   </select>
                 </div>
 
-                <div className="rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm">
-                  Total (page): <MoneyText amount={derived?.totals.amount ?? 0} currency={state.items?.[0]?.currency ?? "PKR"} />
+                <div className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm">
+                  Total (page): <MoneyText amount={derived?.totals.amount ?? 0} currency={state.items?.[0]?.currency ?? "AED"} />
                 </div>
 
                 <button
                   type="button"
                   onClick={() => setCreateOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-[#16A6C8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95"
                 >
                   <Plus className="h-4 w-4" />
                   Create payout
@@ -404,7 +404,7 @@ export default function AdminPayoutsPage() {
                   setActionFailureReason("");
                   setActionIdempotencyKey("");
                 }}
-                className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
               >
                 <CreditCard className="h-4 w-4" />
                 Open
@@ -417,18 +417,18 @@ export default function AdminPayoutsPage() {
               type="button"
               disabled={!canPrev}
               onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
             >
               Prev
             </button>
-            <div className="text-sm text-slate-600">
+            <div className="text-sm text-secondary">
               Page {state.page} {state.total ? `· ${state.total} total` : ""}
             </div>
             <button
               type="button"
               disabled={!canNext}
               onClick={() => setPage((p) => p + 1)}
-              className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
             >
               Next
             </button>
@@ -438,41 +438,41 @@ export default function AdminPayoutsPage() {
           <Drawer open={createOpen} title="Create payout" subtitle="Create a payout from a finalized statement." onClose={() => setCreateOpen(false)}>
             <div className="space-y-4">
               {busy ? (
-                <div className="rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white">{busy}</div>
+                <div className="rounded-2xl bg-brand px-3 py-2 text-xs font-semibold text-accent-text">{busy}</div>
               ) : null}
 
-              <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
-                <div className="text-sm font-semibold text-slate-900">Source statement</div>
-                <div className="mt-1 text-sm text-slate-600">Paste the statement UUID you want to pay out.</div>
+              <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
+                <div className="text-sm font-semibold text-primary">Source statement</div>
+                <div className="mt-1 text-sm text-secondary">Paste the statement UUID you want to pay out.</div>
 
                 <div className="mt-3">
-                  <div className="text-xs font-semibold text-slate-700">Statement ID</div>
+                  <div className="text-xs font-semibold text-secondary">Statement ID</div>
                   <input
                     value={statementId}
                     onChange={(e) => setStatementId(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15 font-mono"
+                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20 font-mono"
                     placeholder="statement UUID"
                   />
                 </div>
               </div>
 
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
-                  <div className="text-xs font-semibold text-slate-700">Provider</div>
+                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
+                  <div className="text-xs font-semibold text-secondary">Provider</div>
                   <input
                     value={provider}
                     onChange={(e) => setProvider(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                     placeholder="MANUAL"
                   />
                 </div>
 
-                <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
-                  <div className="text-xs font-semibold text-slate-700">Provider ref (optional)</div>
+                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
+                  <div className="text-xs font-semibold text-secondary">Provider ref (optional)</div>
                   <input
                     value={providerRef}
                     onChange={(e) => setProviderRef(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                     placeholder="bank transfer ref / payout ref"
                   />
                 </div>
@@ -482,7 +482,7 @@ export default function AdminPayoutsPage() {
                 <button
                   type="button"
                   onClick={() => setCreateOpen(false)}
-                  className="rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                  className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
                 >
                   Cancel
                 </button>
@@ -490,15 +490,15 @@ export default function AdminPayoutsPage() {
                   type="button"
                   onClick={() => setConfirmCreateOpen(true)}
                   disabled={!statementId.trim().length || busy !== null}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-[#16A6C8] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-60"
+                  className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95 disabled:opacity-60"
                 >
                   <Plus className="h-4 w-4" />
                   Create
                 </button>
               </div>
 
-              <div className="rounded-3xl border border-black/5 bg-[#f6f3ec] p-4 text-sm text-slate-700">
-                <div className="font-semibold text-slate-900">Safety</div>
+              <div className="rounded-3xl border border-line/50 bg-warm-base p-4 text-sm text-secondary">
+                <div className="font-semibold text-primary">Safety</div>
                 <ul className="mt-2 list-disc space-y-1 pl-5">
                   <li>Create payouts only for <span className="font-semibold">FINALIZED</span> statements.</li>
                   <li>Backend enforces allowed transitions.</li>
@@ -535,45 +535,45 @@ export default function AdminPayoutsPage() {
             {selected ? (
               <div className="space-y-4">
                 {busy ? (
-                  <div className="rounded-2xl bg-slate-900 px-3 py-2 text-xs font-semibold text-white">{busy}</div>
+                  <div className="rounded-2xl bg-brand px-3 py-2 text-xs font-semibold text-accent-text">{busy}</div>
                 ) : null}
 
-                <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
+                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="text-xs font-semibold text-slate-500">Status</div>
+                      <div className="text-xs font-semibold text-muted">Status</div>
                       <div className="mt-2">
                         <StatusPill status={selected.status} />
                       </div>
-                      <div className="mt-3 text-xs text-slate-600 font-mono break-all">vendor: {selected.vendorId}</div>
+                      <div className="mt-3 text-xs text-secondary font-mono break-all">vendor: {selected.vendorId}</div>
                     </div>
 
-                    <div className="rounded-2xl border border-black/5 bg-[#f6f3ec] px-4 py-3">
-                      <div className="text-xs font-semibold text-slate-600">Amount</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                    <div className="rounded-2xl border border-line/50 bg-warm-base px-4 py-3">
+                      <div className="text-xs font-semibold text-secondary">Amount</div>
+                      <div className="mt-1 text-sm font-semibold text-primary">
                         <MoneyText amount={selected.amount} currency={selected.currency} />
                       </div>
                     </div>
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-black/5 bg-[#f6f3ec] p-4">
-                      <div className="text-xs font-semibold text-slate-600">Created</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                    <div className="rounded-2xl border border-line/50 bg-warm-base p-4">
+                      <div className="text-xs font-semibold text-secondary">Created</div>
+                      <div className="mt-1 text-sm font-semibold text-primary">
                         <DateText value={selected.createdAt} />
                       </div>
                     </div>
 
-                    <div className="rounded-2xl border border-black/5 bg-[#f6f3ec] p-4">
-                      <div className="text-xs font-semibold text-slate-600">Processed</div>
-                      <div className="mt-1 text-sm font-semibold text-slate-900">
+                    <div className="rounded-2xl border border-line/50 bg-warm-base p-4">
+                      <div className="text-xs font-semibold text-secondary">Processed</div>
+                      <div className="mt-1 text-sm font-semibold text-primary">
                         <DateText value={selected.processedAt ?? selected.failedAt ?? selected.scheduledAt} />
                       </div>
                     </div>
                   </div>
 
                   {selected.failureReason ? (
-                    <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-900">
+                    <div className="mt-4 rounded-2xl border border-danger/30 bg-danger/12 p-4 text-sm text-danger">
                       <div className="text-xs font-semibold">Failure reason</div>
                       <div className="mt-1">{selected.failureReason}</div>
                     </div>
@@ -581,40 +581,40 @@ export default function AdminPayoutsPage() {
                 </div>
 
                 {/* Action inputs */}
-                <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
-                  <div className="text-sm font-semibold text-slate-900">Action inputs</div>
-                  <div className="mt-1 text-sm text-slate-600">
+                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
+                  <div className="text-sm font-semibold text-primary">Action inputs</div>
+                  <div className="mt-1 text-sm text-secondary">
                     Provider ref is optional for PROCESSING/SUCCEEDED. Failure reason is required for FAILED.
                   </div>
 
                   <div className="mt-4 grid gap-3 sm:grid-cols-2">
                     <div>
-                      <div className="text-xs font-semibold text-slate-700">Provider ref (optional)</div>
+                      <div className="text-xs font-semibold text-secondary">Provider ref (optional)</div>
                       <input
                         value={actionProviderRef}
                         onChange={(e) => setActionProviderRef(e.target.value)}
-                        className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                        className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                         placeholder="bank transfer ref / payout ref"
                       />
                     </div>
 
                     <div>
-                      <div className="text-xs font-semibold text-slate-700">Idempotency key (recommended)</div>
+                      <div className="text-xs font-semibold text-secondary">Idempotency key (recommended)</div>
                       <input
                         value={actionIdempotencyKey}
                         onChange={(e) => setActionIdempotencyKey(e.target.value)}
-                        className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-3 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15 font-mono"
+                        className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20 font-mono"
                         placeholder="optional"
                       />
                     </div>
 
                     <div className="sm:col-span-2">
-                      <div className="text-xs font-semibold text-slate-700">Failure reason (required for FAILED)</div>
+                      <div className="text-xs font-semibold text-secondary">Failure reason (required for FAILED)</div>
                       <textarea
                         value={actionFailureReason}
                         onChange={(e) => setActionFailureReason(e.target.value)}
                         rows={3}
-                        className="mt-1 w-full rounded-2xl border border-black/10 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                        className="mt-1 w-full rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                         placeholder="Explain why the payout failed…"
                       />
                     </div>
@@ -622,9 +622,9 @@ export default function AdminPayoutsPage() {
                 </div>
 
                 {/* Actions */}
-                <div className="rounded-3xl border border-black/5 bg-white p-4 shadow-sm">
-                  <div className="text-sm font-semibold text-slate-900">Lifecycle actions</div>
-                  <div className="mt-1 text-sm text-slate-600">
+                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
+                  <div className="text-sm font-semibold text-primary">Lifecycle actions</div>
+                  <div className="mt-1 text-sm text-secondary">
                     These actions are audited. Backend enforces safe transitions.
                   </div>
 
@@ -633,7 +633,7 @@ export default function AdminPayoutsPage() {
                       type="button"
                       onClick={() => setConfirmProcessingOpen(true)}
                       disabled={!isPending(selected.status) || busy !== null}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-slate-800 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:bg-brand-hover disabled:opacity-60"
                     >
                       <ArrowRightCircle className="h-4 w-4" />
                       Mark PROCESSING
@@ -643,7 +643,7 @@ export default function AdminPayoutsPage() {
                       type="button"
                       onClick={() => setConfirmSucceededOpen(true)}
                       disabled={!isProcessing(selected.status) || busy !== null}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-emerald-600 px-4 py-2 text-sm font-semibold text-white shadow-sm hover:bg-emerald-700 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-success px-4 py-2 text-sm font-semibold text-inverted shadow-sm hover:bg-success disabled:opacity-60"
                     >
                       <CheckCircle2 className="h-4 w-4" />
                       Mark SUCCEEDED
@@ -653,7 +653,7 @@ export default function AdminPayoutsPage() {
                       type="button"
                       onClick={() => setConfirmFailedOpen(true)}
                       disabled={!isProcessing(selected.status) || busy !== null}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-2 text-sm font-semibold text-rose-900 shadow-sm hover:bg-rose-100 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-danger/30 bg-danger/12 px-4 py-2 text-sm font-semibold text-danger shadow-sm hover:bg-danger/12 disabled:opacity-60"
                     >
                       <XCircle className="h-4 w-4" />
                       Mark FAILED
@@ -663,15 +663,15 @@ export default function AdminPayoutsPage() {
                       type="button"
                       onClick={() => setConfirmCancelOpen(true)}
                       disabled={isSucceeded(selected.status) || busy !== null}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
                     >
                       <Ban className="h-4 w-4" />
                       Cancel
                     </button>
                   </div>
 
-                  <div className="mt-4 rounded-3xl border border-black/5 bg-[#f6f3ec] p-4 text-sm text-slate-700">
-                    <div className="font-semibold text-slate-900">Important</div>
+                  <div className="mt-4 rounded-3xl border border-line/50 bg-warm-base p-4 text-sm text-secondary">
+                    <div className="font-semibold text-primary">Important</div>
                     <ul className="mt-2 list-disc space-y-1 pl-5">
                       <li>SUCCEEDED should be used only after confirmed payout execution.</li>
                       <li>Backend will mark linked statement as PAID on payout success.</li>

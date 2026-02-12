@@ -11,11 +11,11 @@ export function MoneyText(props: { amount: unknown; currency?: unknown }) {
   const n = safeNumber(props.amount);
   const c = typeof props.currency === "string" && props.currency.trim().length > 0 ? props.currency.trim() : null;
 
-  if (n === null) return <span className="text-slate-500">—</span>;
+  if (n === null) return <span className="text-muted">—</span>;
 
   const formatted = n.toLocaleString(undefined, { maximumFractionDigits: 2 });
   return (
-    <span className="font-semibold text-slate-900">
+    <span className="font-semibold text-primary">
       {formatted} {c ?? ""}
     </span>
   );

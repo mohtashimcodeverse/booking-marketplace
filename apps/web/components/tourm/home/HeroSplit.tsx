@@ -3,7 +3,7 @@
 import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { ArrowRight } from "lucide-react";
+import { ArrowRight, Clock3, ShieldCheck, Sparkles } from "lucide-react";
 
 type HeroSplitProps = {
   titleTop?: string;
@@ -32,7 +32,7 @@ export default function HeroSplit(props: HeroSplitProps) {
 
   const heroImageUrl =
     props.heroImageUrl ??
-    "https://images.unsplash.com/photo-1484154218962-a197022b5858?auto=format&fit=crop&w=2400&q=80";
+    "https://images.unsplash.com/photo-1546412414-8035e1776c9a?auto=format&fit=crop&w=2200&q=84";
 
   const primaryCtaHref = safeHref(props.primaryCtaHref, "/properties");
   const primaryCtaLabel = props.primaryCtaLabel ?? "Explore stays";
@@ -41,30 +41,27 @@ export default function HeroSplit(props: HeroSplitProps) {
   const secondaryCtaLabel = props.secondaryCtaLabel ?? "List your property";
 
   return (
-    <section className="relative w-full overflow-hidden">
-      {/* Background (Tourm-ish) */}
-      <div className="absolute inset-0">
-        <div className="h-full w-full bg-sand" />
-        <div className="pointer-events-none absolute inset-0 opacity-[0.22]">
-          <div className="absolute -left-24 -top-24 h-[520px] w-[520px] rounded-full bg-brand/20 blur-3xl" />
-          <div className="absolute -right-28 top-24 h-[560px] w-[560px] rounded-full bg-brand/15 blur-3xl" />
-          <div className="absolute left-1/2 top-1/2 h-[420px] w-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-midnight/10 blur-3xl" />
-        </div>
+    <section className="relative -mt-[76px] w-full overflow-hidden bg-[#F8FAFC] pt-[76px] sm:-mt-[80px] sm:pt-[80px]">
+      <div className="pointer-events-none absolute inset-0">
+        <div className="absolute -left-24 top-10 h-72 w-72 rounded-full bg-white/10 blur-3xl" />
+        <div className="absolute -right-24 top-24 h-72 w-72 rounded-full bg-white/8 blur-3xl" />
+        <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(rgba(248,250,252,0.18)_1px,transparent_1px),linear-gradient(90deg,rgba(248,250,252,0.14)_1px,transparent_1px)] [background-size:38px_38px]" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 pt-8 sm:px-6 lg:px-8">
-        <div className="grid items-stretch gap-6 lg:grid-cols-[1.05fr_1.35fr]">
-          {/* Left panel — solid #16A6C8 */}
+      <div className="relative mx-auto max-w-7xl px-4 pb-14 pt-8 sm:px-6 sm:pb-16 sm:pt-10 lg:px-8">
+        <div className="relative grid items-stretch gap-0 overflow-hidden rounded-[2rem] border border-white/24 bg-gradient-to-br from-[#4F46E5] to-[#4338CA] text-white shadow-[0_26px_70px_rgba(11,15,25,0.30)] backdrop-blur-[2px] lg:grid-cols-[1.08fr_1.22fr]">
+          <div className="pointer-events-none absolute inset-0 bg-[linear-gradient(145deg,rgba(248,250,252,0.08),transparent_42%,rgba(248,250,252,0.04)_100%)]" />
+
           <motion.div
-            className="relative overflow-hidden rounded-3xl border border-stone bg-[#16A6C8] px-6 pb-8 pt-8 shadow-card sm:px-10"
+            className="relative overflow-hidden bg-white/8 px-6 pb-8 pt-8 sm:px-10"
             initial={{ y: 14, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.55, ease: [0.22, 1, 0.36, 1] }}
           >
+            <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_14%_-6%,rgba(248,250,252,0.12),transparent_58%)]" />
             <div className="relative">
-              {/* Badge — WHITE background (requested) */}
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/35 bg-white px-3 py-1 text-xs font-semibold text-midnight shadow-sm">
-                <span className="inline-block h-2 w-2 rounded-full bg-[#16A6C8]" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/24 bg-[rgba(79,70,229,0.14)] px-3 py-1 text-xs font-semibold text-white">
+                <span className="inline-block h-2 w-2 rounded-full bg-white/95" />
                 Verified availability • Operator-managed stays
               </div>
 
@@ -72,15 +69,14 @@ export default function HeroSplit(props: HeroSplitProps) {
                 {titleTop} <span className="text-white">{titleEmphasis}</span>
               </h1>
 
-              <p className="mt-4 max-w-md text-sm leading-relaxed text-white/90 sm:text-base">
+              <p className="mt-4 max-w-md text-sm leading-relaxed text-white/80 sm:text-base">
                 {subtitle}
               </p>
 
-              {/* Buttons — both white */}
-              <div className="mt-6 flex flex-col gap-3 sm:flex-row sm:items-center">
+              <div className="mt-7 flex flex-col gap-3 sm:flex-row sm:items-center">
                 <Link
                   href={primaryCtaHref}
-                  className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-midnight shadow-sm transition hover:bg-white/95"
+                  className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-[#0B0F19] shadow-[0_12px_32px_rgba(11,15,25,0.25)] transition hover:bg-indigo-50"
                 >
                   {primaryCtaLabel}
                   <ArrowRight className="ml-2 h-4 w-4" />
@@ -88,47 +84,53 @@ export default function HeroSplit(props: HeroSplitProps) {
 
                 <Link
                   href={secondaryCtaHref}
-                  className="inline-flex items-center justify-center rounded-2xl bg-white px-5 py-3 text-sm font-semibold text-midnight shadow-sm transition hover:bg-white/95"
+                  className="inline-flex items-center justify-center rounded-2xl border border-white/60 bg-transparent px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
                 >
                   {secondaryCtaLabel}
                 </Link>
               </div>
 
-              {/* Stat cards — white */}
               <div className="mt-8 grid grid-cols-3 gap-3">
                 {[
-                  { k: "24/7", v: "Guest support" },
-                  { k: "Clean", v: "Hotel-grade" },
-                  { k: "Real", v: "Live inventory" },
+                  { k: "24/7", v: "Guest support", Icon: Clock3 },
+                  { k: "Clean", v: "Hotel-grade", Icon: Sparkles },
+                  { k: "Real", v: "Live inventory", Icon: ShieldCheck },
                 ].map((it) => (
                   <div
                     key={it.k}
-                    className="rounded-2xl border border-white/60 bg-white px-4 py-3 shadow-[0_10px_30px_rgba(2,10,20,0.10)]"
+                    className="rounded-2xl border border-white/70 bg-white px-4 py-3 shadow-sm"
                   >
-                    <div className="text-sm font-semibold text-midnight">{it.k}</div>
-                    <div className="text-xs text-midnight/70">{it.v}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="inline-grid h-7 w-7 place-items-center rounded-lg border border-[#C6A96D]/40 bg-[rgba(198,169,109,0.20)] text-[#C6A96D]">
+                        <it.Icon className="h-4 w-4" />
+                      </span>
+                      <div className="text-sm font-semibold text-[#0B0F19]">{it.k}</div>
+                    </div>
+                    <div className="mt-1 text-xs text-[#0B0F19]/74">{it.v}</div>
                   </div>
                 ))}
               </div>
             </div>
           </motion.div>
 
-          {/* Right image panel — NO “Book with confidence” overlay (removed) */}
           <motion.div
-            className="relative overflow-hidden rounded-3xl border border-stone bg-white shadow-card"
+            className="group relative overflow-hidden bg-white/8 p-3 sm:p-4 lg:p-5"
             initial={{ y: 14, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.55, delay: 0.06, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="absolute inset-0">
-              <Image src={heroImageUrl} alt="Dubai stay" fill className="object-cover" priority />
-              <div className="absolute inset-0 bg-gradient-to-t from-midnight/20 via-transparent to-transparent" />
+            <div className="relative h-full min-h-[300px] overflow-hidden rounded-[1.65rem] border border-white/24 sm:min-h-[360px]">
+              <Image
+                src={heroImageUrl}
+                alt="Dubai stay"
+                fill
+                className="object-cover transition duration-700 group-hover:scale-[1.02]"
+                priority
+              />
             </div>
           </motion.div>
         </div>
       </div>
-
-      <div className="h-10 sm:h-12" />
     </section>
   );
 }

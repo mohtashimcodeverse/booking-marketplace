@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { ReactNode } from "react";
-import { ArrowLeft, CheckCircle2, Loader2, Save, UploadCloud } from "lucide-react";
+import { ArrowLeft, CheckCircle2, Loader2, Save } from "lucide-react";
 
 import { PortalShell } from "@/components/portal/PortalShell";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
@@ -13,6 +13,7 @@ import {
   createAdminProperty,
   getAdminPropertyDetail,
   getAdminAmenitiesCatalog,
+  getAdminVendors,
   updateAdminPropertyMediaCategory,
   updateAdminPropertyAmenities,
   uploadAdminPropertyMedia,
@@ -46,6 +47,7 @@ function toFloat(value: string): number | null {
 }
 
 type AmenitiesGroup = Awaited<ReturnType<typeof getAdminAmenitiesCatalog>>["amenitiesGrouped"][number];
+type AdminVendorOption = { id: string; label: string };
 
 const ADMIN_MEDIA_CATEGORIES: MediaCategory[] = [
   "LIVING_ROOM",
@@ -72,18 +74,47 @@ const ADMIN_MEDIA_CATEGORIES: MediaCategory[] = [
   "OTHER",
 ];
 
+const REQUIRED_UPLOAD_BLOCKS: Array<{ key: MediaCategory; title: string; help: string }> = [
+  { key: "LIVING_ROOM", title: "Living room", help: "Required category" },
+  { key: "BEDROOM", title: "Bedroom", help: "Required category" },
+  { key: "BATHROOM", title: "Bathroom", help: "Required category" },
+  { key: "KITCHEN", title: "Kitchen", help: "Required category" },
+];
+
+const REQUIRED_UPLOAD_SET = new Set<MediaCategory>([
+  "LIVING_ROOM",
+  "BEDROOM",
+  "BATHROOM",
+  "KITCHEN",
+]);
+
+function isMediaCategory(value: string): value is MediaCategory {
+  return (ADMIN_MEDIA_CATEGORIES as string[]).includes(value);
+}
+
+function categoryLabel(category: MediaCategory): string {
+  return category
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(" ");
+}
+
 export default function AdminPropertyCreatePage() {
   const inputClass =
-    "h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15";
+    "h-11 w-full rounded-2xl border border-line/80 bg-surface px-4 text-sm text-primary shadow-sm outline-none placeholder:text-muted focus:border-brand/45 focus:ring-4 focus:ring-brand/20";
 
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [property, setProperty] = useState<AdminPropertyDetail | null>(null);
-  const quickUploadInputRef = useRef<HTMLInputElement | null>(null);
+  const quickUploadInputRefs = useRef<Record<string, HTMLInputElement | null>>({});
 
   const [amenitiesGroups, setAmenitiesGroups] = useState<AmenitiesGroup[]>([]);
+  const [vendorOptions, setVendorOptions] = useState<AdminVendorOption[]>([]);
+  const [vendorsLoading, setVendorsLoading] = useState(true);
+  const [vendorsError, setVendorsError] = useState<string | null>(null);
   const [selectedAmenityIds, setSelectedAmenityIds] = useState<string[]>([]);
-  const [quickUploadCategory, setQuickUploadCategory] = useState<MediaCategory>("LIVING_ROOM");
+  const [quickUploadOtherCategory, setQuickUploadOtherCategory] = useState<MediaCategory>("COVER");
 
   const [form, setForm] = useState({
     title: "",
@@ -107,6 +138,7 @@ export default function AdminPropertyCreatePage() {
     minNights: "1",
     maxNights: "",
 
+    vendorId: "",
     publishNow: true,
   });
 
@@ -123,7 +155,37 @@ export default function AdminPropertyCreatePage() {
       }
     }
 
+    async function loadVendors() {
+      setVendorsLoading(true);
+      setVendorsError(null);
+      try {
+        const data = await getAdminVendors({ page: 1, pageSize: 200 });
+        if (!alive) return;
+        const items = Array.isArray(data.items) ? data.items : [];
+        const normalized = items
+          .map((item) => {
+            const row = item as Record<string, unknown>;
+            const id = typeof row.id === "string" ? row.id : "";
+            if (!id) return null;
+            const fullName = typeof row.fullName === "string" ? row.fullName : "";
+            const email = typeof row.email === "string" ? row.email : "";
+            const display = fullName || email || id;
+            return { id, label: email ? `${display} (${email})` : display };
+          })
+          .filter((option): option is AdminVendorOption => option !== null)
+          .sort((a, b) => a.label.localeCompare(b.label));
+        setVendorOptions(normalized);
+      } catch (error) {
+        if (!alive) return;
+        setVendorsError(error instanceof Error ? error.message : "Failed to load vendors");
+      } finally {
+        if (!alive) return;
+        setVendorsLoading(false);
+      }
+    }
+
     void loadAmenities();
+    void loadVendors();
     return () => {
       alive = false;
     };
@@ -179,7 +241,7 @@ export default function AdminPropertyCreatePage() {
       minNights: toInt(form.minNights),
       maxNights: toInt(form.maxNights),
 
-      vendorId: null,
+      vendorId: form.vendorId.trim() || null,
       publishNow: form.publishNow,
     };
   }
@@ -219,15 +281,18 @@ export default function AdminPropertyCreatePage() {
     }
   }
 
-  async function quickUpload(files: FileList | null) {
+  function clearQuickUploadInput(inputKey: string) {
+    const element = quickUploadInputRefs.current[inputKey];
+    if (element) element.value = "";
+  }
+
+  async function quickUpload(files: FileList | null, category: MediaCategory, inputKey: string) {
     if (!files || files.length === 0) return;
     setError(null);
 
     if (!property && !canCreateProperty) {
       setError("Fill required property fields first (name, slug, guests, rooms, bathrooms, and base price).");
-      if (quickUploadInputRef.current) {
-        quickUploadInputRef.current.value = "";
-      }
+      clearQuickUploadInput(inputKey);
       return;
     }
 
@@ -241,7 +306,7 @@ export default function AdminPropertyCreatePage() {
       setBusy("Uploading photos...");
       for (const file of Array.from(files)) {
         const createdMedia = await uploadAdminPropertyMedia(target.id, file);
-        await updateAdminPropertyMediaCategory(target.id, createdMedia.id, quickUploadCategory);
+        await updateAdminPropertyMediaCategory(target.id, createdMedia.id, category);
       }
 
       const refreshed = await getAdminPropertyDetail(target.id);
@@ -250,9 +315,7 @@ export default function AdminPropertyCreatePage() {
       setError(uploadError instanceof Error ? uploadError.message : "Photo upload failed");
     } finally {
       setBusy(null);
-      if (quickUploadInputRef.current) {
-        quickUploadInputRef.current.value = "";
-      }
+      clearQuickUploadInput(inputKey);
     }
   }
 
@@ -264,7 +327,7 @@ export default function AdminPropertyCreatePage() {
       right={
         <Link
           href="/admin/properties"
-          className="inline-flex h-11 items-center gap-2 rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold shadow-sm hover:bg-slate-50"
+          className="inline-flex h-11 items-center gap-2 rounded-2xl border border-line/80 bg-surface px-4 text-sm font-semibold shadow-sm hover:bg-warm-alt"
         >
           <ArrowLeft className="h-4 w-4" />
           Back to properties
@@ -283,22 +346,22 @@ export default function AdminPropertyCreatePage() {
         </div>
 
         {busy ? (
-          <div className="flex items-center gap-2 rounded-2xl border border-black/10 bg-[#f6f3ec] p-4 text-sm text-slate-700">
+          <div className="flex items-center gap-2 rounded-2xl border border-line/80 bg-warm-base p-4 text-sm text-secondary">
             <Loader2 className="h-4 w-4 animate-spin" />
             {busy}
           </div>
         ) : null}
 
         {error ? (
-          <div className="rounded-2xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800">
+          <div className="rounded-2xl border border-danger/30 bg-danger/12 p-4 text-sm text-danger">
             {error}
           </div>
         ) : null}
 
         {!property ? (
           <>
-            <section className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
-              <div className="text-sm font-semibold text-slate-900">Property basics</div>
+            <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
+              <div className="text-sm font-semibold text-primary">Property basics</div>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <Field label="Property name" required>
                   <input
@@ -326,7 +389,7 @@ export default function AdminPropertyCreatePage() {
                     <textarea
                       value={form.description}
                       onChange={(event) => update("description", event.target.value)}
-                      className="min-h-[100px] w-full rounded-2xl border border-black/10 bg-white px-4 py-3 text-sm text-slate-900 outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                      className="min-h-[100px] w-full rounded-2xl border border-line/80 bg-surface px-4 py-3 text-sm text-primary outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                       placeholder="Describe the stay, design style, and highlights"
                     />
                   </Field>
@@ -334,8 +397,8 @@ export default function AdminPropertyCreatePage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
-              <div className="text-sm font-semibold text-slate-900">Location & map pin</div>
+            <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
+              <div className="text-sm font-semibold text-primary">Location & map pin</div>
               <div className="mt-4 grid gap-4 md:grid-cols-2">
                 <Field label="City" required>
                   <input
@@ -386,8 +449,8 @@ export default function AdminPropertyCreatePage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
-              <div className="text-sm font-semibold text-slate-900">Capacity & pricing</div>
+            <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
+              <div className="text-sm font-semibold text-primary">Capacity & pricing</div>
               <div className="mt-4 grid gap-4 md:grid-cols-3">
                 <Field label="Max guests" required>
                   <input value={form.maxGuests} onChange={(event) => update("maxGuests", event.target.value)} className={inputClass} />
@@ -423,26 +486,26 @@ export default function AdminPropertyCreatePage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
+            <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
               <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Amenities</div>
-                  <div className="mt-1 text-sm text-slate-600">Uses the same catalog as vendor listings.</div>
+                  <div className="text-sm font-semibold text-primary">Amenities</div>
+                  <div className="mt-1 text-sm text-secondary">Uses the same catalog as vendor listings.</div>
                 </div>
-                <div className="text-xs font-semibold text-slate-600">
+                <div className="text-xs font-semibold text-secondary">
                   Selected: {selectedAmenityIds.length}
                 </div>
               </div>
 
               <div className="mt-4 space-y-4">
                 {amenitiesGroups.length === 0 ? (
-                  <div className="rounded-2xl border border-dashed border-black/20 bg-[#f6f3ec] p-4 text-sm text-slate-700">
+                  <div className="rounded-2xl border border-dashed border-line/80 bg-warm-base p-4 text-sm text-secondary">
                     Amenity catalog is unavailable right now. You can still create the property and add amenities later.
                   </div>
                 ) : (
                   amenitiesGroups.map((group) => (
-                    <div key={group.group?.id ?? "ungrouped"} className="rounded-2xl border border-black/10 bg-white p-4">
-                      <div className="text-sm font-semibold text-slate-900">{group.group?.name ?? "Other"}</div>
+                    <div key={group.group?.id ?? "ungrouped"} className="rounded-2xl border border-line/80 bg-surface p-4">
+                      <div className="text-sm font-semibold text-primary">{group.group?.name ?? "Other"}</div>
                       <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                         {group.amenities.map((amenity) => {
                           const selected = selectedAmenityIds.includes(amenity.id);
@@ -454,8 +517,8 @@ export default function AdminPropertyCreatePage() {
                               className={cn(
                                 "rounded-xl border px-3 py-2 text-left text-sm font-medium",
                                 selected
-                                  ? "border-[#16A6C8]/40 bg-[#16A6C8]/10 text-slate-900"
-                                  : "border-black/10 bg-white text-slate-700 hover:bg-slate-50",
+                                  ? "border-brand/45 bg-accent-soft/80 text-primary"
+                                  : "border-line/80 bg-surface text-secondary hover:bg-warm-alt",
                               )}
                             >
                               {amenity.name}
@@ -469,80 +532,162 @@ export default function AdminPropertyCreatePage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
-              <div className="flex flex-wrap items-start justify-between gap-4">
-                <div>
-                  <div className="text-sm font-semibold text-slate-900">Photos</div>
-                  <div className="mt-1 text-sm text-slate-600">
-                    Upload images during creation. If the property does not exist yet, first upload will create it using current form values.
-                  </div>
-                </div>
-              </div>
-
-              <div className="mt-4 grid gap-4 md:grid-cols-[1fr_auto]">
-                <Field label="Default upload category">
-                  <select
-                    value={quickUploadCategory}
-                    onChange={(event) => setQuickUploadCategory(event.target.value as MediaCategory)}
-                    className={inputClass}
-                  >
-                    {ADMIN_MEDIA_CATEGORIES.map((category) => (
-                      <option key={category} value={category}>
-                        {category}
-                      </option>
-                    ))}
-                  </select>
+            <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
+              <div className="text-sm font-semibold text-primary">Ownership & publishing</div>
+              <div className="mt-4 grid gap-4 md:grid-cols-2">
+                <Field label="Vendor owner">
+                  {vendorsLoading ? (
+                    <div className="h-11 w-full animate-pulse rounded-2xl border border-line/80 bg-warm-alt" />
+                  ) : vendorsError ? (
+                    <div className="rounded-2xl border border-danger/30 bg-danger/12 px-4 py-3 text-xs text-danger">{vendorsError}</div>
+                  ) : (
+                    <select
+                      value={form.vendorId}
+                      onChange={(event) => update("vendorId", event.target.value)}
+                      className={inputClass}
+                    >
+                      <option value="">Admin-owned listing (default)</option>
+                      {vendorOptions.map((vendor) => (
+                        <option key={vendor.id} value={vendor.id}>
+                          {vendor.label}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </Field>
 
                 <div className="flex items-end">
-                  <input
-                    ref={quickUploadInputRef}
-                    type="file"
-                    accept="image/*"
-                    multiple
-                    className="hidden"
-                    id="admin-new-property-quick-upload"
-                    onChange={(event) => void quickUpload(event.target.files)}
-                    disabled={busy !== null}
-                  />
-                  <label
-                    htmlFor="admin-new-property-quick-upload"
-                    className={cn(
-                      "inline-flex h-11 cursor-pointer items-center gap-2 rounded-2xl px-5 text-sm font-semibold text-white shadow-sm",
-                      busy ? "bg-slate-300" : "bg-[#16A6C8] hover:opacity-95",
-                    )}
-                  >
-                    <UploadCloud className="h-4 w-4" />
-                    Upload images
+                  <label className="flex items-start gap-3 rounded-2xl border border-line/80 bg-warm-base p-4">
+                    <input
+                      type="checkbox"
+                      checked={form.publishNow}
+                      onChange={(event) => update("publishNow", event.target.checked)}
+                      className="mt-1 h-4 w-4 accent-brand"
+                    />
+                    <div>
+                      <div className="text-sm font-semibold text-primary">Publish immediately after create</div>
+                      <div className="mt-1 text-xs text-secondary">
+                        Disable this to save as `APPROVED` and publish later from the editor.
+                      </div>
+                    </div>
                   </label>
                 </div>
               </div>
             </section>
 
-            <section className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
-              <label className="flex items-start gap-3 rounded-2xl border border-black/10 bg-[#f6f3ec] p-4">
-                <input
-                  type="checkbox"
-                  checked={form.publishNow}
-                  onChange={(event) => update("publishNow", event.target.checked)}
-                  className="mt-1 h-4 w-4 accent-[#16A6C8]"
-                />
+            <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-4">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Publish immediately after create</div>
-                  <div className="mt-1 text-xs text-slate-600">
-                    Admin-owned properties can publish instantly. Disable this to keep status as APPROVED.
+                  <div className="text-sm font-semibold text-primary">Photos</div>
+                  <div className="mt-1 text-sm text-secondary">
+                    Vendor-style category upload blocks. If the property does not exist yet, first upload will create it using current form values.
                   </div>
                 </div>
-              </label>
+              </div>
 
+              <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                {REQUIRED_UPLOAD_BLOCKS.map((block) => (
+                  <div key={block.key} className="rounded-2xl border border-line/80 bg-surface p-4 shadow-sm">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <div className="flex items-center gap-2">
+                          <div className="text-sm font-semibold text-primary">{block.title}</div>
+                          <span className="rounded-full bg-warning/12 px-2.5 py-1 text-xs font-semibold text-warning ring-1 ring-warning/30">
+                            {block.help}
+                          </span>
+                        </div>
+                        <div className="mt-1 text-xs text-muted">Upload one or more photos.</div>
+                      </div>
+
+                      <input
+                        ref={(element) => {
+                          quickUploadInputRefs.current[`REQUIRED_${block.key}`] = element;
+                        }}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        id={`admin-new-property-upload-${block.key}`}
+                        onChange={(event) => void quickUpload(event.target.files, block.key, `REQUIRED_${block.key}`)}
+                        disabled={busy !== null}
+                      />
+                      <label
+                        htmlFor={`admin-new-property-upload-${block.key}`}
+                        className={cn(
+                          "cursor-pointer rounded-xl px-4 py-2 text-sm font-semibold text-inverted",
+                          busy ? "bg-accent-soft" : "bg-brand hover:bg-brand-hover",
+                        )}
+                      >
+                        Upload
+                      </label>
+                    </div>
+                  </div>
+                ))}
+
+                <div className="rounded-2xl border border-line/80 bg-surface p-4 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <div className="text-sm font-semibold text-primary">Other photos</div>
+                        <span className="rounded-full bg-warm-alt px-2.5 py-1 text-xs font-semibold text-secondary ring-1 ring-line">
+                          Optional
+                        </span>
+                      </div>
+                      <div className="mt-1 text-xs text-muted">Upload cover, view, balcony, building, and neighborhood photos.</div>
+                    </div>
+
+                    <div className="flex items-center gap-2">
+                      <select
+                        value={quickUploadOtherCategory}
+                        onChange={(event) => {
+                          const value = event.target.value;
+                          if (isMediaCategory(value)) setQuickUploadOtherCategory(value);
+                        }}
+                        className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary"
+                        disabled={busy !== null}
+                      >
+                        {ADMIN_MEDIA_CATEGORIES.filter((category) => !REQUIRED_UPLOAD_SET.has(category)).map((category) => (
+                          <option key={category} value={category}>
+                            {categoryLabel(category)}
+                          </option>
+                        ))}
+                      </select>
+
+                      <input
+                        ref={(element) => {
+                          quickUploadInputRefs.current.OTHER = element;
+                        }}
+                        type="file"
+                        accept="image/*"
+                        multiple
+                        className="hidden"
+                        id="admin-new-property-upload-other"
+                        onChange={(event) => void quickUpload(event.target.files, quickUploadOtherCategory, "OTHER")}
+                        disabled={busy !== null}
+                      />
+                      <label
+                        htmlFor="admin-new-property-upload-other"
+                        className={cn(
+                          "cursor-pointer rounded-xl px-4 py-2 text-sm font-semibold text-inverted",
+                          busy ? "bg-accent-soft" : "bg-brand hover:bg-brand-hover",
+                        )}
+                      >
+                        Upload
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </section>
+            <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
               <div className="mt-4 flex justify-end">
                 <button
                   type="button"
                   onClick={() => void submit()}
                   disabled={!canSubmit}
                   className={cn(
-                    "inline-flex h-11 items-center gap-2 rounded-2xl px-5 text-sm font-semibold text-white shadow-sm",
-                    canSubmit ? "bg-[#16A6C8] hover:opacity-95" : "bg-slate-300",
+                    "inline-flex h-11 items-center gap-2 rounded-2xl px-5 text-sm font-semibold text-inverted shadow-sm",
+                    canSubmit ? "bg-brand hover:opacity-95" : "bg-accent-soft",
                   )}
                 >
                   <CheckCircle2 className="h-4 w-4" />
@@ -553,11 +698,11 @@ export default function AdminPropertyCreatePage() {
           </>
         ) : (
           <div className="space-y-6">
-            <section className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
+            <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <div className="text-sm font-semibold text-slate-900">Property created</div>
-                  <div className="mt-1 text-sm text-slate-600">
+                  <div className="text-sm font-semibold text-primary">Property created</div>
+                  <div className="mt-1 text-sm text-secondary">
                     Continue with media and amenities to finalize listing quality.
                   </div>
                 </div>
@@ -566,7 +711,7 @@ export default function AdminPropertyCreatePage() {
                   <StatusPill tone="success">{String(property.status ?? "APPROVED")}</StatusPill>
                   <Link
                     href="/admin/properties"
-                    className="inline-flex rounded-2xl border border-black/10 bg-white px-4 py-2 text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50"
+                    className="inline-flex rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
                   >
                     Done
                   </Link>
@@ -574,12 +719,12 @@ export default function AdminPropertyCreatePage() {
               </div>
             </section>
 
-            <section className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
-              <div className="mb-4 text-sm font-semibold text-slate-900">Amenities</div>
+            <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
+              <div className="mb-4 text-sm font-semibold text-primary">Amenities</div>
               <div className="space-y-4">
                 {amenitiesGroups.map((group) => (
-                  <div key={group.group?.id ?? "ungrouped"} className="rounded-2xl border border-black/10 p-4">
-                    <div className="text-sm font-semibold text-slate-900">{group.group?.name ?? "Other"}</div>
+                  <div key={group.group?.id ?? "ungrouped"} className="rounded-2xl border border-line/80 p-4">
+                    <div className="text-sm font-semibold text-primary">{group.group?.name ?? "Other"}</div>
                     <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                       {group.amenities.map((amenity) => {
                         const selected = selectedAmenityIds.includes(amenity.id);
@@ -591,8 +736,8 @@ export default function AdminPropertyCreatePage() {
                             className={cn(
                               "rounded-xl border px-3 py-2 text-left text-sm font-medium",
                               selected
-                                ? "border-[#16A6C8]/40 bg-[#16A6C8]/10 text-slate-900"
-                                : "border-black/10 bg-white text-slate-700 hover:bg-slate-50",
+                                ? "border-brand/45 bg-accent-soft/80 text-primary"
+                                : "border-line/80 bg-surface text-secondary hover:bg-warm-alt",
                             )}
                           >
                             {amenity.name}
@@ -608,7 +753,7 @@ export default function AdminPropertyCreatePage() {
                 <button
                   type="button"
                   onClick={() => void saveAmenities(property.id)}
-                  className="inline-flex h-11 items-center gap-2 rounded-2xl bg-slate-900 px-5 text-sm font-semibold text-white shadow-sm hover:bg-slate-800"
+                  className="inline-flex h-11 items-center gap-2 rounded-2xl bg-brand px-5 text-sm font-semibold text-accent-text shadow-sm hover:bg-brand-hover"
                 >
                   <Save className="h-4 w-4" />
                   Save amenities
@@ -634,7 +779,7 @@ function Field(props: {
 }) {
   return (
     <label className="block">
-      <div className="mb-1 text-xs font-semibold text-slate-600">
+      <div className="mb-1 text-xs font-semibold text-secondary">
         {props.label}
         {props.required ? " *" : ""}
       </div>

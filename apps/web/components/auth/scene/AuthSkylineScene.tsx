@@ -20,13 +20,13 @@ export function AuthSkylineScene() {
 return (
     <div className="absolute inset-0 overflow-hidden">
       {/* Base atmosphere */}
-      <div className="absolute inset-0 bg-[color:var(--tourm-bg)]" />
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(22,166,200,0.28),transparent_52%),radial-gradient(circle_at_80%_12%,rgba(22,166,200,0.22),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.65)_0%,rgba(246,243,236,1)_58%)]" />
+      <div className="absolute inset-0 bg-warm-base" />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_20%_10%,rgba(198,169,109,0.28),transparent_52%),radial-gradient(circle_at_80%_12%,rgba(198,169,109,0.22),transparent_55%),linear-gradient(180deg,rgba(255,255,255,0.65)_0%,rgba(246,243,236,1)_58%)]" />
 
       {/* Premium glows */}
-      <div className="absolute -left-48 -top-56 h-[680px] w-[680px] rounded-full bg-[color:var(--tourm-primary)]/22 blur-[120px]" />
-      <div className="absolute right-[-260px] top-[-220px] h-[760px] w-[760px] rounded-full bg-[color:var(--tourm-primary)]/18 blur-[130px]" />
-      <div className="absolute left-[22%] bottom-[-420px] h-[940px] w-[940px] rounded-full bg-[color:var(--tourm-primary)]/14 blur-[160px]" />
+      <div className="absolute -left-48 -top-56 h-[680px] w-[680px] rounded-full bg-brand/22 blur-[120px]" />
+      <div className="absolute right-[-260px] top-[-220px] h-[760px] w-[760px] rounded-full bg-brand/18 blur-[130px]" />
+      <div className="absolute left-[22%] bottom-[-420px] h-[940px] w-[940px] rounded-full bg-brand/14 blur-[160px]" />
 
       {/* Ink depth */}
       <div className="absolute inset-0 bg-[radial-gradient(circle_at_65%_30%,rgba(11,34,48,0.14),transparent_55%),radial-gradient(circle_at_35%_80%,rgba(11,34,48,0.10),transparent_60%)]" />
@@ -53,7 +53,7 @@ return (
         className="absolute left-[-40%] top-[26%] h-[180px] w-[180%] opacity-65"
         style={{
           background:
-            "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 24%, rgba(22,166,200,0.22) 52%, rgba(255,255,255,0.48) 76%, transparent 100%)",
+            "linear-gradient(90deg, transparent 0%, rgba(255,255,255,0.55) 24%, rgba(198,169,109,0.22) 52%, rgba(255,255,255,0.48) 76%, transparent 100%)",
           filter: "blur(18px)",
         }}
         animate={reduce ? undefined : { x: ["0%", "-10%", "0%"] }}
@@ -153,7 +153,7 @@ function MapPlane({ reduce }: { reduce: boolean }) {
 
           <path
             d="M120 278 C280 236 420 228 600 242 C770 256 910 246 1080 224"
-            stroke="rgba(22,166,200,0.24)"
+            stroke="rgba(198,169,109,0.24)"
             strokeWidth="7"
             strokeLinecap="round"
             fill="none"
@@ -169,7 +169,7 @@ function MapPlane({ reduce }: { reduce: boolean }) {
 
           <path
             d="M210 212 C320 190 450 188 600 200 C770 214 880 210 980 194"
-            stroke="rgba(22,166,200,0.16)"
+            stroke="rgba(198,169,109,0.16)"
             strokeWidth="6"
             strokeLinecap="round"
             fill="none"
@@ -352,7 +352,7 @@ function MapPlane({ reduce }: { reduce: boolean }) {
 
 function ImageTile(props: { src: string; label: string }) {
   return (
-    <div className="relative h-[110px] w-[176px] overflow-hidden rounded-2xl bg-white/75 ring-1 ring-black/10 shadow-[0_18px_55px_rgba(2,10,20,0.12)] backdrop-blur-md">
+    <div className="relative h-[110px] w-[176px] overflow-hidden rounded-2xl bg-surface/75 ring-1 ring-line/90 shadow-[0_18px_55px_rgba(2,10,20,0.12)] backdrop-blur-md">
       <div className="absolute inset-0">
         <Image
           src={props.src}
@@ -364,11 +364,11 @@ function ImageTile(props: { src: string; label: string }) {
         />
       </div>
 
-      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(22,166,200,0.14)_100%)]" />
-      <div className="absolute inset-0 ring-1 ring-white/40" />
+      <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(255,255,255,0.10)_0%,rgba(198,169,109,0.14)_100%)]" />
+      <div className="absolute inset-0 ring-1 ring-inverted/40" />
 
-      <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-white/80 px-3 py-1 text-[11px] font-semibold text-[color:var(--tourm-ink)] ring-1 ring-black/5">
-        <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--tourm-primary)]" />
+      <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-surface/80 px-3 py-1 text-[11px] font-semibold text-primary ring-1 ring-line/55">
+        <span className="h-1.5 w-1.5 rounded-full bg-brand" />
         {props.label}
       </div>
     </div>
@@ -378,7 +378,7 @@ function ImageTile(props: { src: string; label: string }) {
 /* ----------------------------- Floating Tiles / Billboard ----------------------------- */
 
 function PropertyTile({ kind }: { kind: "villa" | "tower" }) {
-  const accent = "rgba(22,166,200,0.70)";
+  const accent = "rgba(198,169,109,0.70)";
   const ink = "rgba(11,34,48,0.14)";
   const glass = "rgba(255,255,255,0.80)";
 
@@ -409,8 +409,8 @@ function PropertyTile({ kind }: { kind: "villa" | "tower" }) {
         </g>
       )}
 
-      <circle cx="144" cy="30" r="7" fill="rgba(22,166,200,0.22)" />
-      <circle cx="144" cy="30" r="3" fill="rgba(22,166,200,0.75)" />
+      <circle cx="144" cy="30" r="7" fill="rgba(198,169,109,0.22)" />
+      <circle cx="144" cy="30" r="3" fill="rgba(198,169,109,0.75)" />
     </svg>
   );
 }
@@ -422,10 +422,10 @@ function Billboard() {
       <rect x="24" y="14" width="162" height="56" rx="18" fill="rgba(255,255,255,0.86)" stroke="rgba(11,34,48,0.12)" />
       <rect x="40" y="28" width="72" height="10" rx="5" fill="rgba(11,34,48,0.10)" />
       <rect x="40" y="44" width="112" height="10" rx="5" fill="rgba(11,34,48,0.07)" />
-      <circle cx="166" cy="42" r="14" fill="rgba(22,166,200,0.18)" />
+      <circle cx="166" cy="42" r="14" fill="rgba(198,169,109,0.18)" />
       <path
         d="M166 56c4-5 6-7.6 6-11a6 6 0 10-12 0c0 3.4 2 6 6 11z"
-        fill="rgba(22,166,200,0.92)"
+        fill="rgba(198,169,109,0.92)"
       />
       <circle cx="166" cy="45" r="2.2" fill="rgba(255,255,255,0.90)" />
     </svg>
@@ -437,10 +437,10 @@ function Billboard() {
 function Pin() {
   return (
     <svg width="28" height="28" viewBox="0 0 26 26" aria-hidden="true">
-      <circle cx="13" cy="13" r="10" fill="rgba(22,166,200,0.20)" />
+      <circle cx="13" cy="13" r="10" fill="rgba(198,169,109,0.20)" />
       <path
         d="M13 23c4-5 6-7.6 6-11a6 6 0 10-12 0c0 3.4 2 6 6 11z"
-        fill="rgba(22,166,200,0.94)"
+        fill="rgba(198,169,109,0.94)"
       />
       <circle cx="13" cy="12" r="2.2" fill="rgba(255,255,255,0.9)" />
     </svg>
@@ -453,7 +453,7 @@ function Sparkle() {
       <path
         d="M11 1l1.6 6.2L19 9l-6.4 1.8L11 17l-1.6-6.2L3 9l6.4-1.8L11 1z"
         fill="rgba(255,255,255,0.78)"
-        stroke="rgba(22,166,200,0.40)"
+        stroke="rgba(198,169,109,0.40)"
         strokeWidth="0.8"
       />
     </svg>
@@ -467,9 +467,9 @@ type WalkerVariant = "cyan" | "ink" | "cyanSoft" | "inkSoft";
 function WalkerBig({ variant, reduce }: { variant: WalkerVariant; reduce: boolean }) {
   const body =
     variant === "cyan"
-      ? "rgba(22,166,200,0.98)"
+      ? "rgba(198,169,109,0.98)"
       : variant === "cyanSoft"
-        ? "rgba(22,166,200,0.70)"
+        ? "rgba(198,169,109,0.70)"
         : variant === "ink"
           ? "rgba(11,34,48,0.84)"
           : "rgba(11,34,48,0.58)";
@@ -477,7 +477,7 @@ function WalkerBig({ variant, reduce }: { variant: WalkerVariant; reduce: boolea
   return (
     <div className="relative">
       <motion.div
-        className="absolute -bottom-2 left-1/2 h-2 w-16 -translate-x-1/2 rounded-full bg-black/20"
+        className="absolute -bottom-2 left-1/2 h-2 w-16 -translate-x-1/2 rounded-full bg-dark-1/20"
         style={{ filter: "blur(2px)" }}
         animate={reduce ? undefined : { scaleX: [1, 0.80, 1] }}
         transition={reduce ? undefined : { duration: 0.55, repeat: Infinity, ease: "easeInOut" }}
@@ -510,7 +510,7 @@ function VendorWithClipboard({ reduce }: { reduce: boolean }) {
   return (
     <div className="relative">
       <motion.div
-        className="absolute -bottom-2 left-1/2 h-2 w-20 -translate-x-1/2 rounded-full bg-black/25"
+        className="absolute -bottom-2 left-1/2 h-2 w-20 -translate-x-1/2 rounded-full bg-dark-1/25"
         style={{ filter: "blur(2px)" }}
         animate={reduce ? undefined : { scaleX: [1, 0.78, 1] }}
         transition={reduce ? undefined : { duration: 3.2, repeat: Infinity, ease: "easeInOut" }}
@@ -535,8 +535,8 @@ function VendorWithClipboard({ reduce }: { reduce: boolean }) {
         />
 
         <rect x="38" y="46" width="36" height="34" rx="14" fill="rgba(11,34,48,0.86)" />
-        <path d="M56 50c4 4 5 6 0 10c-5-4-4-6 0-10z" fill="rgba(22,166,200,0.95)" />
-        <rect x="54.6" y="60" width="2.8" height="16" rx="1.4" fill="rgba(22,166,200,0.90)" />
+        <path d="M56 50c4 4 5 6 0 10c-5-4-4-6 0-10z" fill="rgba(198,169,109,0.95)" />
+        <rect x="54.6" y="60" width="2.8" height="16" rx="1.4" fill="rgba(198,169,109,0.90)" />
 
         <rect x="44" y="80" width="8" height="22" rx="4" fill="rgba(11,34,48,0.48)" />
         <rect x="60" y="80" width="8" height="22" rx="4" fill="rgba(11,34,48,0.48)" />
@@ -557,7 +557,7 @@ function VendorWithClipboard({ reduce }: { reduce: boolean }) {
             stroke="rgba(11,34,48,0.14)"
             strokeWidth="1"
           />
-          <rect x="82" y="68" width="16" height="3" rx="1.5" fill="rgba(22,166,200,0.55)" />
+          <rect x="82" y="68" width="16" height="3" rx="1.5" fill="rgba(198,169,109,0.55)" />
           <rect x="82" y="75" width="16" height="3" rx="1.5" fill="rgba(11,34,48,0.12)" />
           <rect x="82" y="82" width="14" height="3" rx="1.5" fill="rgba(11,34,48,0.10)" />
         </motion.g>
@@ -581,7 +581,7 @@ function SofaCorner({ reduce }: { reduce: boolean }) {
       <rect x="10" y="36" width="24" height="42" rx="14" fill="rgba(255,255,255,0.80)" stroke="rgba(11,34,48,0.10)" strokeWidth="1" />
       <path d="M46 48v30" stroke="rgba(11,34,48,0.10)" strokeWidth="2" strokeLinecap="round" />
       <path d="M78 48v30" stroke="rgba(11,34,48,0.08)" strokeWidth="2" strokeLinecap="round" />
-      <rect x="90" y="34" width="24" height="18" rx="8" fill="rgba(22,166,200,0.42)" />
+      <rect x="90" y="34" width="24" height="18" rx="8" fill="rgba(198,169,109,0.42)" />
       <ellipse cx="70" cy="86" rx="56" ry="8" fill="rgba(2,10,20,0.12)" />
     </motion.svg>
   );
@@ -602,7 +602,7 @@ function Suitcase({ reduce }: { reduce: boolean }) {
       <circle cx="52" cy="70" r="4" fill="rgba(11,34,48,0.45)" />
       <path d="M30 18c0-6 18-6 18 0v10h-4V20c0-2-10-2-10 0v8h-4V18z" fill="rgba(11,34,48,0.22)" />
       <rect x="18" y="26" width="42" height="44" rx="10" fill="rgba(255,255,255,0.84)" stroke="rgba(11,34,48,0.14)" strokeWidth="1" />
-      <rect x="18" y="44" width="42" height="6" rx="3" fill="rgba(22,166,200,0.55)" />
+      <rect x="18" y="44" width="42" height="6" rx="3" fill="rgba(198,169,109,0.55)" />
       <ellipse cx="39" cy="74" rx="22" ry="6" fill="rgba(2,10,20,0.10)" />
     </motion.svg>
   );
@@ -626,7 +626,7 @@ function SUV({ reduce }: { reduce: boolean }) {
         strokeWidth="1"
       />
       <path d="M54 32h56c12 0 20 4 28 12H46c4-8 10-12 8-12z" fill="rgba(255,255,255,0.34)" />
-      <rect x="26" y="56" width="128" height="5" rx="2.5" fill="rgba(22,166,200,0.42)" />
+      <rect x="26" y="56" width="128" height="5" rx="2.5" fill="rgba(198,169,109,0.42)" />
       <circle cx="56" cy="68" r="10" fill="rgba(11,34,48,0.55)" />
       <circle cx="130" cy="68" r="10" fill="rgba(11,34,48,0.55)" />
       <circle cx="56" cy="68" r="4" fill="rgba(255,255,255,0.45)" />

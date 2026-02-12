@@ -13,12 +13,20 @@ export const metadata: Metadata = {
 
 export default function ContactPage() {
   return (
-    <main className="min-h-screen bg-[var(--tourm-bg)]">
+    <main className="min-h-screen bg-warm-base">
       <ContactHero />
-      <ContactCards />
-      <ContactForm />
-      <ContactMapEmbed />
-      <ContactFaq />
+      <div className="bg-warm-base">
+        <ContactCards />
+      </div>
+      <div className="bg-warm-alt/85">
+        <ContactForm />
+      </div>
+      <div className="section-dark-band">
+        <ContactMapEmbed />
+      </div>
+      <div className="bg-warm-alt/90">
+        <ContactFaq />
+      </div>
       <div className="h-10 sm:h-16" />
     </main>
   );

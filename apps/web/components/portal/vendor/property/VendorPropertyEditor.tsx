@@ -7,14 +7,16 @@ import type {
   VendorPropertyDeletionRequest,
   VendorPropertyDetail,
   VendorPropertyDraftInput,
+  VendorPropertyUnpublishRequest,
 } from "@/lib/api/portal/vendor";
 import {
   getVendorPropertyDeletionRequest,
+  getVendorPropertyUnpublishRequest,
   getAmenitiesCatalog,
   publishVendorProperty,
+  requestVendorPropertyUnpublish,
   requestVendorPropertyDeletion,
   submitVendorPropertyForReview,
-  unpublishVendorProperty,
   updateVendorPropertyAmenities,
   updateVendorPropertyDraft,
   updateVendorPropertyLocation,
@@ -68,6 +70,8 @@ export default function VendorPropertyEditor(props: {
   const [amenitiesLoading, setAmenitiesLoading] = useState(false);
   const [deletionRequest, setDeletionRequest] = useState<VendorPropertyDeletionRequest | null>(null);
   const [deletionReason, setDeletionReason] = useState("");
+  const [unpublishRequest, setUnpublishRequest] = useState<VendorPropertyUnpublishRequest | null>(null);
+  const [unpublishReason, setUnpublishReason] = useState("");
 
   // keep local state in sync if parent refreshes
   useEffect(() => {
@@ -88,7 +92,19 @@ export default function VendorPropertyEditor(props: {
       }
     }
 
+    async function loadUnpublishRequest() {
+      try {
+        const request = await getVendorPropertyUnpublishRequest(property.id);
+        if (!alive) return;
+        setUnpublishRequest(request);
+      } catch {
+        if (!alive) return;
+        setUnpublishRequest(null);
+      }
+    }
+
     void loadDeletionRequest();
+    void loadUnpublishRequest();
     return () => {
       alive = false;
     };
@@ -209,15 +225,19 @@ export default function VendorPropertyEditor(props: {
     }
   }
 
-  async function unpublish() {
+  async function submitUnpublishRequest() {
     setError(null);
-    setBusy("Unpublishing...");
+    setBusy("Submitting unpublish request...");
     try {
-      const updated = await unpublishVendorProperty(property.id);
-      setProperty(updated);
+      const created = await requestVendorPropertyUnpublish(
+        property.id,
+        unpublishReason,
+      );
+      setUnpublishRequest(created);
+      setUnpublishReason("");
       await props.onRefresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Unpublish failed");
+      setError(e instanceof Error ? e.message : "Unpublish request failed");
     } finally {
       setBusy(null);
     }
@@ -240,20 +260,20 @@ export default function VendorPropertyEditor(props: {
   return (
     <div className="space-y-6">
       {busy ? (
-        <div className="rounded-2xl border border-neutral-200 bg-neutral-50 p-3 text-sm text-neutral-700">{busy}</div>
+        <div className="rounded-2xl border border-line bg-warm-alt p-3 text-sm text-secondary">{busy}</div>
       ) : null}
 
       {error ? (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-700 whitespace-pre-wrap">
+        <div className="rounded-2xl border border-danger/30 bg-danger/12 p-3 text-sm text-danger whitespace-pre-wrap">
           {error}
         </div>
       ) : null}
 
-      <div className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+      <div className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <div className="text-lg font-semibold text-neutral-900">{property.title || "Untitled property"}</div>
-            <div className="mt-1 text-sm text-neutral-600">
+            <div className="text-lg font-semibold text-primary">{property.title || "Untitled property"}</div>
+            <div className="mt-1 text-sm text-secondary">
               ID: <span className="font-mono">{property.id}</span>
             </div>
           </div>
@@ -264,8 +284,8 @@ export default function VendorPropertyEditor(props: {
               onClick={() => void hardRefreshFromServer()}
               disabled={busy !== null}
               className={cn(
-                "rounded-xl px-4 py-2 text-sm font-semibold ring-1 ring-neutral-200",
-                busy ? "bg-white text-neutral-400" : "bg-white text-neutral-900 hover:bg-neutral-50"
+                "rounded-xl px-4 py-2 text-sm font-semibold ring-1 ring-line",
+                busy ? "bg-surface text-muted" : "bg-surface text-primary hover:bg-warm-alt"
               )}
             >
               Refresh
@@ -284,7 +304,7 @@ export default function VendorPropertyEditor(props: {
               }}
               className={cn(
                 "rounded-full px-4 py-2 text-sm font-semibold transition",
-                tab === t.key ? "bg-neutral-900 text-white" : "bg-white text-neutral-900 ring-1 ring-neutral-200 hover:bg-neutral-50"
+                tab === t.key ? "bg-brand text-accent-text" : "bg-surface text-primary ring-1 ring-line hover:bg-warm-alt"
               )}
             >
               {t.label}
@@ -318,23 +338,23 @@ export default function VendorPropertyEditor(props: {
       ) : null}
 
       {tab === "amenities" ? (
-        <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+        <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
           <div className="flex items-start justify-between gap-3">
             <div>
-              <h3 className="text-base font-semibold text-neutral-900">Amenities</h3>
-              <p className="mt-1 text-sm text-neutral-600">Select what your property offers.</p>
+              <h3 className="text-base font-semibold text-primary">Amenities</h3>
+              <p className="mt-1 text-sm text-secondary">Select what your property offers.</p>
             </div>
           </div>
 
           {amenitiesLoading ? (
-            <div className="mt-4 text-sm text-neutral-600">Loading amenities…</div>
+            <div className="mt-4 text-sm text-secondary">Loading amenities…</div>
           ) : !amenitiesCatalog ? (
-            <div className="mt-4 text-sm text-neutral-600">Open this tab to load catalog.</div>
+            <div className="mt-4 text-sm text-secondary">Open this tab to load catalog.</div>
           ) : (
             <div className="mt-5 space-y-5">
               {amenitiesCatalog.amenitiesGrouped.map((g) => (
-                <div key={g.group.id} className="rounded-2xl border border-neutral-200 bg-white p-4">
-                  <div className="text-sm font-semibold text-neutral-900">{g.group.name}</div>
+                <div key={g.group.id} className="rounded-2xl border border-line bg-surface p-4">
+                  <div className="text-sm font-semibold text-primary">{g.group.name}</div>
                   <div className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
                     {g.amenities.map((a) => {
                       const checked = selectedAmenityIds.includes(a.id);
@@ -346,11 +366,11 @@ export default function VendorPropertyEditor(props: {
                           onClick={() => void toggleAmenity(a.id)}
                           className={cn(
                             "flex items-center justify-between rounded-xl border px-3 py-2 text-left text-sm transition",
-                            checked ? "border-neutral-900 bg-neutral-900 text-white" : "border-neutral-200 bg-white text-neutral-900 hover:bg-neutral-50"
+                            checked ? "border-brand bg-brand text-accent-text" : "border-line bg-surface text-primary hover:bg-warm-alt"
                           )}
                         >
                           <span className="font-medium">{a.name}</span>
-                          <span className={cn("text-xs font-semibold", checked ? "text-white/70" : "text-neutral-500")}>
+                          <span className={cn("text-xs font-semibold", checked ? "text-inverted/70" : "text-muted")}>
                             {checked ? "Selected" : "Select"}
                           </span>
                         </button>
@@ -383,11 +403,11 @@ export default function VendorPropertyEditor(props: {
           <div className="space-y-6 lg:col-span-2">
             <ReviewChecklistCard property={property} />
 
-            <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+            <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-neutral-900">Actions</h3>
-                  <p className="mt-1 text-sm text-neutral-600">
+                  <h3 className="text-base font-semibold text-primary">Actions</h3>
+                  <p className="mt-1 text-sm text-secondary">
                     Submit once gates pass. Publish only after admin approval.
                   </p>
                 </div>
@@ -401,8 +421,8 @@ export default function VendorPropertyEditor(props: {
                   className={cn(
                     "rounded-xl px-4 py-2 text-sm font-semibold",
                     busy !== null || !readiness.allOk
-                      ? "bg-neutral-200 text-neutral-500"
-                      : "bg-neutral-900 text-white hover:bg-neutral-800"
+                      ? "bg-warm-alt text-muted"
+                      : "bg-brand text-accent-text hover:bg-brand-hover"
                   )}
                 >
                   Submit for review
@@ -413,10 +433,10 @@ export default function VendorPropertyEditor(props: {
                   disabled={busy !== null || property.status !== "APPROVED"}
                   onClick={() => void publish()}
                   className={cn(
-                    "rounded-xl px-4 py-2 text-sm font-semibold ring-1 ring-neutral-200",
+                    "rounded-xl px-4 py-2 text-sm font-semibold ring-1 ring-line",
                     busy !== null || property.status !== "APPROVED"
-                      ? "bg-white text-neutral-400"
-                      : "bg-white text-neutral-900 hover:bg-neutral-50"
+                      ? "bg-surface text-muted"
+                      : "bg-surface text-primary hover:bg-warm-alt"
                   )}
                 >
                   Publish
@@ -425,30 +445,101 @@ export default function VendorPropertyEditor(props: {
                 <button
                   type="button"
                   disabled={busy !== null || property.status !== "PUBLISHED"}
-                  onClick={() => void unpublish()}
+                  onClick={() => void submitUnpublishRequest()}
                   className={cn(
-                    "rounded-xl px-4 py-2 text-sm font-semibold ring-1 ring-neutral-200",
+                    "rounded-xl px-4 py-2 text-sm font-semibold ring-1 ring-line",
                     busy !== null || property.status !== "PUBLISHED"
-                      ? "bg-white text-neutral-400"
-                      : "bg-white text-neutral-900 hover:bg-neutral-50"
+                      ? "bg-surface text-muted"
+                      : "bg-surface text-primary hover:bg-warm-alt"
                   )}
                 >
-                  Unpublish
+                  Request unpublish
                 </button>
               </div>
 
               {!readiness.allOk ? (
-                <div className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
+                <div className="mt-4 rounded-xl border border-warning/30 bg-warning/12 p-3 text-sm text-warning">
                   Your listing is not ready yet. Complete the checklist above before submitting.
                 </div>
               ) : null}
             </section>
 
-            <section className="rounded-2xl border border-rose-200 bg-white p-5 shadow-sm">
+            <section className="rounded-2xl border border-warning/30 bg-surface p-5 shadow-sm">
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-base font-semibold text-neutral-900">Deletion request</h3>
-                  <p className="mt-1 text-sm text-neutral-600">
+                  <h3 className="text-base font-semibold text-primary">Unpublish request</h3>
+                  <p className="mt-1 text-sm text-secondary">
+                    Published listings require admin approval before they can be unpublished.
+                  </p>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-3">
+                {unpublishRequest ? (
+                  <div className="rounded-xl border border-line/80 bg-warm-base p-4">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-semibold text-primary">Request status</span>
+                      <span
+                        className={cn(
+                          "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
+                          unpublishRequest.status === "APPROVED"
+                            ? "bg-success/12 text-success"
+                            : unpublishRequest.status === "REJECTED"
+                              ? "bg-danger/12 text-danger"
+                              : "bg-warning/12 text-warning",
+                        )}
+                      >
+                        {unpublishRequest.status}
+                      </span>
+                    </div>
+                    {unpublishRequest.reason ? (
+                      <div className="mt-2 text-sm text-secondary">
+                        Reason: {unpublishRequest.reason}
+                      </div>
+                    ) : null}
+                    {unpublishRequest.adminNotes ? (
+                      <div className="mt-2 text-sm text-secondary">
+                        Admin note: {unpublishRequest.adminNotes}
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
+
+                {!unpublishRequest ||
+                unpublishRequest.status === "REJECTED" ||
+                unpublishRequest.status === "APPROVED" ? (
+                  <div className="space-y-3 rounded-xl border border-line/80 p-4">
+                    <textarea
+                      value={unpublishReason}
+                      onChange={(e) => setUnpublishReason(e.target.value)}
+                      rows={3}
+                      placeholder="Optional reason for unpublish request..."
+                      className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
+                      disabled={busy !== null || property.status !== "PUBLISHED"}
+                    />
+                    <button
+                      type="button"
+                      disabled={busy !== null || property.status !== "PUBLISHED"}
+                      onClick={() => void submitUnpublishRequest()}
+                      className={cn(
+                        "rounded-xl px-4 py-2 text-sm font-semibold",
+                        busy !== null || property.status !== "PUBLISHED"
+                          ? "bg-warm-alt text-muted"
+                          : "bg-warning text-inverted hover:bg-warning",
+                      )}
+                    >
+                      Submit unpublish request
+                    </button>
+                  </div>
+                ) : null}
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-danger/30 bg-surface p-5 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-semibold text-primary">Deletion request</h3>
+                  <p className="mt-1 text-sm text-secondary">
                     Vendors cannot delete listings instantly. Submit a request and wait for admin approval.
                   </p>
                 </div>
@@ -456,29 +547,29 @@ export default function VendorPropertyEditor(props: {
 
               <div className="mt-4 space-y-3">
                 {deletionRequest ? (
-                  <div className="rounded-xl border border-black/10 bg-[#f6f3ec] p-4">
+                  <div className="rounded-xl border border-line/80 bg-warm-base p-4">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-semibold text-neutral-900">Request status</span>
+                      <span className="text-sm font-semibold text-primary">Request status</span>
                       <span
                         className={cn(
                           "inline-flex rounded-full px-2.5 py-1 text-xs font-semibold",
                           deletionRequest.status === "APPROVED"
-                            ? "bg-emerald-100 text-emerald-800"
+                            ? "bg-success/12 text-success"
                             : deletionRequest.status === "REJECTED"
-                            ? "bg-rose-100 text-rose-700"
-                            : "bg-amber-100 text-amber-800",
+                            ? "bg-danger/12 text-danger"
+                            : "bg-warning/12 text-warning",
                         )}
                       >
                         {deletionRequest.status}
                       </span>
                     </div>
                     {deletionRequest.reason ? (
-                      <div className="mt-2 text-sm text-neutral-700">
+                      <div className="mt-2 text-sm text-secondary">
                         Reason: {deletionRequest.reason}
                       </div>
                     ) : null}
                     {deletionRequest.adminNotes ? (
-                      <div className="mt-2 text-sm text-neutral-700">
+                      <div className="mt-2 text-sm text-secondary">
                         Admin note: {deletionRequest.adminNotes}
                       </div>
                     ) : null}
@@ -486,13 +577,13 @@ export default function VendorPropertyEditor(props: {
                 ) : null}
 
                 {!deletionRequest || deletionRequest.status === "REJECTED" ? (
-                  <div className="space-y-3 rounded-xl border border-black/10 p-4">
+                  <div className="space-y-3 rounded-xl border border-line/80 p-4">
                     <textarea
                       value={deletionReason}
                       onChange={(e) => setDeletionReason(e.target.value)}
                       rows={3}
                       placeholder="Optional reason for deletion request..."
-                      className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+                      className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
                       disabled={busy !== null}
                     />
                     <button
@@ -502,8 +593,8 @@ export default function VendorPropertyEditor(props: {
                       className={cn(
                         "rounded-xl px-4 py-2 text-sm font-semibold",
                         busy !== null
-                          ? "bg-neutral-200 text-neutral-500"
-                          : "bg-rose-600 text-white hover:bg-rose-700",
+                          ? "bg-warm-alt text-muted"
+                          : "bg-danger text-inverted hover:bg-danger",
                       )}
                     >
                       Request deletion approval
@@ -515,10 +606,10 @@ export default function VendorPropertyEditor(props: {
           </div>
 
           <aside className="space-y-6">
-            <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
-              <div className="text-sm font-semibold text-neutral-900">Status</div>
-              <div className="mt-2 text-sm text-neutral-700">{property.status}</div>
-              <div className="mt-3 text-xs text-neutral-500">
+            <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
+              <div className="text-sm font-semibold text-primary">Status</div>
+              <div className="mt-2 text-sm text-secondary">{property.status}</div>
+              <div className="mt-3 text-xs text-muted">
                 Flow: DRAFT → UNDER_REVIEW → APPROVED → PUBLISHED
               </div>
             </section>
@@ -532,7 +623,7 @@ export default function VendorPropertyEditor(props: {
 function Field(props: { label: string; className?: string; children: React.ReactNode }) {
   return (
     <label className={cn("block", props.className)}>
-      <div className="mb-1 text-xs font-semibold text-neutral-700">{props.label}</div>
+      <div className="mb-1 text-xs font-semibold text-secondary">{props.label}</div>
       {props.children}
     </label>
   );
@@ -546,11 +637,11 @@ function BasicsPanel(props: {
   const [v, setV] = useState<VendorPropertyDraftInput>(props.value);
 
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-neutral-900">Basics</h3>
-          <p className="mt-1 text-sm text-neutral-600">Core listing info used in search and detail pages.</p>
+          <h3 className="text-base font-semibold text-primary">Basics</h3>
+          <p className="mt-1 text-sm text-secondary">Core listing info used in search and detail pages.</p>
         </div>
       </div>
 
@@ -559,7 +650,7 @@ function BasicsPanel(props: {
           <input
             value={v.title}
             onChange={(e) => setV((p) => ({ ...p, title: e.target.value }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
           />
         </Field>
@@ -568,7 +659,7 @@ function BasicsPanel(props: {
           <input
             value={v.slug ?? ""}
             onChange={(e) => setV((p) => ({ ...p, slug: e.target.value }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
           />
         </Field>
@@ -577,7 +668,7 @@ function BasicsPanel(props: {
           <input
             value={v.city}
             onChange={(e) => setV((p) => ({ ...p, city: e.target.value }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
           />
         </Field>
@@ -586,7 +677,7 @@ function BasicsPanel(props: {
           <input
             value={v.area ?? ""}
             onChange={(e) => setV((p) => ({ ...p, area: e.target.value || null }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
           />
         </Field>
@@ -596,7 +687,7 @@ function BasicsPanel(props: {
             type="number"
             value={v.maxGuests ?? 1}
             onChange={(e) => setV((p) => ({ ...p, maxGuests: Number(e.target.value || 1) }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             min={1}
             disabled={props.disabled}
           />
@@ -607,7 +698,7 @@ function BasicsPanel(props: {
             type="number"
             value={v.bedrooms ?? 0}
             onChange={(e) => setV((p) => ({ ...p, bedrooms: Number(e.target.value || 0) }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             min={0}
             disabled={props.disabled}
           />
@@ -618,7 +709,7 @@ function BasicsPanel(props: {
             type="number"
             value={v.bathrooms ?? 0}
             onChange={(e) => setV((p) => ({ ...p, bathrooms: Number(e.target.value || 0) }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             min={0}
             disabled={props.disabled}
           />
@@ -629,7 +720,7 @@ function BasicsPanel(props: {
             type="number"
             value={v.basePrice}
             onChange={(e) => setV((p) => ({ ...p, basePrice: Number(e.target.value || 0) }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             min={0}
             disabled={props.disabled}
           />
@@ -640,7 +731,7 @@ function BasicsPanel(props: {
             type="number"
             value={v.cleaningFee ?? 0}
             onChange={(e) => setV((p) => ({ ...p, cleaningFee: Number(e.target.value || 0) }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             min={0}
             disabled={props.disabled}
           />
@@ -650,7 +741,7 @@ function BasicsPanel(props: {
           <input
             value={v.currency ?? "AED"}
             onChange={(e) => setV((p) => ({ ...p, currency: e.target.value || "AED" }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
           />
         </Field>
@@ -660,7 +751,7 @@ function BasicsPanel(props: {
             type="number"
             value={v.minNights ?? 1}
             onChange={(e) => setV((p) => ({ ...p, minNights: Number(e.target.value || 1) }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             min={1}
             disabled={props.disabled}
           />
@@ -671,7 +762,7 @@ function BasicsPanel(props: {
             type="number"
             value={v.maxNights ?? ""}
             onChange={(e) => setV((p) => ({ ...p, maxNights: e.target.value ? Number(e.target.value) : null }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             min={1}
             disabled={props.disabled}
           />
@@ -681,7 +772,7 @@ function BasicsPanel(props: {
           <textarea
             value={v.description ?? ""}
             onChange={(e) => setV((p) => ({ ...p, description: e.target.value }))}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             rows={6}
             disabled={props.disabled}
           />
@@ -695,7 +786,7 @@ function BasicsPanel(props: {
           disabled={props.disabled}
           className={cn(
             "rounded-xl px-4 py-2 text-sm font-semibold",
-            props.disabled ? "bg-neutral-200 text-neutral-500" : "bg-neutral-900 text-white hover:bg-neutral-800"
+            props.disabled ? "bg-warm-alt text-muted" : "bg-brand text-accent-text hover:bg-brand-hover"
           )}
         >
           Save basics
@@ -721,11 +812,11 @@ function LocationPanel(props: {
   const canSave = city.trim().length > 0 && Number.isFinite(latNum) && Number.isFinite(lngNum);
 
   return (
-    <section className="rounded-2xl border border-neutral-200 bg-white p-5 shadow-sm">
+    <section className="rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-base font-semibold text-neutral-900">Location</h3>
-          <p className="mt-1 text-sm text-neutral-600">
+          <h3 className="text-base font-semibold text-primary">Location</h3>
+          <p className="mt-1 text-sm text-secondary">
             For now: manual lat/lng. Next step: map pin UX.
           </p>
         </div>
@@ -736,7 +827,7 @@ function LocationPanel(props: {
           <input
             value={city}
             onChange={(e) => setCity(e.target.value)}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
           />
         </Field>
@@ -745,7 +836,7 @@ function LocationPanel(props: {
           <input
             value={area}
             onChange={(e) => setArea(e.target.value)}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
           />
         </Field>
@@ -754,7 +845,7 @@ function LocationPanel(props: {
           <input
             value={address}
             onChange={(e) => setAddress(e.target.value)}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
           />
         </Field>
@@ -763,7 +854,7 @@ function LocationPanel(props: {
           <input
             value={lat}
             onChange={(e) => setLat(e.target.value)}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
             placeholder="25.2048"
           />
@@ -773,7 +864,7 @@ function LocationPanel(props: {
           <input
             value={lng}
             onChange={(e) => setLng(e.target.value)}
-            className="w-full rounded-xl border border-neutral-200 bg-white px-3 py-2 text-sm text-neutral-900"
+            className="w-full rounded-xl border border-line bg-surface px-3 py-2 text-sm text-primary"
             disabled={props.disabled}
             placeholder="55.2708"
           />
@@ -795,7 +886,7 @@ function LocationPanel(props: {
           }
           className={cn(
             "rounded-xl px-4 py-2 text-sm font-semibold",
-            props.disabled || !canSave ? "bg-neutral-200 text-neutral-500" : "bg-neutral-900 text-white hover:bg-neutral-800"
+            props.disabled || !canSave ? "bg-warm-alt text-muted" : "bg-brand text-accent-text hover:bg-brand-hover"
           )}
         >
           Save location

@@ -76,7 +76,7 @@ export class VendorStatementsService {
       currency: string;
     },
   ) {
-    const currency = (args.currency ?? '').trim() || 'PKR';
+    const currency = (args.currency ?? '').trim() || 'AED';
 
     const statement = await tx.vendorStatement.upsert({
       where: {
@@ -183,7 +183,7 @@ export class VendorStatementsService {
       throw new BadRequestException('Invalid month (1..12).');
     }
 
-    const currency = (args.currency ?? '').trim() || 'PKR';
+    const currency = (args.currency ?? '').trim() || 'AED';
     const periodStart = startOfMonthUtc(year, month);
     const periodEnd = startOfNextMonthUtc(year, month);
 
@@ -213,7 +213,7 @@ export class VendorStatementsService {
       throw new BadRequestException('Invalid month (1..12).');
     }
 
-    const currency = (args.currency ?? '').trim() || 'PKR';
+    const currency = (args.currency ?? '').trim() || 'AED';
     const periodStart = startOfMonthUtc(year, month);
     const periodEnd = startOfNextMonthUtc(year, month);
 

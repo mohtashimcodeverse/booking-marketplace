@@ -29,6 +29,45 @@ export type AdminListResponse = {
   totalPages?: number;
 };
 
+export type AdminBookingDocument = {
+  id: string;
+  bookingId: string;
+  uploadedByUserId: string;
+  type: "PASSPORT" | "EMIRATES_ID" | "VISA" | "ARRIVAL_FORM" | "OTHER";
+  notes: string | null;
+  originalName: string;
+  mimeType: string | null;
+  sizeBytes: number;
+  createdAt: string;
+  uploadedByUser?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+  } | null;
+};
+
+export type AdminGuestReview = {
+  id: string;
+  rating: number;
+  title: string | null;
+  comment: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  adminNotes: string | null;
+  createdAt: string;
+  reviewedAt: string | null;
+  property: {
+    id: string;
+    title: string;
+    slug: string;
+    city: string;
+  };
+  customer: {
+    id: string;
+    fullName: string | null;
+    email: string;
+  };
+};
+
 export async function getAdminOverview(): Promise<AdminOverviewResponse> {
   const res = await apiFetch<AdminOverviewResponse>("/portal/admin/overview", {
     method: "GET",
@@ -123,6 +162,99 @@ export async function getAdminOpsTasks(params?: { page?: number; pageSize?: numb
     cache: "no-store",
     query: { page: params?.page ?? 1, pageSize: params?.pageSize ?? 10 },
   });
+  return unwrap(res);
+}
+
+export async function listAdminBookingDocuments(
+  bookingId: string
+): Promise<AdminBookingDocument[]> {
+  const res = await apiFetch<AdminBookingDocument[]>(
+    `/portal/admin/bookings/${encodeURIComponent(bookingId)}/documents`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
+export async function downloadAdminBookingDocument(
+  bookingId: string,
+  documentId: string
+): Promise<Blob> {
+  const res = await apiFetch<Blob>(
+    `/portal/admin/bookings/${encodeURIComponent(bookingId)}/documents/${encodeURIComponent(documentId)}/download`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      responseType: "blob",
+      headers: {
+        Accept: "application/octet-stream",
+      },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function getAdminGuestReviews(params?: {
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  page?: number;
+  pageSize?: number;
+}): Promise<{
+  items: AdminGuestReview[];
+  page: number;
+  pageSize: number;
+  total: number;
+}> {
+  const res = await apiFetch<{
+    items: AdminGuestReview[];
+    page: number;
+    pageSize: number;
+    total: number;
+  }>("/admin/reviews", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    query: {
+      status: params?.status ?? "",
+      page: params?.page ?? 1,
+      pageSize: params?.pageSize ?? 20,
+    },
+  });
+  return unwrap(res);
+}
+
+export async function approveAdminGuestReview(
+  reviewId: string,
+  adminNotes?: string
+): Promise<{ ok: true }> {
+  const res = await apiFetch<{ ok: true }>(
+    `/admin/reviews/${encodeURIComponent(reviewId)}/approve`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: { adminNotes: adminNotes?.trim() || undefined },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function rejectAdminGuestReview(
+  reviewId: string,
+  adminNotes?: string
+): Promise<{ ok: true }> {
+  const res = await apiFetch<{ ok: true }>(
+    `/admin/reviews/${encodeURIComponent(reviewId)}/reject`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: { adminNotes: adminNotes?.trim() || undefined },
+    }
+  );
   return unwrap(res);
 }
 
@@ -233,11 +365,47 @@ export type AdminPropertyDeletionRequest = {
   } | null;
 };
 
+export type AdminPropertyUnpublishRequest = {
+  id: string;
+  propertyId: string;
+  propertyTitleSnapshot: string;
+  propertyCitySnapshot: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reason: string | null;
+  reviewedAt: string | null;
+  adminNotes: string | null;
+  createdAt: string;
+  updatedAt: string;
+  property?: {
+    id: string;
+    title: string;
+    city: string | null;
+    status: string;
+  } | null;
+  requestedByVendor?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+  } | null;
+  reviewedByAdmin?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+  } | null;
+};
+
 export type AdminPropertyDeletionRequestListResponse = {
   page: number;
   pageSize: number;
   total: number;
   items: AdminPropertyDeletionRequest[];
+};
+
+export type AdminPropertyUnpublishRequestListResponse = {
+  page: number;
+  pageSize: number;
+  total: number;
+  items: AdminPropertyUnpublishRequest[];
 };
 
 export type AdminPropertyDetail = Record<string, unknown> & {
@@ -336,17 +504,19 @@ export async function reorderAdminPropertyMedia(propertyId: string, orderedIds: 
     method: "POST",
     credentials: "include",
     cache: "no-store",
-    body: { orderedIds },
+    body: { orderedMediaIds: orderedIds },
   });
   return unwrap(res);
 }
 
 export async function deleteAdminPropertyMedia(
   propertyId: string,
-  mediaId: string
+  mediaId: string,
+  options?: { overrideReadiness?: boolean }
 ): Promise<AdminMediaItem[]> {
+  const query = options?.overrideReadiness ? "?overrideReadiness=true" : "";
   const res = await apiFetch<AdminMediaItem[]>(
-    `/admin/properties/${encodeURIComponent(propertyId)}/media/${encodeURIComponent(mediaId)}`,
+    `/admin/properties/${encodeURIComponent(propertyId)}/media/${encodeURIComponent(mediaId)}${query}`,
     {
       method: "DELETE",
       credentials: "include",
@@ -424,6 +594,59 @@ export async function rejectAdminPropertyDeletionRequest(
 ): Promise<AdminPropertyDeletionRequest> {
   const res = await apiFetch<AdminPropertyDeletionRequest>(
     `/admin/properties/deletion-requests/${encodeURIComponent(requestId)}/reject`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: { notes: notes?.trim() || undefined },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function getAdminPropertyUnpublishRequests(params?: {
+  status?: "PENDING" | "APPROVED" | "REJECTED";
+  page?: number;
+  pageSize?: number;
+}): Promise<AdminPropertyUnpublishRequestListResponse> {
+  const res = await apiFetch<AdminPropertyUnpublishRequestListResponse>(
+    "/admin/properties/unpublish-requests",
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      query: {
+        status: params?.status ?? "",
+        page: params?.page ?? 1,
+        pageSize: params?.pageSize ?? 20,
+      },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function approveAdminPropertyUnpublishRequest(
+  requestId: string,
+  notes?: string
+): Promise<AdminPropertyUnpublishRequest> {
+  const res = await apiFetch<AdminPropertyUnpublishRequest>(
+    `/admin/properties/unpublish-requests/${encodeURIComponent(requestId)}/approve`,
+    {
+      method: "POST",
+      credentials: "include",
+      cache: "no-store",
+      body: { notes: notes?.trim() || undefined },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function rejectAdminPropertyUnpublishRequest(
+  requestId: string,
+  notes?: string
+): Promise<AdminPropertyUnpublishRequest> {
+  const res = await apiFetch<AdminPropertyUnpublishRequest>(
+    `/admin/properties/unpublish-requests/${encodeURIComponent(requestId)}/reject`,
     {
       method: "POST",
       credentials: "include",

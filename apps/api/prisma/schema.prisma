@@ -36,6 +36,7 @@ enum PropertyStatus {
   REJECTED
   PUBLISHED
   SUSPENDED
+  ARCHIVED
 }
 
 enum BookingStatus {
@@ -317,6 +318,37 @@ enum PropertyDeletionRequestStatus {
   REJECTED
 }
 
+enum PropertyUnpublishRequestStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum MessageCounterpartyRole {
+  VENDOR
+  CUSTOMER
+}
+
+enum BookingDocumentType {
+  PASSPORT
+  EMIRATES_ID
+  VISA
+  SELFIE
+  OTHER
+}
+
+enum GuestReviewStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum FxQuoteCurrency {
+  USD
+  EUR
+  GBP
+}
+
 model User {
   id           String   @id @default(uuid())
   email        String   @unique
@@ -359,8 +391,19 @@ model User {
   // ✅ Admin-created listings audit (optional)
   createdPropertiesAsAdmin Property[] @relation("PropertyCreatedByAdmin")
 
-  propertyDeletionRequestsAsVendor PropertyDeletionRequest[] @relation("PropertyDeletionRequestedByVendor")
-  propertyDeletionReviewsAsAdmin   PropertyDeletionRequest[] @relation("PropertyDeletionReviewedByAdmin")
+  propertyDeletionRequestsAsVendor  PropertyDeletionRequest[]  @relation("PropertyDeletionRequestedByVendor")
+  propertyDeletionReviewsAsAdmin    PropertyDeletionRequest[]  @relation("PropertyDeletionReviewedByAdmin")
+  propertyUnpublishRequestsAsVendor PropertyUnpublishRequest[] @relation("PropertyUnpublishRequestedByVendor")
+  propertyUnpublishReviewsAsAdmin   PropertyUnpublishRequest[] @relation("PropertyUnpublishReviewedByAdmin")
+
+  adminMessageThreads        MessageThread[] @relation("MessageThreadAdmin")
+  counterpartyMessageThreads MessageThread[] @relation("MessageThreadCounterparty")
+  sentMessages               Message[]       @relation("MessageSender")
+
+  uploadedBookingDocuments BookingDocument[] @relation("BookingDocumentUploadedByUser")
+
+  guestReviews          GuestReview[] @relation("GuestReviewCustomer")
+  moderatedGuestReviews GuestReview[] @relation("GuestReviewModeratedByAdmin")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -524,7 +567,7 @@ model Property {
 
   // ✅ Admin-created audit (optional). If present, listing skipped vendor review.
   createdByAdminId String?
-  createdByAdmin   User? @relation("PropertyCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
+  createdByAdmin   User?   @relation("PropertyCreatedByAdmin", fields: [createdByAdminId], references: [id], onDelete: SetNull)
 
   title       String
   slug        String  @unique
@@ -545,7 +588,7 @@ model Property {
 
   basePrice   Int
   cleaningFee Int    @default(0)
-  currency    String @default("PKR")
+  currency    String @default("AED")
 
   minNights      Int     @default(1)
   maxNights      Int?
@@ -556,10 +599,12 @@ model Property {
 
   status PropertyStatus @default(DRAFT)
 
-  media     Media[]
-  documents PropertyDocument[]
-  reviews   PropertyReview[]
-  deletionRequests PropertyDeletionRequest[]
+  media             Media[]
+  documents         PropertyDocument[]
+  reviews           PropertyReview[]
+  deletionRequests  PropertyDeletionRequest[]
+  unpublishRequests PropertyUnpublishRequest[]
+  guestReviews      GuestReview[]
 
   amenities PropertyAmenity[]
   bookings  Booking[]
@@ -686,13 +731,13 @@ model PropertyDeletionRequest {
   propertyCitySnapshot  String?
 
   requestedByVendorId String
-  requestedByVendor   User @relation("PropertyDeletionRequestedByVendor", fields: [requestedByVendorId], references: [id], onDelete: Cascade)
+  requestedByVendor   User   @relation("PropertyDeletionRequestedByVendor", fields: [requestedByVendorId], references: [id], onDelete: Cascade)
 
   status PropertyDeletionRequestStatus @default(PENDING)
   reason String?
 
   reviewedByAdminId String?
-  reviewedByAdmin   User? @relation("PropertyDeletionReviewedByAdmin", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  reviewedByAdmin   User?     @relation("PropertyDeletionReviewedByAdmin", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
   reviewedAt        DateTime?
   adminNotes        String?
 
@@ -703,6 +748,147 @@ model PropertyDeletionRequest {
   @@index([requestedByVendorId])
   @@index([status])
   @@index([createdAt])
+}
+
+model PropertyUnpublishRequest {
+  id String @id @default(uuid())
+
+  propertyId String?
+  property   Property? @relation(fields: [propertyId], references: [id], onDelete: SetNull)
+
+  propertyTitleSnapshot String
+  propertyCitySnapshot  String?
+
+  requestedByVendorId String
+  requestedByVendor   User   @relation("PropertyUnpublishRequestedByVendor", fields: [requestedByVendorId], references: [id], onDelete: Cascade)
+
+  status PropertyUnpublishRequestStatus @default(PENDING)
+  reason String?
+
+  reviewedByAdminId String?
+  reviewedByAdmin   User?     @relation("PropertyUnpublishReviewedByAdmin", fields: [reviewedByAdminId], references: [id], onDelete: SetNull)
+  reviewedAt        DateTime?
+  adminNotes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId])
+  @@index([requestedByVendorId])
+  @@index([status])
+  @@index([createdAt])
+}
+
+model MessageThread {
+  id String @id @default(uuid())
+
+  adminId String
+  admin   User   @relation("MessageThreadAdmin", fields: [adminId], references: [id], onDelete: Cascade)
+
+  counterpartyUserId String
+  counterpartyUser   User                    @relation("MessageThreadCounterparty", fields: [counterpartyUserId], references: [id], onDelete: Cascade)
+  counterpartyRole   MessageCounterpartyRole
+
+  subject String?
+
+  lastMessageAt          DateTime?
+  lastMessagePreview     String?
+  lastMessageSenderId    String?
+  adminLastReadAt        DateTime?
+  counterpartyLastReadAt DateTime?
+
+  messages Message[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([adminId, counterpartyUserId], map: "uniq_message_thread_admin_counterparty")
+  @@index([counterpartyUserId, counterpartyRole])
+  @@index([lastMessageAt])
+}
+
+model Message {
+  id String @id @default(cuid())
+
+  threadId String
+  thread   MessageThread @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation("MessageSender", fields: [senderId], references: [id], onDelete: Cascade)
+
+  body String
+
+  createdAt DateTime @default(now())
+
+  @@index([threadId, createdAt])
+  @@index([senderId])
+}
+
+model BookingDocument {
+  id String @id @default(uuid())
+
+  bookingId String
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  uploadedByUserId String
+  uploadedByUser   User   @relation("BookingDocumentUploadedByUser", fields: [uploadedByUserId], references: [id], onDelete: Cascade)
+
+  type BookingDocumentType @default(OTHER)
+
+  storageKey   String
+  originalName String?
+  mimeType     String?
+  notes        String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([bookingId])
+  @@index([uploadedByUserId])
+  @@index([type])
+}
+
+model GuestReview {
+  id String @id @default(uuid())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  bookingId String  @unique
+  booking   Booking @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+
+  customerId String
+  customer   User   @relation("GuestReviewCustomer", fields: [customerId], references: [id], onDelete: Cascade)
+
+  rating  Int
+  title   String?
+  comment String?
+
+  status GuestReviewStatus @default(PENDING)
+
+  moderatedByAdminId String?
+  moderatedByAdmin   User?     @relation("GuestReviewModeratedByAdmin", fields: [moderatedByAdminId], references: [id], onDelete: SetNull)
+  moderatedAt        DateTime?
+  moderationNotes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([propertyId, status])
+  @@index([customerId, createdAt])
+}
+
+model FxRate {
+  id String @id @default(cuid())
+
+  baseCurrency  String          @default("AED")
+  quoteCurrency FxQuoteCurrency
+  rate          Decimal         @db.Decimal(18, 8)
+  asOfDate      DateTime
+  updatedAt     DateTime        @updatedAt
+
+  @@unique([baseCurrency, quoteCurrency, asOfDate], map: "uniq_fx_rate_base_quote_date")
+  @@index([asOfDate])
 }
 
 model Booking {
@@ -726,7 +912,7 @@ model Booking {
   status BookingStatus @default(PENDING_PAYMENT)
 
   totalAmount Int
-  currency    String @default("PKR")
+  currency    String @default("AED")
 
   idempotencyKey     String?
   idempotencyRecords BookingIdempotency[]
@@ -748,7 +934,9 @@ model Booking {
 
   ledgerEntries LedgerEntry[] @relation("LedgerEntryBooking")
 
-  refunds Refund[]
+  refunds     Refund[]
+  documents   BookingDocument[]
+  guestReview GuestReview?
 
   opsTasks    OpsTask[]
   maintenance MaintenanceRequest[]
@@ -785,7 +973,7 @@ model Payment {
   status   PaymentStatus   @default(REQUIRES_ACTION)
 
   amount   Int
-  currency String @default("PKR")
+  currency String @default("AED")
 
   providerRef String?
 
@@ -900,7 +1088,7 @@ model BookingCancellation {
   managementFee    Int    @default(0)
   penaltyAmount    Int    @default(0)
   refundableAmount Int    @default(0)
-  currency         String @default("PKR")
+  currency         String @default("AED")
 
   releasesInventory Boolean @default(true)
 
@@ -954,7 +1142,7 @@ model Refund {
   reason RefundReason @default(CANCELLATION)
 
   amount   Int
-  currency String @default("PKR")
+  currency String @default("AED")
 
   ledgerEntries LedgerEntry[] @relation("LedgerEntryRefund")
 
@@ -980,7 +1168,7 @@ model SecurityDepositPolicy {
 
   mode     SecurityDepositMode @default(NONE)
   amount   Int                 @default(0)
-  currency String              @default("PKR")
+  currency String              @default("AED")
 
   // How long after checkout we keep the deposit before auto-release (if you later add automation)
   holdDaysAfterCheckout Int @default(0)
@@ -1010,7 +1198,7 @@ model SecurityDeposit {
   status SecurityDepositStatus @default(REQUIRED)
 
   amount   Int
-  currency String @default("PKR")
+  currency String @default("AED")
 
   provider    PaymentProvider @default(MANUAL)
   providerRef String?
@@ -1042,7 +1230,7 @@ model VendorStatement {
   periodStart DateTime
   periodEnd   DateTime
 
-  currency String @default("PKR")
+  currency String @default("AED")
 
   status VendorStatementStatus @default(DRAFT)
 
@@ -1083,7 +1271,7 @@ model Payout {
   status PayoutStatus @default(PENDING)
 
   amount   Int
-  currency String @default("PKR")
+  currency String @default("AED")
 
   provider    PaymentProvider @default(MANUAL)
   providerRef String?
@@ -1126,7 +1314,7 @@ model LedgerEntry {
   direction LedgerDirection
 
   amount   Int
-  currency String @default("PKR")
+  currency String @default("AED")
 
   occurredAt DateTime @default(now())
 
@@ -1161,8 +1349,8 @@ model NotificationEvent {
 
   payloadJson String
 
-  attempts  Int     @default(0)
-  lastError String?
+  attempts      Int      @default(0)
+  lastError     String?
   nextAttemptAt DateTime @default(now())
 
   createdAt DateTime  @default(now())
@@ -1258,7 +1446,7 @@ model PropertyServiceConfig {
   inspectionFee    Int?
   restockFee       Int?
 
-  currency String @default("PKR")
+  currency String @default("AED")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -1345,7 +1533,7 @@ model WorkOrder {
 
   costEstimate Int?
   actualCost   Int?
-  currency     String @default("PKR")
+  currency     String @default("AED")
 
   notes String?
 

@@ -29,17 +29,17 @@ export default function OwnerProcess() {
   ];
 
   return (
-    <section className="relative w-full bg-[var(--tourm-bg)] py-14 sm:py-18">
+    <section className="relative w-full py-14 sm:py-18">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
         <div className="max-w-3xl">
-          <p className="inline-flex items-center gap-2 rounded-full border border-stone bg-white/70 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.22em] text-ink/70 shadow-sm backdrop-blur">
-            <span className="inline-block h-2 w-2 rounded-full bg-[#16a6c8]" />
+          <p className="inline-flex items-center gap-2 rounded-full border border-line bg-surface/70 px-3 py-1.5 text-xs font-extrabold uppercase tracking-[0.22em] text-secondary/70 shadow-sm backdrop-blur">
+            <span className="inline-block h-2 w-2 rounded-full bg-brand" />
             Process
           </p>
-          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-midnight sm:text-3xl">
+          <h2 className="mt-4 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
             Onboarding designed for operational success
           </h2>
-          <p className="mt-2 text-sm text-ink/75 sm:text-base">
+          <p className="mt-2 text-sm text-secondary/75 sm:text-base">
             We care about long-term reliability: calendar discipline, standards, and auditability — so
             operations don’t fall apart after launch.
           </p>
@@ -49,21 +49,21 @@ export default function OwnerProcess() {
           {steps.map((s) => (
             <div
               key={s.n}
-              className="rounded-2xl border border-stone bg-white/55 p-6 shadow-[0_18px_60px_rgba(2,10,20,0.05)] transition hover:-translate-y-0.5"
+              className="premium-card premium-card-tinted premium-card-hover card-accent-left rounded-2xl p-6"
             >
-              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-ink/60">
+              <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-secondary/60">
                 Step {s.n}
               </p>
-              <p className="mt-3 text-lg font-semibold text-midnight">{s.title}</p>
-              <p className="mt-2 text-sm leading-relaxed text-ink/75">{s.desc}</p>
-              <div className="mt-4 h-1.5 w-10 rounded-full bg-[#16a6c8]/20" />
+              <p className="mt-3 text-lg font-semibold text-primary">{s.title}</p>
+              <p className="mt-2 text-sm leading-relaxed text-secondary/75">{s.desc}</p>
+              <div className="mt-4 h-1.5 w-10 rounded-full bg-brand/20" />
             </div>
           ))}
         </div>
       </div>
 
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-1/2 top-10 h-44 w-[92%] -translate-x-1/2 rounded-[2.5rem] border border-stone bg-white/40" />
+        <div className="absolute left-1/2 top-10 h-44 w-[92%] -translate-x-1/2 rounded-[2.5rem] border border-line bg-surface/40" />
       </div>
     </section>
   );

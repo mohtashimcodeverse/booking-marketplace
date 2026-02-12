@@ -26,4 +26,15 @@ export class PropertiesController {
     if (!property) throw new NotFoundException('Property not found');
     return property;
   }
+
+  @Get(':slug/calendar')
+  async calendar(
+    @Param('slug') slug: string,
+    @Query('from') from?: string,
+    @Query('to') to?: string,
+  ) {
+    const result = await this.properties.publicCalendarBySlug(slug, from, to);
+    if (!result) throw new NotFoundException('Property not found');
+    return result;
+  }
 }

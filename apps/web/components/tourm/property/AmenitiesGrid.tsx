@@ -30,22 +30,22 @@ export default function AmenitiesGrid({
   const isLight = variant === "section";
 
   const shell = isLight
-    ? "rounded-2xl border border-slate-200 bg-white p-5 md:p-6"
-    : "rounded-2xl border border-white/10 bg-white/[0.03] p-5 md:p-6";
+    ? "rounded-2xl border border-line bg-surface p-5 md:p-6"
+    : "rounded-2xl border border-inverted/10 bg-surface/[0.03] p-5 md:p-6";
 
-  const titleText = isLight ? "text-slate-900" : "text-white/90";
-  const subText = isLight ? "text-slate-600" : "text-white/60";
+  const titleText = isLight ? "text-primary" : "text-inverted/90";
+  const subText = isLight ? "text-secondary" : "text-inverted/60";
 
-  const itemBorder = isLight ? "border-slate-200" : "border-white/10";
-  const itemBg = isLight ? "bg-white" : "bg-white/[0.02]";
-  const itemHover = isLight ? "hover:bg-slate-50" : "hover:bg-white/[0.04]";
+  const itemBorder = isLight ? "border-line" : "border-inverted/10";
+  const itemBg = isLight ? "bg-surface" : "bg-surface/[0.02]";
+  const itemHover = isLight ? "hover:bg-warm-alt" : "hover:bg-surface/[0.04]";
 
-  const iconWrapBorder = isLight ? "border-slate-200" : "border-white/10";
-  const iconWrapBg = isLight ? "bg-slate-50" : "bg-white/[0.03]";
-  const iconColor = isLight ? "text-slate-700" : "text-white/85";
+  const iconWrapBorder = isLight ? "border-line" : "border-inverted/10";
+  const iconWrapBg = isLight ? "bg-warm-alt" : "bg-surface/[0.03]";
+  const iconColor = isLight ? "text-secondary" : "text-inverted/85";
 
-  const labelText = isLight ? "text-slate-900" : "text-white/85";
-  const smallText = isLight ? "text-slate-500" : "text-white/50";
+  const labelText = isLight ? "text-primary" : "text-inverted/85";
+  const smallText = isLight ? "text-muted" : "text-inverted/50";
 
   return (
     <section className={shell}>

@@ -35,20 +35,20 @@ export default function ForgotPasswordPage() {
     <AuthCard title="Reset your password" subtitle="We’ll email you a reset link/token">
       {submitted ? (
         <div className="space-y-4">
-          <p className="text-sm text-neutral-700">
+          <p className="text-sm text-secondary">
             If an account exists for <span className="font-medium">{email}</span>, you’ll receive
             password reset instructions shortly.
           </p>
 
           {error ? (
-            <p className="text-xs text-neutral-500">
+            <p className="text-xs text-muted">
               Note: If you didn’t receive an email, check spam. (Debug: {error})
             </p>
           ) : null}
 
           <Link
             href="/login"
-            className="inline-flex w-full items-center justify-center rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-800"
+            className="inline-flex w-full items-center justify-center rounded-lg bg-brand py-3 text-sm font-medium text-text-invert hover:bg-brand-hover"
           >
             Back to login
           </Link>
@@ -62,19 +62,19 @@ export default function ForgotPasswordPage() {
             placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
-            className="w-full rounded-lg border px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-neutral-900"
+            className="premium-input w-full rounded-xl px-4 py-3 text-sm focus:outline-none"
           />
 
           <button
             type="submit"
             disabled={submitting}
-            className="w-full rounded-lg bg-neutral-900 py-3 text-sm font-medium text-white hover:bg-neutral-800 disabled:opacity-60"
+            className="w-full rounded-xl bg-brand py-3 text-sm font-medium text-text-invert shadow-brand-soft hover:bg-brand-hover disabled:opacity-60"
           >
             {submitting ? "Sending…" : "Send reset instructions"}
           </button>
 
           <div className="text-center">
-            <Link href="/login" className="text-sm text-neutral-600 hover:underline">
+            <Link href="/login" className="text-sm font-semibold text-brand hover:underline">
               Back to login
             </Link>
           </div>

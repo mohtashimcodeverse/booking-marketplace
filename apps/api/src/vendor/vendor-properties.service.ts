@@ -9,6 +9,7 @@ import { existsSync, unlinkSync } from 'fs';
 import {
   Prisma,
   PropertyDeletionRequestStatus,
+  PropertyUnpublishRequestStatus,
   PropertyDocumentType,
   PropertyMediaCategory,
   PropertyStatus,
@@ -114,6 +115,38 @@ export class VendorPropertiesService {
       status === PropertyStatus.UNDER_REVIEW ||
       status === PropertyStatus.PUBLISHED
     );
+  }
+
+  private async readinessIssuesAfterMediaDelete(
+    propertyId: string,
+    mediaId: string,
+  ): Promise<string[]> {
+    const remainingMedia = await this.prisma.media.findMany({
+      where: { propertyId, id: { not: mediaId } },
+      select: { category: true },
+    });
+
+    const issues: string[] = [];
+    if (remainingMedia.length < 4) {
+      issues.push('Listing must keep at least 4 photos.');
+    }
+
+    const requiredCategories: PropertyMediaCategory[] = [
+      PropertyMediaCategory.LIVING_ROOM,
+      PropertyMediaCategory.BEDROOM,
+      PropertyMediaCategory.BATHROOM,
+      PropertyMediaCategory.KITCHEN,
+    ];
+
+    const present = new Set(remainingMedia.map((item) => item.category));
+    const missing = requiredCategories.filter(
+      (category) => !present.has(category),
+    );
+    if (missing.length > 0) {
+      issues.push(`Missing required photo categories: ${missing.join(', ')}`);
+    }
+
+    return issues;
   }
 
   /* ---------------------------------------------
@@ -288,7 +321,7 @@ export class VendorPropertiesService {
             bathrooms: dto.bathrooms ?? 1,
             basePrice: dto.basePrice,
             cleaningFee: dto.cleaningFee ?? 0,
-            currency: dto.currency ?? 'PKR',
+            currency: dto.currency ?? 'AED',
             minNights: dto.minNights ?? 1,
             maxNights: dto.maxNights ?? null,
             checkInFromMin: dto.checkInFromMin ?? null,
@@ -493,7 +526,9 @@ export class VendorPropertiesService {
       missingLines.push(`- Upload document: OWNERSHIP_PROOF.`);
     }
 
-    const hasOwnerId = docs.some((d) => d.type === PropertyDocumentType.OWNER_ID);
+    const hasOwnerId = docs.some(
+      (d) => d.type === PropertyDocumentType.OWNER_ID,
+    );
     if (!hasOwnerId) {
       missingLines.push(`- Upload document: OWNER_ID.`);
     }
@@ -539,15 +574,52 @@ export class VendorPropertiesService {
   }
 
   async unpublish(vendorUserId: string, propertyId: string) {
+    return this.requestUnpublish(vendorUserId, propertyId);
+  }
+
+  async getUnpublishRequest(vendorUserId: string, propertyId: string) {
+    await this.assertOwnership(vendorUserId, propertyId);
+
+    return this.prisma.propertyUnpublishRequest.findFirst({
+      where: { propertyId, requestedByVendorId: vendorUserId },
+      orderBy: { createdAt: 'desc' },
+    });
+  }
+
+  async requestUnpublish(
+    vendorUserId: string,
+    propertyId: string,
+    reason?: string,
+  ) {
     const prop = await this.assertOwnership(vendorUserId, propertyId);
 
     if (prop.status !== PropertyStatus.PUBLISHED) {
-      throw new BadRequestException('Property is not published.');
+      throw new BadRequestException(
+        'Only published properties can request unpublish.',
+      );
     }
 
-    return this.prisma.property.update({
-      where: { id: propertyId },
-      data: { status: PropertyStatus.DRAFT },
+    const existingPending =
+      await this.prisma.propertyUnpublishRequest.findFirst({
+        where: {
+          propertyId,
+          requestedByVendorId: vendorUserId,
+          status: PropertyUnpublishRequestStatus.PENDING,
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+    if (existingPending) return existingPending;
+
+    return this.prisma.propertyUnpublishRequest.create({
+      data: {
+        propertyId,
+        propertyTitleSnapshot: prop.title,
+        propertyCitySnapshot: prop.city,
+        requestedByVendorId: vendorUserId,
+        reason: reason?.trim() || null,
+        status: PropertyUnpublishRequestStatus.PENDING,
+      },
     });
   }
 
@@ -567,14 +639,16 @@ export class VendorPropertiesService {
   ) {
     const prop = await this.assertOwnership(vendorUserId, propertyId);
 
-    const existingPending = await this.prisma.propertyDeletionRequest.findFirst({
-      where: {
-        propertyId,
-        requestedByVendorId: vendorUserId,
-        status: PropertyDeletionRequestStatus.PENDING,
+    const existingPending = await this.prisma.propertyDeletionRequest.findFirst(
+      {
+        where: {
+          propertyId,
+          requestedByVendorId: vendorUserId,
+          status: PropertyDeletionRequestStatus.PENDING,
+        },
+        orderBy: { createdAt: 'desc' },
       },
-      orderBy: { createdAt: 'desc' },
-    });
+    );
 
     if (existingPending) return existingPending;
 
@@ -691,9 +765,28 @@ export class VendorPropertiesService {
   async deleteMedia(vendorUserId: string, propertyId: string, mediaId: string) {
     const prop = await this.assertOwnership(vendorUserId, propertyId);
 
-    const media = await this.prisma.media.findUnique({ where: { id: mediaId } });
+    const media = await this.prisma.media.findUnique({
+      where: { id: mediaId },
+    });
     if (!media || media.propertyId !== propertyId) {
       throw new NotFoundException('Media not found.');
+    }
+
+    if (
+      prop.status === PropertyStatus.PUBLISHED ||
+      prop.status === PropertyStatus.UNDER_REVIEW
+    ) {
+      const issues = await this.readinessIssuesAfterMediaDelete(
+        propertyId,
+        mediaId,
+      );
+      if (issues.length > 0) {
+        throw new BadRequestException(
+          `Cannot delete media while property is ${prop.status}. ${issues.join(
+            ' ',
+          )}`,
+        );
+      }
     }
 
     await this.prisma.media.delete({ where: { id: mediaId } });

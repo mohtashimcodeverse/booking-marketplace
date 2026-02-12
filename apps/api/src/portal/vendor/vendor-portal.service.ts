@@ -494,8 +494,7 @@ export class VendorPortalService {
       throw new ForbiddenException('Property is not owned by this vendor.');
     }
 
-    const selectedPropertyId =
-      params.propertyId ?? propertyRows[0]?.id ?? null;
+    const selectedPropertyId = params.propertyId ?? propertyRows[0]?.id ?? null;
     const propertyIds = selectedPropertyId ? [selectedPropertyId] : [];
 
     const properties: PortalCalendarProperty[] = propertyRows.map((p) => ({

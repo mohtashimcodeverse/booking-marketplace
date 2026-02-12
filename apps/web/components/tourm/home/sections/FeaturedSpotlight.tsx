@@ -487,38 +487,38 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <div className="flex flex-col items-start justify-between gap-6 sm:flex-row sm:items-end">
           <div className="max-w-3xl">
-            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-ink/60">Featured</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-midnight sm:text-3xl">
+            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-secondary/60">Featured</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
               {props.title}
             </h2>
-            <p className="mt-2 text-sm text-ink/75 sm:text-base">{props.subtitle}</p>
+            <p className="mt-2 text-sm text-secondary/75 sm:text-base">{props.subtitle}</p>
           </div>
 
           <div className="flex items-center gap-3">
             <Link
               href="/properties"
-              className="inline-flex items-center gap-2 rounded-full border border-stone bg-white px-5 py-3 text-sm font-extrabold text-midnight shadow-sm transition hover:bg-sand"
+              className="inline-flex items-center gap-2 rounded-full border border-line bg-surface px-5 py-3 text-sm font-extrabold text-primary shadow-sm transition hover:bg-accent-soft/55"
             >
               View all stays
-              <span aria-hidden className="text-ink/70">→</span>
+              <span aria-hidden className="text-secondary/70">→</span>
             </Link>
 
             <div className="hidden items-center gap-2 sm:flex">
               <button
                 type="button"
                 onClick={() => moveByOne(-1)}
-                className="grid h-11 w-11 place-items-center rounded-full border border-stone bg-white shadow-sm transition hover:bg-sand"
+                className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface shadow-sm transition hover:bg-accent-soft/55"
                 aria-label="Previous"
               >
-                <ChevronLeft className="h-5 w-5 text-midnight" />
+                <ChevronLeft className="h-5 w-5 text-primary" />
               </button>
               <button
                 type="button"
                 onClick={() => moveByOne(1)}
-                className="grid h-11 w-11 place-items-center rounded-full border border-stone bg-white shadow-sm transition hover:bg-sand"
+                className="grid h-11 w-11 place-items-center rounded-full border border-line bg-surface shadow-sm transition hover:bg-accent-soft/55"
                 aria-label="Next"
               >
-                <ChevronRight className="h-5 w-5 text-midnight" />
+                <ChevronRight className="h-5 w-5 text-primary" />
               </button>
             </div>
           </div>
@@ -573,7 +573,7 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
             >
           <div
             className={[
-              "pointer-events-none absolute z-[80] hidden h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border border-white/45 bg-white/14 backdrop-blur-md transition-all duration-200 md:block",
+              "pointer-events-none absolute z-[80] hidden h-11 w-11 -translate-x-1/2 -translate-y-1/2 rounded-full border border-inverted/45 bg-surface/14 backdrop-blur-md transition-all duration-200 md:block",
               cursor.visible ? "opacity-100" : "opacity-0",
             ].join(" ")}
             style={{
@@ -608,7 +608,7 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
                 }}
               >
                 <div
-                  className="relative w-full overflow-hidden rounded-[2rem] border border-white/35 bg-white"
+                  className="group relative w-full overflow-hidden rounded-[2rem] border border-white/35 bg-white/10"
                   style={{
                     boxShadow: slot.profile.shadow,
                     transform: `scale(${slot.profile.scale})`,
@@ -618,6 +618,7 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
                     willChange: "transform, filter, opacity",
                   }}
                 >
+                  <div className="pointer-events-none absolute inset-x-7 top-0 z-20 h-[2px] rounded-full bg-gradient-to-r from-brand/80 to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                   <div className="relative w-full aspect-[4/5]">
                     {cover ? (
                       <Image
@@ -629,21 +630,26 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
                         priority={slot.off === 0}
                       />
                     ) : (
-                      <div className="h-full w-full bg-gradient-to-br from-stone to-white" />
+                      <div className="h-full w-full bg-gradient-to-br from-warm-alt to-surface" />
                     )}
 
-                    <div className="absolute inset-0" style={{ backgroundColor: `rgba(2,10,20,${slot.profile.dim})` }} />
-                    <div className="absolute inset-0 bg-gradient-to-t from-midnight/80 via-midnight/20 to-transparent" />
+                    <div className="absolute inset-0" style={{ backgroundColor: `rgba(11,15,25,${slot.profile.dim})` }} />
+                    <div className="absolute inset-0 bg-gradient-to-t from-ink/75 via-ink/24 to-transparent" />
+                    <div className="absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-t from-ink/62 to-transparent" />
 
                     <div className="absolute bottom-0 left-0 right-0 p-4 sm:p-5">
-                      <p className="truncate text-base font-extrabold text-white sm:text-lg">{title}</p>
-                      <p className="mt-1 truncate text-xs text-white/78 sm:text-sm">{loc || "Dubai"}</p>
+                      <p className="truncate text-base font-extrabold text-white drop-shadow-[0_2px_10px_rgba(11,15,25,0.66)] sm:text-lg">
+                        {title}
+                      </p>
+                      <p className="mt-1 truncate text-xs text-white/90 drop-shadow-[0_2px_10px_rgba(11,15,25,0.66)] sm:text-sm">
+                        {loc || "Dubai"}
+                      </p>
 
                       <div className="mt-3 flex items-center justify-between gap-2">
-                        <span className="text-[11px] font-bold text-white/80 sm:text-xs">
+                        <span className="rounded-full border border-white/35 bg-white/10 px-2.5 py-1 text-[11px] font-bold text-white drop-shadow-[0_2px_10px_rgba(11,15,25,0.66)] sm:text-xs">
                           {slot.item.guests ? `Up to ${slot.item.guests} guests` : "Verified listing"}
                         </span>
-                        <span className="shrink-0 rounded-full border border-white/30 bg-white/10 px-3 py-1 text-[11px] font-extrabold text-white sm:text-xs">
+                        <span className="shrink-0 rounded-full border border-white/40 bg-white/10 px-3 py-1 text-[11px] font-extrabold text-white shadow-[0_8px_20px_rgba(11,15,25,0.24)] backdrop-blur-sm sm:text-xs">
                           {price ? `from ${price}` : "View stay"}
                         </span>
                       </div>
@@ -684,7 +690,7 @@ export default function FeaturedSpotlight(props: FeaturedSpotlightProps) {
                   if (diff === 0) return;
                   moveByOne(diff > 0 ? 1 : -1);
                 }}
-                className={["h-2.5 rounded-full transition", isActive ? "w-8 bg-brand" : "w-2.5 bg-stone"].join(" ")}
+                className={["h-2.5 rounded-full transition", isActive ? "w-8 bg-brand" : "w-2.5 bg-accent-soft/70"].join(" ")}
                 aria-label={`Go to featured ${idx + 1}`}
               />
             );

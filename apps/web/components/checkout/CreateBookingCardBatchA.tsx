@@ -136,13 +136,13 @@ export function CreateBookingCardBatchA(props: { propertyId: string; holdId: str
 
   if (view.kind === "unauthorized") {
     return (
-      <div className="rounded-2xl border border-slate-200 bg-white p-6">
-        <div className="text-sm font-semibold text-slate-900">Please log in</div>
-        <p className="mt-2 text-sm text-slate-600">You must be logged in to create a booking.</p>
+      <div className="rounded-2xl border border-line bg-surface p-6">
+        <div className="text-sm font-semibold text-primary">Please log in</div>
+        <p className="mt-2 text-sm text-secondary">You must be logged in to create a booking.</p>
         <div className="mt-5">
           <Link
             href="/login"
-            className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+            className="inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
           >
             Go to login
           </Link>
@@ -152,40 +152,40 @@ export function CreateBookingCardBatchA(props: { propertyId: string; holdId: str
   }
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+    <div className="rounded-2xl border border-line bg-surface p-6 shadow-sm">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <div className="text-xs font-semibold tracking-wide text-slate-500">Checkout</div>
-          <h2 className="mt-1 text-lg font-semibold tracking-tight text-slate-900">Create booking</h2>
-          <p className="mt-2 text-sm text-slate-600">
+          <div className="text-xs font-semibold tracking-wide text-muted">Checkout</div>
+          <h2 className="mt-1 text-lg font-semibold tracking-tight text-primary">Create booking</h2>
+          <p className="mt-2 text-sm text-secondary">
             This will convert your <span className="font-semibold">ACTIVE</span> hold into a booking. Inventory safety rules are enforced by the backend.
           </p>
         </div>
 
-        <div className={classNames("rounded-xl border px-3 py-1.5 text-xs font-semibold", canCreate ? "border-slate-200 bg-slate-50 text-slate-700" : "border-rose-200 bg-rose-50 text-rose-800")}>
+        <div className={classNames("rounded-xl border px-3 py-1.5 text-xs font-semibold", canCreate ? "border-line bg-warm-alt text-secondary" : "border-danger/30 bg-danger/12 text-danger")}>
           {canCreate ? "READY" : "MISSING HOLD"}
         </div>
       </div>
 
       <div className="mt-5 grid gap-3 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <div className="text-xs font-semibold text-slate-600">Property</div>
-          <div className="mt-1 text-sm font-semibold text-slate-900 break-all">{propertyId || "—"}</div>
+        <div className="rounded-xl border border-line bg-warm-alt p-4">
+          <div className="text-xs font-semibold text-secondary">Property</div>
+          <div className="mt-1 text-sm font-semibold text-primary break-all">{propertyId || "—"}</div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <div className="text-xs font-semibold text-slate-600">Hold</div>
-          <div className="mt-1 text-sm font-semibold text-slate-900 break-all">{holdId || "—"}</div>
+        <div className="rounded-xl border border-line bg-warm-alt p-4">
+          <div className="text-xs font-semibold text-secondary">Hold</div>
+          <div className="mt-1 text-sm font-semibold text-primary break-all">{holdId || "—"}</div>
         </div>
 
-        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-          <div className="text-xs font-semibold text-slate-600">Guests</div>
-          <div className="mt-1 text-sm font-semibold text-slate-900">{props.guests}</div>
+        <div className="rounded-xl border border-line bg-warm-alt p-4">
+          <div className="text-xs font-semibold text-secondary">Guests</div>
+          <div className="mt-1 text-sm font-semibold text-primary">{props.guests}</div>
         </div>
       </div>
 
       {view.kind === "error" ? (
-        <div className="mt-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <div className="mt-4 rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger">
           {view.message}
         </div>
       ) : null}
@@ -198,8 +198,8 @@ export function CreateBookingCardBatchA(props: { propertyId: string; holdId: str
           className={classNames(
             "inline-flex items-center justify-center rounded-xl px-4 py-2 text-sm font-semibold shadow-sm",
             !canCreate || view.kind === "creating"
-              ? "cursor-not-allowed bg-slate-200 text-slate-500"
-              : "bg-slate-900 text-white hover:bg-slate-800"
+              ? "cursor-not-allowed bg-warm-alt text-muted"
+              : "bg-brand text-accent-text hover:bg-brand-hover"
           )}
         >
           {view.kind === "creating" ? "Creating…" : "Create booking"}
@@ -207,13 +207,13 @@ export function CreateBookingCardBatchA(props: { propertyId: string; holdId: str
 
         <Link
           href="/properties"
-          className="inline-flex items-center justify-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+          className="inline-flex items-center justify-center rounded-xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-warm-alt"
         >
           Back to browsing
         </Link>
       </div>
 
-      <div className="mt-4 text-xs leading-5 text-slate-500">
+      <div className="mt-4 text-xs leading-5 text-muted">
         If the hold has expired, you’ll be shown a safe message and asked to re-check dates.
       </div>
     </div>

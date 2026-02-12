@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { useMemo, useRef, useState } from "react";
-import { ChevronDown, ChevronUp, GripVertical, UploadCloud } from "lucide-react";
+import { ChevronDown, ChevronUp, GripVertical } from "lucide-react";
 
 import {
   deleteAdminPropertyMedia,
@@ -38,32 +38,30 @@ const ALL_MEDIA_CATEGORIES: MediaCategory[] = [
   "OTHER",
 ];
 
+const REQUIRED_UPLOAD_BLOCKS: Array<{ key: MediaCategory; title: string; help: string }> = [
+  { key: "LIVING_ROOM", title: "Living room", help: "Required category" },
+  { key: "BEDROOM", title: "Bedroom", help: "Required category" },
+  { key: "BATHROOM", title: "Bathroom", help: "Required category" },
+  { key: "KITCHEN", title: "Kitchen", help: "Required category" },
+];
+
+const REQUIRED_UPLOAD_SET = new Set<MediaCategory>([
+  "LIVING_ROOM",
+  "BEDROOM",
+  "BATHROOM",
+  "KITCHEN",
+]);
+
 function isMediaCategory(v: string): v is MediaCategory {
   return (ALL_MEDIA_CATEGORIES as string[]).includes(v);
 }
 
-function SelectField(props: {
-  label: string;
-  value: string;
-  onChange: (v: string) => void;
-  options: Array<{ value: string; label: string }>;
-}) {
-  return (
-    <label className="block">
-      <div className="text-xs font-semibold text-slate-700">{props.label}</div>
-      <select
-        value={props.value}
-        onChange={(e) => props.onChange(e.target.value)}
-        className="mt-1 h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
-      >
-        {props.options.map((o) => (
-          <option key={o.value} value={o.value}>
-            {o.label}
-          </option>
-        ))}
-      </select>
-    </label>
-  );
+function categoryLabel(category: MediaCategory): string {
+  return category
+    .toLowerCase()
+    .split("_")
+    .map((part) => part.slice(0, 1).toUpperCase() + part.slice(1))
+    .join(" ");
 }
 
 export function AdminPropertyMediaManager(props: {
@@ -73,21 +71,39 @@ export function AdminPropertyMediaManager(props: {
 }) {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [selectedCategory, setSelectedCategory] = useState<MediaCategory>("COVER");
-  const inputRef = useRef<HTMLInputElement | null>(null);
+  const [otherCategory, setOtherCategory] = useState<MediaCategory>("COVER");
+  const inputsRef = useRef<Record<string, HTMLInputElement | null>>({});
 
   const [media, setMedia] = useState<AdminMediaItem[]>(props.initialMedia ?? []);
   const sorted = useMemo(() => [...media].sort((a, b) => a.sortOrder - b.sortOrder), [media]);
+  const grouped = useMemo(() => {
+    const map = new Map<MediaCategory, AdminMediaItem[]>();
+    for (const item of sorted) {
+      const arr = map.get(item.category) ?? [];
+      arr.push(item);
+      map.set(item.category, arr);
+    }
+    return map;
+  }, [sorted]);
+  const optionalCategories = useMemo(
+    () => ALL_MEDIA_CATEGORIES.filter((category) => !REQUIRED_UPLOAD_SET.has(category)),
+    [],
+  );
 
   function setNext(next: AdminMediaItem[]) {
     setMedia(next);
     props.onChange?.(next);
   }
 
-  async function upload(files: FileList | null) {
+  function clearInput(key: string) {
+    const el = inputsRef.current[key];
+    if (el) el.value = "";
+  }
+
+  async function uploadAndTag(files: FileList | null, category: MediaCategory, inputKey: string) {
     if (!files || files.length === 0) return;
     setError(null);
-    setBusy("Uploading...");
+    setBusy(`Uploading to ${category}...`);
 
     try {
       const created: AdminMediaItem[] = [];
@@ -98,7 +114,7 @@ export function AdminPropertyMediaManager(props: {
 
       const tagged: AdminMediaItem[] = [];
       for (const it of created) {
-        const upd = await updateAdminPropertyMediaCategory(props.propertyId, it.id, selectedCategory);
+        const upd = await updateAdminPropertyMediaCategory(props.propertyId, it.id, category);
         tagged.push(upd);
       }
 
@@ -106,8 +122,7 @@ export function AdminPropertyMediaManager(props: {
       const createdIds = new Set(created.map((x) => x.id));
       const next = [...sorted.filter((m) => !createdIds.has(m.id)), ...tagged].sort((a, b) => a.sortOrder - b.sortOrder);
       setNext(next);
-
-      if (inputRef.current) inputRef.current.value = "";
+      clearInput(inputKey);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Upload failed");
     } finally {
@@ -200,65 +215,147 @@ export function AdminPropertyMediaManager(props: {
     }
   }
 
-  return (
-    <div className="space-y-4">
-      <div className="rounded-3xl border border-black/5 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+  function UploadBlock(propsUpload: {
+    category: MediaCategory;
+    title: string;
+    help: string;
+    accent?: "required" | "optional";
+    inputId: string;
+  }) {
+    const count = grouped.get(propsUpload.category)?.length ?? 0;
+    return (
+      <div className="rounded-2xl border border-line/80 bg-surface p-4 shadow-sm">
+        <div className="flex items-start justify-between gap-3">
           <div>
-            <div className="text-sm font-semibold text-slate-900">Images</div>
-            <div className="mt-1 text-sm text-slate-600">
-              Upload images, choose category (including <span className="font-semibold">COVER</span>), and reorder by drag.
+            <div className="flex items-center gap-2">
+              <div className="text-sm font-semibold text-primary">{propsUpload.title}</div>
+              <span
+                className={[
+                  "rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
+                  propsUpload.accent === "required"
+                    ? "bg-warning/12 text-warning ring-warning/30"
+                    : "bg-warm-alt text-secondary ring-line",
+                ].join(" ")}
+              >
+                {propsUpload.help}
+              </span>
             </div>
+            <div className="mt-1 text-xs text-muted">{count} uploaded</div>
           </div>
 
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-            <SelectField
-              label="Upload category"
-              value={selectedCategory}
-              onChange={(v) => {
-                if (isMediaCategory(v)) setSelectedCategory(v);
+          <div className="flex items-center gap-2">
+            <input
+              ref={(el) => {
+                inputsRef.current[propsUpload.inputId] = el;
               }}
-              options={ALL_MEDIA_CATEGORIES.map((c) => ({ value: c, label: c }))}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              id={propsUpload.inputId}
+              onChange={(event) => {
+                void uploadAndTag(event.target.files, propsUpload.category, propsUpload.inputId);
+              }}
             />
+            <label
+              htmlFor={propsUpload.inputId}
+              className="cursor-pointer rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
+            >
+              Upload
+            </label>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
-            <div>
-              <div className="text-xs font-semibold text-slate-700">Upload</div>
-              <div className="mt-1 flex items-center gap-2">
-                <input
-                  ref={(el) => {
-                    inputRef.current = el;
-                  }}
-                  type="file"
-                  accept="image/*"
-                  multiple
-                  className="hidden"
-                  id="admin-create-media-upload"
-                  onChange={(e) => void upload(e.target.files)}
-                />
-                <label
-                  htmlFor="admin-create-media-upload"
-                  className="inline-flex h-11 cursor-pointer items-center gap-2 rounded-2xl bg-[#16A6C8] px-4 text-sm font-semibold text-white shadow-sm hover:opacity-95"
-                >
-                  <UploadCloud className="h-4 w-4" />
-                  Upload
-                </label>
-              </div>
-            </div>
+  return (
+    <div className="space-y-4">
+      <div className="rounded-3xl border border-line/50 bg-surface p-5 shadow-sm">
+        <div>
+          <div className="text-sm font-semibold text-primary">Images</div>
+          <div className="mt-1 text-sm text-secondary">
+            Vendor-style upload blocks with required categories:
+            <span className="font-semibold"> LIVING_ROOM, BEDROOM, BATHROOM, KITCHEN</span>.
           </div>
         </div>
 
         {busy ? (
-          <div className="mt-4 rounded-2xl border border-black/10 bg-[#f6f3ec] p-3 text-sm text-slate-700">{busy}</div>
+          <div className="mt-4 rounded-2xl border border-line/80 bg-warm-base p-3 text-sm text-secondary">{busy}</div>
         ) : null}
         {error ? (
-          <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 p-3 text-sm text-rose-800 whitespace-pre-wrap">
+          <div className="mt-4 rounded-2xl border border-danger/30 bg-danger/12 p-3 text-sm text-danger whitespace-pre-wrap">
             {error}
           </div>
         ) : null}
       </div>
 
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        {REQUIRED_UPLOAD_BLOCKS.map((block) => (
+          <UploadBlock
+            key={block.key}
+            category={block.key}
+            title={block.title}
+            help={block.help}
+            accent="required"
+            inputId={`admin-create-upload-${block.key}`}
+          />
+        ))}
+
+        <div className="rounded-2xl border border-line/80 bg-surface p-4 shadow-sm">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-semibold text-primary">Other photos</div>
+                <span className="rounded-full bg-warm-alt px-2.5 py-1 text-xs font-semibold text-secondary ring-1 ring-line">
+                  Optional
+                </span>
+              </div>
+              <div className="mt-1 text-xs text-muted">Upload cover, view, building, amenities, and more.</div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <select
+                value={otherCategory}
+                onChange={(event) => {
+                  const value = event.target.value;
+                  if (isMediaCategory(value)) setOtherCategory(value);
+                }}
+                className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary"
+              >
+                {optionalCategories.map((category) => (
+                  <option key={category} value={category}>
+                    {categoryLabel(category)}
+                  </option>
+                ))}
+              </select>
+
+              <input
+                ref={(el) => {
+                  inputsRef.current["OTHER_UPLOADER"] = el;
+                }}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                id="admin-create-upload-other"
+                onChange={(event) => {
+                  void uploadAndTag(event.target.files, otherCategory, "OTHER_UPLOADER");
+                }}
+              />
+              <label
+                htmlFor="admin-create-upload-other"
+                className="cursor-pointer rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
+              >
+                Upload
+              </label>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {sorted.length === 0 ? (
-        <div className="rounded-3xl border border-dashed border-black/20 bg-[#f6f3ec] p-8 text-sm text-slate-700">
+        <div className="rounded-3xl border border-dashed border-line/80 bg-warm-base p-8 text-sm text-secondary">
           No images yet.
         </div>
       ) : (
@@ -266,33 +363,33 @@ export function AdminPropertyMediaManager(props: {
           {sorted.map((m) => (
             <div
               key={m.id}
-              className="rounded-3xl border border-black/5 bg-white shadow-sm overflow-hidden"
+              className="rounded-3xl border border-line/50 bg-surface shadow-sm overflow-hidden"
               draggable
               onDragStart={() => setDragId(m.id)}
               onDragOver={(e) => e.preventDefault()}
               onDrop={() => void dropOn(m.id)}
               title="Drag to reorder"
             >
-              <div className="relative aspect-[4/3] bg-[#f6f3ec]">
+              <div className="relative aspect-[4/3] bg-warm-base">
                 <Image src={m.url} alt={m.alt ?? "Media"} fill className="object-cover" sizes="(max-width: 1024px) 50vw, 33vw" />
-                <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm">
-                  <GripVertical className="h-3.5 w-3.5 text-slate-600" />
+                <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-primary shadow-sm">
+                  <GripVertical className="h-3.5 w-3.5 text-secondary" />
                   #{m.sortOrder}
                 </div>
-                <div className="absolute right-3 top-3 rounded-full bg-white/90 px-3 py-1 text-xs font-semibold text-slate-900 shadow-sm">
+                <div className="absolute right-3 top-3 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-primary shadow-sm">
                   {m.category}
                 </div>
               </div>
 
               <div className="p-4 space-y-3">
-                <div className="text-xs font-semibold text-slate-600">Category</div>
+                <div className="text-xs font-semibold text-secondary">Category</div>
                 <select
                   value={m.category}
                   onChange={(e) => {
                     const v = e.target.value;
                     if (isMediaCategory(v)) void changeCategory(m.id, v);
                   }}
-                  className="h-11 w-full rounded-2xl border border-black/10 bg-white px-4 text-sm font-semibold text-slate-900 shadow-sm outline-none focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15"
+                  className="h-11 w-full rounded-2xl border border-line/80 bg-surface px-4 text-sm font-semibold text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
                   disabled={busy !== null}
                 >
                   {ALL_MEDIA_CATEGORIES.map((c) => (
@@ -307,7 +404,7 @@ export function AdminPropertyMediaManager(props: {
                     type="button"
                     onClick={() => void move(m.id, -1)}
                     disabled={busy !== null || m.sortOrder === 0}
-                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-line/80 bg-surface text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-50"
                   >
                     <ChevronUp className="h-4 w-4" />
                     Up
@@ -316,7 +413,7 @@ export function AdminPropertyMediaManager(props: {
                     type="button"
                     onClick={() => void move(m.id, 1)}
                     disabled={busy !== null}
-                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-black/10 bg-white text-sm font-semibold text-slate-900 shadow-sm hover:bg-slate-50 disabled:opacity-50"
+                    className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-2xl border border-line/80 bg-surface text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-50"
                   >
                     <ChevronDown className="h-4 w-4" />
                     Down
@@ -327,12 +424,12 @@ export function AdminPropertyMediaManager(props: {
                   type="button"
                   onClick={() => void remove(m.id)}
                   disabled={busy !== null}
-                  className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-rose-200 bg-rose-50 text-sm font-semibold text-rose-700 hover:bg-rose-100 disabled:opacity-50"
+                  className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-danger/30 bg-danger/12 text-sm font-semibold text-danger hover:bg-danger/12 disabled:opacity-50"
                 >
                   Delete image
                 </button>
 
-                <div className="text-xs text-slate-500">
+                <div className="text-xs text-muted">
                   Tip: set at least one image as <span className="font-semibold">COVER</span>.
                 </div>
               </div>

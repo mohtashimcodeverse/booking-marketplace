@@ -30,7 +30,10 @@ import {
   ReorderMediaDto,
   SetPropertyAmenitiesDto,
 } from '../../vendor/vendor-properties.dto';
-import { PropertyDeletionRequestStatus } from '@prisma/client';
+import {
+  PropertyDeletionRequestStatus,
+  PropertyUnpublishRequestStatus,
+} from '@prisma/client';
 
 type JwtUser = {
   id: string;
@@ -156,9 +159,19 @@ export class AdminPropertiesController {
     @Req() req: { user: JwtUser },
     @Param('propertyId', new ParseUUIDPipe()) propertyId: string,
     @Param('mediaId', new ParseUUIDPipe()) mediaId: string,
+    @Query('overrideReadiness') overrideReadinessRaw?: string,
   ) {
     this.assertAdmin(req.user);
-    return this.service.deleteMediaByAdmin(req.user.id, propertyId, mediaId);
+    const overrideReadiness =
+      typeof overrideReadinessRaw === 'string' &&
+      ['1', 'true', 'yes', 'on'].includes(overrideReadinessRaw.toLowerCase());
+
+    return this.service.deleteMediaByAdmin(
+      req.user.id,
+      propertyId,
+      mediaId,
+      overrideReadiness,
+    );
   }
 
   @Post(':id/amenities')
@@ -175,7 +188,11 @@ export class AdminPropertiesController {
   async listDeletionRequests(
     @Req() req: { user: JwtUser },
     @Query()
-    query: { status?: PropertyDeletionRequestStatus; page?: string; pageSize?: string },
+    query: {
+      status?: PropertyDeletionRequestStatus;
+      page?: string;
+      pageSize?: string;
+    },
   ) {
     this.assertAdmin(req.user);
     return this.service.listDeletionRequests({
@@ -185,6 +202,52 @@ export class AdminPropertiesController {
     });
   }
 
+  @Get('unpublish-requests')
+  async listUnpublishRequests(
+    @Req() req: { user: JwtUser },
+    @Query()
+    query: {
+      status?: PropertyUnpublishRequestStatus;
+      page?: string;
+      pageSize?: string;
+    },
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.listUnpublishRequests({
+      status: query.status,
+      page: query.page ? Number(query.page) : 1,
+      pageSize: query.pageSize ? Number(query.pageSize) : 20,
+    });
+  }
+
+  @Post('unpublish-requests/:requestId/approve')
+  async approveUnpublishRequest(
+    @Req() req: { user: JwtUser },
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+    @Body() dto: { notes?: string },
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.approveUnpublishRequest(
+      req.user.id,
+      requestId,
+      dto?.notes,
+    );
+  }
+
+  @Post('unpublish-requests/:requestId/reject')
+  async rejectUnpublishRequest(
+    @Req() req: { user: JwtUser },
+    @Param('requestId', new ParseUUIDPipe()) requestId: string,
+    @Body() dto: { notes?: string },
+  ) {
+    this.assertAdmin(req.user);
+    return this.service.rejectUnpublishRequest(
+      req.user.id,
+      requestId,
+      dto?.notes,
+    );
+  }
+
   @Post('deletion-requests/:requestId/approve')
   async approveDeletionRequest(
     @Req() req: { user: JwtUser },
@@ -192,7 +255,11 @@ export class AdminPropertiesController {
     @Body() dto: { notes?: string },
   ) {
     this.assertAdmin(req.user);
-    return this.service.approveDeletionRequest(req.user.id, requestId, dto?.notes);
+    return this.service.approveDeletionRequest(
+      req.user.id,
+      requestId,
+      dto?.notes,
+    );
   }
 
   @Post('deletion-requests/:requestId/reject')
@@ -202,7 +269,11 @@ export class AdminPropertiesController {
     @Body() dto: { notes?: string },
   ) {
     this.assertAdmin(req.user);
-    return this.service.rejectDeletionRequest(req.user.id, requestId, dto?.notes);
+    return this.service.rejectDeletionRequest(
+      req.user.id,
+      requestId,
+      dto?.notes,
+    );
   }
 
   // -------------------------

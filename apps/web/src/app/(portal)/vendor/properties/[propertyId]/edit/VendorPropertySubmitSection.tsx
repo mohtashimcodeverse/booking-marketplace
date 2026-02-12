@@ -29,37 +29,37 @@ export function VendorPropertySubmitSection(props: {
   }
 
   return (
-    <div className="rounded-2xl border bg-white p-6 space-y-4">
+    <div className="rounded-2xl border bg-surface p-6 space-y-4">
       <div>
-        <div className="text-sm font-semibold text-slate-900">Submit for review</div>
-        <div className="mt-1 text-sm text-slate-600">
+        <div className="text-sm font-semibold text-primary">Submit for review</div>
+        <div className="mt-1 text-sm text-secondary">
           Backend validates: location (lat/lng), min photos, required photo categories, and ownership proof.
         </div>
       </div>
 
       <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div className="text-sm text-slate-700">
-          Current status: <span className="font-semibold text-slate-900">{String(props.property.status)}</span>
+        <div className="text-sm text-secondary">
+          Current status: <span className="font-semibold text-primary">{String(props.property.status)}</span>
         </div>
 
         <button
           type="button"
           disabled={!canSubmit || busy}
           onClick={() => void submit()}
-          className="rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800 disabled:opacity-60"
+          className="rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-60"
         >
           {busy ? "Submitting…" : "Submit to admin"}
         </button>
       </div>
 
       {!canSubmit ? (
-        <div className="rounded-xl border bg-slate-50 px-4 py-3 text-sm text-slate-700">
+        <div className="rounded-xl border bg-warm-alt px-4 py-3 text-sm text-secondary">
           Submission is only available in <span className="font-semibold">DRAFT</span> status.
         </div>
       ) : null}
 
       {err ? (
-        <div className="rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900 whitespace-pre-wrap">
+        <div className="rounded-xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger whitespace-pre-wrap">
           {err}
         </div>
       ) : null}

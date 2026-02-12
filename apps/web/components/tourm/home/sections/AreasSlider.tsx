@@ -442,16 +442,16 @@ export default function AreasSlider({ title, subtitle, areas }: Props) {
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <div className="flex items-start justify-between gap-6">
           <div className="max-w-2xl">
-            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-slate-500">Areas</p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-900 sm:text-3xl">{title}</h2>
-            <p className="mt-2 text-sm text-slate-600 sm:text-base">{subtitle}</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.22em] text-muted">Areas</p>
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">{title}</h2>
+            <p className="mt-2 text-sm text-secondary sm:text-base">{subtitle}</p>
           </div>
 
           <div className="hidden items-center gap-2 sm:flex">
             <button
               type="button"
               onClick={() => moveByOne(-1)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(15,23,42,0.12)] bg-white shadow-[0_12px_36px_rgba(2,10,20,0.08)] transition hover:bg-slate-50"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-line bg-surface shadow-soft transition hover:bg-accent-soft/55"
               aria-label="Previous"
             >
               <ChevronLeft className="h-5 w-5" />
@@ -459,7 +459,7 @@ export default function AreasSlider({ title, subtitle, areas }: Props) {
             <button
               type="button"
               onClick={() => moveByOne(1)}
-              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(15,23,42,0.12)] bg-white shadow-[0_12px_36px_rgba(2,10,20,0.08)] transition hover:bg-slate-50"
+              className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-line bg-surface shadow-soft transition hover:bg-accent-soft/55"
               aria-label="Next"
             >
               <ChevronRight className="h-5 w-5" />
@@ -512,7 +512,7 @@ export default function AreasSlider({ title, subtitle, areas }: Props) {
                     }}
                   >
                     <div
-                      className="relative overflow-hidden rounded-[2.25rem] border border-white/40 bg-white"
+                      className="relative overflow-hidden rounded-[2.25rem] border border-white/35 bg-white/10"
                       style={{
                         width: s.cardW,
                         height: s.cardH,
@@ -534,15 +534,20 @@ export default function AreasSlider({ title, subtitle, areas }: Props) {
                           priority={s.off === 0}
                         />
                       ) : (
-                        <div className="h-full w-full bg-gradient-to-br from-slate-200 to-slate-100" />
+                        <div className="h-full w-full bg-gradient-to-br from-warm-alt to-warm-alt" />
                       )}
 
                       <div className="absolute inset-0" style={{ backgroundColor: `rgba(2,10,20,${s.profile.dim})` }} />
-                      <div className="absolute inset-0 bg-gradient-to-t from-black/58 via-black/18 to-transparent" />
+                      <div className="absolute inset-0 bg-gradient-to-t from-dark-1/58 via-dark-1/18 to-transparent" />
+                      <div className="absolute inset-x-0 bottom-0 h-[30%] bg-gradient-to-t from-ink/62 to-transparent" />
 
                       <div className="absolute bottom-0 left-0 right-0 p-4 text-center">
-                        <p className="text-2xl font-semibold tracking-tight text-white sm:text-[2rem]">{s.area.title}</p>
-                        <p className="mt-1 text-xs text-white/85 sm:text-sm">{s.area.hint || "Explore this area"}</p>
+                        <p className="text-2xl font-semibold tracking-tight text-white drop-shadow-[0_2px_10px_rgba(11,15,25,0.66)] sm:text-[2rem]">
+                          {s.area.title}
+                        </p>
+                        <p className="mt-1 text-xs text-white/90 drop-shadow-[0_2px_10px_rgba(11,15,25,0.66)] sm:text-sm">
+                          {s.area.hint || "Explore this area"}
+                        </p>
                       </div>
                     </div>
                   </Link>
@@ -557,7 +562,7 @@ export default function AreasSlider({ title, subtitle, areas }: Props) {
           <button
             type="button"
             onClick={() => moveByOne(-1)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(15,23,42,0.12)] bg-white shadow-[0_12px_36px_rgba(2,10,20,0.08)]"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-line bg-surface shadow-soft"
             aria-label="Previous"
           >
             <ChevronLeft className="h-5 w-5" />
@@ -565,7 +570,7 @@ export default function AreasSlider({ title, subtitle, areas }: Props) {
           <button
             type="button"
             onClick={() => moveByOne(1)}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-[rgba(15,23,42,0.12)] bg-white shadow-[0_12px_36px_rgba(2,10,20,0.08)]"
+            className="inline-flex h-11 w-11 items-center justify-center rounded-2xl border border-line bg-surface shadow-soft"
             aria-label="Next"
           >
             <ChevronRight className="h-5 w-5" />

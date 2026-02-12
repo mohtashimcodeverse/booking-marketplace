@@ -77,18 +77,18 @@ function Drawer(props: {
         type="button"
         aria-label="Close drawer"
         onClick={props.onClose}
-        className="absolute inset-0 bg-black/40"
+        className="absolute inset-0 bg-dark-1/40"
       />
-      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-white shadow-2xl">
+      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-surface shadow-2xl">
         <div className="flex items-center justify-between border-b px-5 py-4">
           <div className="min-w-0">
-            <div className="text-sm font-semibold text-slate-900 truncate">{props.title}</div>
-            <div className="mt-1 text-xs text-slate-500">Refund detail</div>
+            <div className="text-sm font-semibold text-primary truncate">{props.title}</div>
+            <div className="mt-1 text-xs text-muted">Refund detail</div>
           </div>
           <button
             type="button"
             onClick={props.onClose}
-            className="rounded-xl border bg-white px-3 py-2 text-xs font-semibold text-slate-900 hover:bg-slate-50"
+            className="rounded-xl border bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
           >
             Close
           </button>
@@ -187,7 +187,7 @@ export default function AdminRefundsPage() {
 
     if (state.kind === "error") {
       return (
-        <div className="rounded-2xl border border-rose-200 bg-rose-50 p-5 text-sm text-rose-800 whitespace-pre-wrap">
+        <div className="rounded-2xl border border-danger/30 bg-danger/12 p-5 text-sm text-danger whitespace-pre-wrap">
           {state.message}
         </div>
       );
@@ -199,7 +199,7 @@ export default function AdminRefundsPage() {
       <div className="space-y-5">
         <Toolbar
           title="Refunds"
-          subtitle="Track refund requests and outcomes. Open a row to view raw payload."
+          subtitle="Track refund requests and outcomes from booking and payment flows."
           searchPlaceholder="Search refund id, booking id, status, provider ref…"
           onSearch={(q) => setFilters((p) => ({ ...p, q }))}
           right={
@@ -207,7 +207,7 @@ export default function AdminRefundsPage() {
               <select
                 value={filters.status}
                 onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}
-                className="h-10 rounded-xl border bg-white px-3 text-sm font-semibold text-slate-900"
+                className="h-10 rounded-xl border bg-surface px-3 text-sm font-semibold text-primary"
               >
                 <option value="ALL">All statuses</option>
                 {derived.statuses.map((s) => (
@@ -220,73 +220,70 @@ export default function AdminRefundsPage() {
           }
         />
 
-        <div className="rounded-2xl border bg-white overflow-hidden">
-          <div className="border-b bg-slate-50 px-5 py-3">
-            <div className="text-xs font-semibold text-slate-600">Refunds</div>
-            <div className="mt-1 text-xs text-slate-500">
-              Showing <span className="font-semibold text-slate-900">{derived.filtered.length}</span> of{" "}
-              <span className="font-semibold text-slate-900">{derived.total}</span>
+        <div className="rounded-2xl border bg-surface overflow-hidden">
+          <div className="border-b bg-warm-alt px-5 py-3">
+            <div className="text-xs font-semibold text-secondary">Refunds</div>
+            <div className="mt-1 text-xs text-muted">
+              Showing <span className="font-semibold text-primary">{derived.filtered.length}</span> of{" "}
+              <span className="font-semibold text-primary">{derived.total}</span>
             </div>
           </div>
 
           {derived.filtered.length === 0 ? (
-            <div className="p-6 text-sm text-slate-600">No refunds match this filter.</div>
+            <div className="p-6 text-sm text-secondary">No refunds match this filter.</div>
           ) : (
-            <div className="overflow-auto">
-              <table className="min-w-[980px] w-full">
-                <thead className="bg-white text-xs font-semibold text-slate-600 border-b">
-                  <tr className="[&>th]:px-5 [&>th]:py-3 [&>th]:text-left">
-                    <th>Refund</th>
-                    <th>Status</th>
-                    <th>Booking</th>
-                    <th>Amount</th>
-                    <th>Provider</th>
-                    <th>Created</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y text-sm text-slate-800">
-                  {derived.filtered.map((row, idx) => {
-                    const id = getString(row, "id") ?? String(idx);
-                    const status = getString(row, "status");
-                    const bookingId = getString(row, "bookingId") ?? "—";
-                    const currency = getString(row, "currency");
-                    const amount = getNumber(row, "amount") ?? getNumber(row, "amountRefunded") ?? null;
-                    const provider = getString(row, "provider") ?? "—";
-                    const createdAt = getString(row, "createdAt");
+            <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
+              {derived.filtered.map((row, idx) => {
+                const id = getString(row, "id") ?? String(idx);
+                const status = getString(row, "status");
+                const bookingId = getString(row, "bookingId") ?? "—";
+                const currency = getString(row, "currency");
+                const amount = getNumber(row, "amount") ?? getNumber(row, "amountRefunded") ?? null;
+                const provider = getString(row, "provider") ?? "—";
+                const createdAt = getString(row, "createdAt");
 
-                    return (
-                      <tr
-                        key={id}
-                        className="cursor-pointer hover:bg-slate-50/60 [&>td]:px-5 [&>td]:py-3"
-                        onClick={() => setSelected(row)}
-                      >
-                        <td className="font-semibold text-slate-900">{id}</td>
-                        <td>
-                          <StatusPill tone={toneForRefundStatus(status)}>{status ?? "—"}</StatusPill>
-                        </td>
-                        <td className="text-slate-700">{bookingId}</td>
-                        <td className="text-slate-900">{fmtMoney(amount, currency)}</td>
-                        <td className="text-slate-700">{provider}</td>
-                        <td className="text-slate-700">{fmtDate(createdAt ?? null)}</td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    onClick={() => setSelected(row)}
+                    className="rounded-2xl border border-line/80 bg-surface p-4 text-left transition hover:bg-warm-alt"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="truncate text-sm font-semibold text-primary">{id}</div>
+                      <StatusPill tone={toneForRefundStatus(status)}>{status ?? "—"}</StatusPill>
+                    </div>
+                    <div className="mt-3 grid gap-2 text-xs text-secondary">
+                      <div>
+                        <span className="font-semibold text-muted">Booking:</span> {bookingId}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-muted">Amount:</span> {fmtMoney(amount, currency)}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-muted">Provider:</span> {provider}
+                      </div>
+                      <div>
+                        <span className="font-semibold text-muted">Created:</span> {fmtDate(createdAt ?? null)}
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
             </div>
           )}
 
-          <div className="flex items-center justify-between border-t bg-white px-4 py-3">
-            <div className="text-xs text-slate-600">
-              Page <span className="font-semibold text-slate-900">{page}</span> of{" "}
-              <span className="font-semibold text-slate-900">{derived.totalPages}</span>
+          <div className="flex items-center justify-between border-t bg-surface px-4 py-3">
+            <div className="text-xs text-secondary">
+              Page <span className="font-semibold text-primary">{page}</span> of{" "}
+              <span className="font-semibold text-primary">{derived.totalPages}</span>
             </div>
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => setPage((p) => Math.max(1, p - 1))}
                 disabled={page <= 1}
-                className="rounded-xl border px-3 py-1.5 text-xs font-semibold text-slate-700 disabled:opacity-50"
+                className="rounded-xl border px-3 py-1.5 text-xs font-semibold text-secondary disabled:opacity-50"
               >
                 Prev
               </button>
@@ -294,7 +291,7 @@ export default function AdminRefundsPage() {
                 type="button"
                 onClick={() => setPage((p) => Math.min(derived.totalPages, p + 1))}
                 disabled={page >= derived.totalPages}
-                className="rounded-xl border px-3 py-1.5 text-xs font-semibold text-slate-700 disabled:opacity-50"
+                className="rounded-xl border px-3 py-1.5 text-xs font-semibold text-secondary disabled:opacity-50"
               >
                 Next
               </button>
@@ -307,9 +304,24 @@ export default function AdminRefundsPage() {
           title={selected ? `Refund ${getString(selected, "id") ?? ""}`.trim() : "Refund"}
           onClose={() => setSelected(null)}
         >
-          <pre className="text-xs text-slate-900 whitespace-pre-wrap break-words">
-            {selected ? JSON.stringify(selected, null, 2) : ""}
-          </pre>
+          {selected ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Detail label="Refund ID" value={getString(selected, "id") ?? "—"} />
+              <Detail label="Status" value={getString(selected, "status") ?? "—"} />
+              <Detail label="Booking ID" value={getString(selected, "bookingId") ?? "—"} />
+              <Detail
+                label="Amount"
+                value={fmtMoney(
+                  getNumber(selected, "amount") ?? getNumber(selected, "amountRefunded"),
+                  getString(selected, "currency"),
+                )}
+              />
+              <Detail label="Provider" value={getString(selected, "provider") ?? "—"} />
+              <Detail label="Provider Ref" value={getString(selected, "providerRef") ?? "—"} />
+              <Detail label="Created" value={fmtDate(getString(selected, "createdAt"))} />
+              <Detail label="Updated" value={fmtDate(getString(selected, "updatedAt"))} />
+            </div>
+          ) : null}
         </Drawer>
       </div>
     );
@@ -319,5 +331,14 @@ export default function AdminRefundsPage() {
     <PortalShell role="admin" title="Admin Refunds" nav={nav}>
       {content}
     </PortalShell>
+  );
+}
+
+function Detail(props: { label: string; value: string }) {
+  return (
+    <div className="rounded-2xl border border-line/80 bg-surface p-3">
+      <div className="text-xs font-semibold text-muted">{props.label}</div>
+      <div className="mt-1 text-sm font-semibold text-primary break-words">{props.value}</div>
+    </div>
   );
 }

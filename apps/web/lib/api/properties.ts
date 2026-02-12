@@ -33,3 +33,23 @@ export async function reserve(
     credentials: "include",
   });
 }
+
+export async function getPropertyCalendarBySlug(
+  slug: string,
+  params?: { from?: string; to?: string }
+) {
+  return apiFetch<{
+    propertyId: string;
+    slug: string;
+    from: string;
+    to: string;
+    days: Array<{ date: string; status: "AVAILABLE" | "BOOKED" | "BLOCKED" }>;
+  }>(`/properties/${encodeURIComponent(slug)}/calendar`, {
+    method: "GET",
+    cache: "no-store",
+    query: {
+      from: params?.from ?? "",
+      to: params?.to ?? "",
+    },
+  });
+}

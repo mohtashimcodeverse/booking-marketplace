@@ -1,11 +1,14 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, useMemo, useState } from "react";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, ArrowRight, LogOut, UserRound } from "lucide-react";
 import { useAuth } from "@/lib/auth/auth-context";
 import type { UserRole } from "@/lib/auth/auth.types";
+import CurrencySwitcher from "@/components/currency/CurrencySwitcher";
 
 type NavItem = { href: string; label: string };
 
@@ -23,6 +26,11 @@ function clamp01(v: number) {
   return Math.max(0, Math.min(1, v));
 }
 
+function isActive(pathname: string, href: string): boolean {
+  if (href === "/") return pathname === "/";
+  return pathname === href || pathname.startsWith(`${href}/`);
+}
+
 function dashboardPathForRole(role: UserRole): string {
   switch (role) {
     case "ADMIN":
@@ -37,6 +45,7 @@ function dashboardPathForRole(role: UserRole): string {
 
 export default function FloatingHeader() {
   const { status, user, logout } = useAuth();
+  const pathname = usePathname();
 
   const [progress, setProgress] = useState(0);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -62,11 +71,16 @@ export default function FloatingHeader() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  const isSolid = progress > 0.12;
+  const topGlassClass = isSolid
+    ? "border-line bg-surface text-primary hover:bg-bg-2"
+    : "border-line/85 bg-surface/92 text-primary hover:bg-bg-2";
+
   const shellStyle = useMemo(() => {
-    // Tourm-ish: always readable, never “washed out”
-    const bg = `rgba(255,255,255,${0.88 + progress * 0.10})`;
-    const border = `rgba(15,23,42,${0.10 + progress * 0.08})`;
-    const blur = 14 + progress * 8;
+    const bgAlpha = 0.88 + progress * 0.10;
+    const bg = `rgba(255,255,255,${Math.min(bgAlpha, 0.98)})`;
+    const border = `rgba(11,15,25,${0.10 + progress * 0.06})`;
+    const blur = 14 + progress * 4;
     return {
       backgroundColor: bg,
       borderColor: border,
@@ -93,8 +107,10 @@ export default function FloatingHeader() {
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.header
             className={[
-              "pointer-events-auto mt-4 flex items-center justify-between rounded-2xl border px-4 py-3 shadow-[0_14px_40px_rgba(2,10,20,0.10)]",
-              "transition-[transform] duration-300",
+              "pointer-events-auto mt-4 flex items-center justify-between rounded-2xl border px-4 py-3 transition-[transform,box-shadow,border-color] duration-300",
+              isSolid
+                ? "shadow-[0_14px_38px_rgba(11,15,25,0.16)]"
+                : "shadow-[0_10px_28px_rgba(11,15,25,0.10)]",
             ].join(" ")}
             style={shellStyle}
             initial={{ y: -16, opacity: 0 }}
@@ -102,13 +118,14 @@ export default function FloatingHeader() {
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           >
             <Link href="/" className="flex items-center gap-3">
-              <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#16a6c8] text-white shadow-[0_10px_30px_rgba(22,166,200,0.25)]">
-                <span className="text-sm font-semibold">LL</span>
-              </div>
-              <div className="leading-tight">
-                <div className="text-sm font-semibold text-slate-900">Laugh &amp; Lodge</div>
-                <div className="text-xs text-slate-600">Vocation Homes Rental</div>
-              </div>
+              <Image
+                src="/brand/logo.svg"
+                alt="Laugh & Lodge"
+                width={180}
+                height={64}
+                priority
+                className="h-10 w-auto"
+              />
             </Link>
 
             <nav className="hidden items-center gap-6 lg:flex">
@@ -116,7 +133,12 @@ export default function FloatingHeader() {
                 <Link
                   key={item.href}
                   href={item.href}
-                  className="text-sm font-medium text-slate-800/90 transition hover:text-slate-900"
+                  className={[
+                    "relative text-sm font-semibold transition",
+                    isActive(pathname, item.href)
+                      ? "text-brand after:absolute after:-bottom-2 after:left-0 after:right-0 after:h-[2px] after:rounded-full after:bg-brand"
+                      : "text-primary/88 hover:text-brand",
+                  ].join(" ")}
                 >
                   {item.label}
                 </Link>
@@ -124,9 +146,13 @@ export default function FloatingHeader() {
             </nav>
 
             <div className="flex items-center gap-2">
+              <div className="hidden lg:block">
+                <CurrencySwitcher compact />
+              </div>
+
               <Link
                 href="/properties"
-                className="hidden rounded-2xl bg-[#16a6c8] px-4 py-2 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(22,166,200,0.25)] transition hover:brightness-95 lg:inline-flex"
+                className="hidden rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-text-invert shadow-brand-soft transition hover:bg-brand-hover lg:inline-flex"
               >
                 Explore
                 <ArrowRight className="ml-2 h-4 w-4" />
@@ -135,12 +161,12 @@ export default function FloatingHeader() {
               {/* Desktop auth actions */}
               <div className="hidden items-center gap-2 lg:flex">
                 {showAuthSkeleton ? (
-                  <div className="h-10 w-[180px] animate-pulse rounded-2xl bg-slate-200/70" />
+                  <div className="h-10 w-[180px] animate-pulse rounded-2xl bg-warm-alt/70" />
                 ) : user ? (
                   <>
                     <Link
                       href={dashboardHref}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                      className={`inline-flex items-center gap-2 rounded-2xl border px-4 py-2 text-sm font-semibold transition ${topGlassClass}`}
                       title="Open your dashboard"
                     >
                       <UserRound className="h-4 w-4" />
@@ -151,7 +177,7 @@ export default function FloatingHeader() {
                       type="button"
                       onClick={handleLogout}
                       disabled={loggingOut}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-text-invert shadow-sm transition hover:bg-brand-hover disabled:opacity-60"
                       title="Logout"
                     >
                       <LogOut className="h-4 w-4" />
@@ -162,13 +188,13 @@ export default function FloatingHeader() {
                   <>
                     <Link
                       href="/login"
-                      className="inline-flex items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900 transition hover:bg-slate-50"
+                      className={`inline-flex items-center justify-center rounded-2xl border px-4 py-2 text-sm font-semibold transition ${topGlassClass}`}
                     >
                       Login
                     </Link>
                     <Link
                       href="/signup"
-                      className="inline-flex items-center justify-center rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800"
+                      className="inline-flex items-center justify-center rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-text-invert shadow-sm transition hover:bg-brand-hover"
                     >
                       Sign up
                     </Link>
@@ -176,10 +202,14 @@ export default function FloatingHeader() {
                 )}
               </div>
 
+              <div className="lg:hidden">
+                <CurrencySwitcher compact />
+              </div>
+
               <button
                 type="button"
                 onClick={() => setMobileOpen((v) => !v)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-slate-200 bg-white text-slate-900 lg:hidden"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-line/80 bg-surface text-primary lg:hidden"
                 aria-label="Toggle menu"
                 aria-expanded={mobileOpen}
               >
@@ -194,14 +224,14 @@ export default function FloatingHeader() {
       <AnimatePresence>
         {mobileOpen ? (
           <motion.div
-            className="fixed inset-0 z-[70] bg-slate-950/25 backdrop-blur-sm"
+            className="fixed inset-0 z-[70] bg-ink/25 backdrop-blur-sm"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
             onClick={() => setMobileOpen(false)}
           >
             <motion.div
-              className="absolute left-4 right-4 top-[88px] rounded-3xl border border-slate-200 bg-white p-4 shadow-xl"
+              className="absolute left-4 right-4 top-[88px] rounded-3xl border border-line bg-surface p-4 shadow-xl"
               initial={{ y: -10, opacity: 0, scale: 0.98 }}
               animate={{ y: 0, opacity: 1, scale: 1 }}
               exit={{ y: -10, opacity: 0, scale: 0.98 }}
@@ -209,16 +239,16 @@ export default function FloatingHeader() {
               onClick={(e) => e.stopPropagation()}
             >
               {/* Auth area */}
-              <div className="mb-3 rounded-3xl border border-slate-200 bg-slate-50 p-3">
+              <div className="mb-3 rounded-3xl border border-line bg-warm-alt p-3">
                 {showAuthSkeleton ? (
-                  <div className="h-10 w-full animate-pulse rounded-2xl bg-slate-200/80" />
+                  <div className="h-10 w-full animate-pulse rounded-2xl bg-warm-alt/80" />
                 ) : user ? (
                   <div className="flex items-center justify-between gap-3">
                     <div className="min-w-0">
-                      <div className="truncate text-sm font-semibold text-slate-900">
+                      <div className="truncate text-sm font-semibold text-primary">
                         {user.email}
                       </div>
-                      <div className="text-xs text-slate-600">
+                      <div className="text-xs text-secondary">
                         Role: {user.role}
                         {!user.isEmailVerified ? " • Email not verified" : ""}
                       </div>
@@ -228,7 +258,7 @@ export default function FloatingHeader() {
                       type="button"
                       onClick={handleLogout}
                       disabled={loggingOut}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-slate-900 px-3 py-2 text-sm font-semibold text-white disabled:opacity-60"
+                      className="inline-flex items-center gap-2 rounded-2xl bg-brand px-3 py-2 text-sm font-semibold text-text-invert disabled:opacity-60"
                     >
                       <LogOut className="h-4 w-4" />
                       {loggingOut ? "…" : "Logout"}
@@ -239,14 +269,14 @@ export default function FloatingHeader() {
                     <Link
                       href="/login"
                       onClick={() => setMobileOpen(false)}
-                      className="inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+                      className="inline-flex w-full items-center justify-center rounded-2xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-primary"
                     >
                       Login
                     </Link>
                     <Link
                       href="/signup"
                       onClick={() => setMobileOpen(false)}
-                      className="inline-flex w-full items-center justify-center rounded-2xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white"
+                      className="inline-flex w-full items-center justify-center rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-text-invert"
                     >
                       Sign up
                     </Link>
@@ -257,7 +287,7 @@ export default function FloatingHeader() {
                   <Link
                     href={dashboardHref}
                     onClick={() => setMobileOpen(false)}
-                    className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-900"
+                    className="mt-3 inline-flex w-full items-center justify-center rounded-2xl border border-line bg-surface px-4 py-2 text-sm font-semibold text-primary"
                   >
                     Open dashboard
                     <ArrowRight className="ml-2 h-4 w-4" />
@@ -272,7 +302,12 @@ export default function FloatingHeader() {
                     key={item.href}
                     href={item.href}
                     onClick={() => setMobileOpen(false)}
-                    className="rounded-2xl px-3 py-3 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+                    className={[
+                      "rounded-2xl px-3 py-3 text-sm font-semibold transition",
+                      isActive(pathname, item.href)
+                        ? "bg-brand-soft text-brand"
+                        : "text-primary hover:bg-warm-alt",
+                    ].join(" ")}
                   >
                     {item.label}
                   </Link>
@@ -282,7 +317,7 @@ export default function FloatingHeader() {
               <Link
                 href="/properties"
                 onClick={() => setMobileOpen(false)}
-                className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-[#16a6c8] px-4 py-3 text-sm font-semibold text-white shadow-[0_10px_30px_rgba(22,166,200,0.25)]"
+                className="mt-4 inline-flex w-full items-center justify-center rounded-2xl bg-brand px-4 py-3 text-sm font-semibold text-text-invert shadow-brand-soft"
               >
                 Explore stays
                 <ArrowRight className="ml-2 h-4 w-4" />

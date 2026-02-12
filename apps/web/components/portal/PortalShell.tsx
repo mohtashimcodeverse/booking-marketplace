@@ -28,7 +28,7 @@ export function PortalShell(props: {
   const navItems = getRoleNav(props.role);
 
   return (
-    <div className="min-h-screen bg-[#f6f3ec]">
+    <div className="portal-density min-h-screen bg-bg">
       <PortalHeader
         role={props.role}
         title={props.title}
@@ -48,11 +48,11 @@ export function PortalShell(props: {
         />
 
         <main className="min-w-0 flex-1">
-          <div className="rounded-3xl border border-black/5 bg-white shadow-sm">
-            <div className="border-b border-black/5 px-5 py-5 sm:px-6">
-              <div className="text-xs font-semibold text-slate-500">{roleLabel(props.role)}</div>
-              <h1 className="mt-1 text-2xl font-semibold text-slate-900">{props.title}</h1>
-              {props.subtitle ? <div className="mt-1 text-sm text-slate-600">{props.subtitle}</div> : null}
+          <div className="premium-card rounded-3xl">
+            <div className="border-b border-line/50 bg-bg-2/82 px-5 py-5 sm:px-6">
+              <div className="text-xs font-semibold text-muted">{roleLabel(props.role)}</div>
+              <h1 className="mt-1 text-2xl font-semibold text-primary">{props.title}</h1>
+              {props.subtitle ? <div className="mt-1 text-sm text-secondary">{props.subtitle}</div> : null}
             </div>
 
             <div className="px-5 py-6 sm:px-6">{props.children}</div>

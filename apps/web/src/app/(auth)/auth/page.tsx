@@ -44,14 +44,14 @@ function AuthGatewayContent() {
       showBackHome
       width="lg"
       footnote={
-        <div className="text-center text-xs text-[color:var(--tourm-muted)]">
+        <div className="text-center text-xs text-secondary">
           {mode === "login" ? (
             <>
               New here?{" "}
               <button
                 type="button"
                 onClick={() => setMode("signup")}
-                className="font-semibold text-[color:var(--tourm-ink)] hover:underline"
+                className="font-semibold text-[#4F46E5] hover:underline"
               >
                 Create an account
               </button>
@@ -62,7 +62,7 @@ function AuthGatewayContent() {
               <button
                 type="button"
                 onClick={() => setMode("login")}
-                className="font-semibold text-[color:var(--tourm-ink)] hover:underline"
+                className="font-semibold text-[#4F46E5] hover:underline"
               >
                 Sign in
               </button>
@@ -73,15 +73,15 @@ function AuthGatewayContent() {
     >
       <div className="space-y-5">
         {/* Mode switch */}
-        <div className="flex w-full rounded-2xl bg-white/70 p-1.5 ring-1 ring-black/5">
+        <div className="flex w-full border-b border-line">
           <button
             type="button"
             onClick={() => setMode("login")}
             className={[
-              "flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition",
+              "relative flex-1 px-4 py-2.5 text-sm font-semibold transition",
               mode === "login"
-                ? "bg-white shadow-sm ring-1 ring-black/5 text-[color:var(--tourm-ink)]"
-                : "text-[color:var(--tourm-muted)] hover:text-[color:var(--tourm-ink)]",
+                ? "text-[#4F46E5] after:absolute after:bottom-0 after:left-4 after:right-4 after:h-[2px] after:rounded-full after:bg-[#4F46E5]"
+                : "text-secondary hover:text-primary",
             ].join(" ")}
           >
             Log in
@@ -90,10 +90,10 @@ function AuthGatewayContent() {
             type="button"
             onClick={() => setMode("signup")}
             className={[
-              "flex-1 rounded-xl px-4 py-2.5 text-sm font-semibold transition",
+              "relative flex-1 px-4 py-2.5 text-sm font-semibold transition",
               mode === "signup"
-                ? "bg-white shadow-sm ring-1 ring-black/5 text-[color:var(--tourm-ink)]"
-                : "text-[color:var(--tourm-muted)] hover:text-[color:var(--tourm-ink)]",
+                ? "text-[#4F46E5] after:absolute after:bottom-0 after:left-4 after:right-4 after:h-[2px] after:rounded-full after:bg-[#4F46E5]"
+                : "text-secondary hover:text-primary",
             ].join(" ")}
           >
             Sign up
@@ -122,7 +122,7 @@ function AuthGatewayContent() {
           type="button"
           onClick={go}
           whileTap={{ scale: 0.98 }}
-          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[color:var(--tourm-primary)] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(22,166,200,0.22)] hover:brightness-[0.98] focus:outline-none focus:ring-2 focus:ring-black/10"
+          className="inline-flex w-full items-center justify-center gap-2 rounded-2xl bg-[#4F46E5] px-5 py-3.5 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(79,70,229,0.32)] hover:bg-[#4338CA] focus:outline-none focus:ring-2 focus:ring-[#4F46E5]/30"
         >
           {mode === "login" ? "Continue to login" : "Continue to sign up"}
           <ArrowRight className="h-4 w-4" />
@@ -164,9 +164,9 @@ function RoleCard(props: {
       type="button"
       onClick={props.onClick}
       className={[
-        "group relative overflow-hidden rounded-2xl bg-white/70 p-4 text-left ring-1 ring-black/5 transition",
-        "hover:bg-white hover:shadow-[0_18px_50px_rgba(2,10,20,0.10)]",
-        props.active ? "ring-2 ring-[color:var(--tourm-primary)]" : "",
+        "group relative overflow-hidden rounded-2xl bg-surface/70 p-4 text-left ring-1 ring-line/55 transition",
+        "hover:bg-surface hover:shadow-card",
+        props.active ? "ring-2 ring-[#4F46E5]" : "",
       ].join(" ")}
     >
       <div className="flex items-start gap-3">
@@ -174,16 +174,16 @@ function RoleCard(props: {
           className={[
             "mt-0.5 inline-flex h-10 w-10 items-center justify-center rounded-xl",
             props.active
-              ? "bg-[color:var(--tourm-primary)] text-white"
-              : "bg-black/5 text-[color:var(--tourm-ink)]",
+              ? "bg-[#4F46E5] text-white"
+              : "bg-dark-1/5 text-primary",
           ].join(" ")}
         >
           {props.icon}
         </div>
 
         <div className="min-w-0">
-          <div className="text-sm font-semibold text-[color:var(--tourm-ink)]">{props.title}</div>
-          <div className="mt-1 text-xs leading-relaxed text-[color:var(--tourm-muted)]">
+          <div className="text-sm font-semibold text-primary">{props.title}</div>
+          <div className="mt-1 text-xs leading-relaxed text-secondary">
             {props.desc}
           </div>
         </div>
@@ -191,7 +191,7 @@ function RoleCard(props: {
 
       {/* subtle sheen */}
       <span className="pointer-events-none absolute inset-0 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-        <span className="absolute -left-24 top-0 h-full w-24 rotate-12 bg-white/45 blur-xl" />
+        <span className="absolute -left-24 top-0 h-full w-24 rotate-12 bg-surface/45 blur-xl" />
       </span>
     </button>
   );

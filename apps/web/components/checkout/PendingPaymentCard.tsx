@@ -54,14 +54,14 @@ function moneyFromCents(cents?: number | null, currency?: string | null): string
 
 function WhyPendingHelp() {
   return (
-    <div className="rounded-2xl border border-black/10 bg-white/70 p-4">
-      <div className="text-sm font-semibold text-slate-900">Why is it pending?</div>
-      <p className="mt-1 text-sm leading-6 text-slate-600">
+    <div className="rounded-2xl border border-line/80 bg-surface/70 p-4">
+      <div className="text-sm font-semibold text-primary">Why is it pending?</div>
+      <p className="mt-1 text-sm leading-6 text-secondary">
         Your booking becomes <span className="font-semibold">CONFIRMED</span> only after TELR notifies the backend through
         verified webhooks. This prevents fake confirmations and protects inventory.
       </p>
 
-      <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-600">
+      <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-secondary">
         <li>TELR opens a hosted payment page (redirect).</li>
         <li>The backend confirms only after verification (not the frontend).</li>
         <li>If the payment window expires, the booking auto-expires and you can rebook.</li>
@@ -183,60 +183,60 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
   const totalText = moneyFromCents(effectiveLatest?.totalAmount ?? null, effectiveLatest?.currency ?? null);
 
   return (
-    <div className="rounded-3xl border border-black/10 bg-[#f6f3ec] p-6">
+    <div className="rounded-3xl border border-line/80 bg-warm-base p-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="text-sm font-semibold text-slate-900">Payment status</div>
+        <div className="text-sm font-semibold text-primary">Payment status</div>
 
         {isPending ? (
-          <div className="rounded-full border border-amber-200 bg-amber-50 px-3 py-1.5 text-xs font-semibold text-amber-900">
+          <div className="rounded-full border border-warning/30 bg-warning/12 px-3 py-1.5 text-xs font-semibold text-warning">
             PENDING PAYMENT
           </div>
         ) : isConfirmed ? (
-          <div className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-800">
+          <div className="rounded-full border border-success/30 bg-success/12 px-3 py-1.5 text-xs font-semibold text-success">
             CONFIRMED
           </div>
         ) : isCancelled ? (
-          <div className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-800">
+          <div className="rounded-full border border-danger/30 bg-danger/12 px-3 py-1.5 text-xs font-semibold text-danger">
             CANCELLED
           </div>
         ) : isExpired ? (
-          <div className="rounded-full border border-rose-200 bg-rose-50 px-3 py-1.5 text-xs font-semibold text-rose-800">
+          <div className="rounded-full border border-danger/30 bg-danger/12 px-3 py-1.5 text-xs font-semibold text-danger">
             EXPIRED
           </div>
         ) : (
-          <div className="rounded-full border border-black/10 bg-white/60 px-3 py-1.5 text-xs font-semibold text-slate-700">
+          <div className="rounded-full border border-line/80 bg-surface/60 px-3 py-1.5 text-xs font-semibold text-secondary">
             {status || "—"}
           </div>
         )}
       </div>
 
-      <div className="mt-2 text-sm text-slate-700">
+      <div className="mt-2 text-sm text-secondary">
         Booking ID: <span className="font-semibold">{props.bookingId}</span>
       </div>
 
-      <div className="mt-1 text-sm text-slate-700">
+      <div className="mt-1 text-sm text-secondary">
         Status: <span className="font-semibold">{status}</span>
       </div>
 
       {totalText !== "—" ? (
-        <div className="mt-1 text-sm text-slate-700">
+        <div className="mt-1 text-sm text-secondary">
           Total: <span className="font-semibold">{totalText}</span>
         </div>
       ) : null}
 
       {effectiveLatest?.expiresAt ? (
-        <div className="mt-1 text-xs text-slate-600">
+        <div className="mt-1 text-xs text-secondary">
           Expires at: <span className="font-semibold">{fmtDate(effectiveLatest.expiresAt)}</span>
         </div>
       ) : null}
 
       {poll.remainingMs !== null && isPending ? (
-        <div className="mt-1 text-xs text-amber-900">
+        <div className="mt-1 text-xs text-warning">
           Payment window remaining: <span className="font-semibold">{fmtCountdown(poll.remainingMs)}</span>
         </div>
       ) : null}
 
-      <div className="mt-3 text-sm text-slate-700">
+      <div className="mt-3 text-sm text-secondary">
         {props.subtitle ??
           (isPending
             ? "Payment is pending. Booking becomes CONFIRMED only after verified TELR webhooks (no frontend confirmation)."
@@ -250,19 +250,19 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
       ) : null}
 
       {isExpired ? (
-        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-900">
+        <div className="mt-4 rounded-2xl border border-danger/30 bg-danger/12 px-4 py-3 text-sm text-danger">
           This booking expired due to unpaid status. Please start again from the listing.
         </div>
       ) : null}
 
       {poll.state.kind === "error" ? (
-        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">
+        <div className="mt-4 rounded-2xl border border-danger/30 bg-danger/12 px-4 py-3 text-xs text-danger">
           <span className="font-semibold">Auto-refresh error:</span> {poll.state.message}
         </div>
       ) : null}
 
       {state.kind === "error" ? (
-        <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs text-rose-800">
+        <div className="mt-4 rounded-2xl border border-danger/30 bg-danger/12 px-4 py-3 text-xs text-danger">
           <span className="font-semibold">Error:</span> {state.message}
         </div>
       ) : null}
@@ -272,7 +272,7 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
           type="button"
           onClick={() => void refresh()}
           disabled={state.kind !== "idle"}
-          className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white disabled:opacity-60"
+          className="inline-flex items-center justify-center rounded-2xl border border-line/80 bg-surface/70 px-4 py-2 text-sm font-semibold text-primary hover:bg-surface disabled:opacity-60"
         >
           {state.kind === "refreshing" ? "Refreshing…" : "Refresh status"}
         </button>
@@ -281,27 +281,27 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
           type="button"
           onClick={() => void onCancel()}
           disabled={state.kind !== "idle" || !canCancel}
-          className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white/70 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-white disabled:opacity-60"
+          className="inline-flex items-center justify-center rounded-2xl border border-line/80 bg-surface/70 px-4 py-2 text-sm font-semibold text-danger hover:bg-surface disabled:opacity-60"
         >
           {state.kind === "cancelling" ? "Cancelling…" : "Cancel booking"}
         </button>
       </div>
 
-      <div className="mt-6 rounded-2xl border border-black/10 bg-white/60 p-4">
+      <div className="mt-6 rounded-2xl border border-line/80 bg-surface/60 p-4">
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
-            <div className="text-xs font-semibold text-slate-700">Pay with TELR</div>
-            <div className="mt-1 text-xs text-slate-600">
+            <div className="text-xs font-semibold text-secondary">Pay with TELR</div>
+            <div className="mt-1 text-xs text-secondary">
               You’ll be redirected to a secure hosted page. Confirmation happens via verified backend webhooks.
             </div>
           </div>
 
           {isPending ? (
-            <div className="text-xs text-slate-600">
+            <div className="text-xs text-secondary">
               Auto-refresh: <span className="font-semibold">On</span> • ticks: {poll.ticks}
             </div>
           ) : (
-            <div className="text-xs text-slate-600">Auto-refresh: Off</div>
+            <div className="text-xs text-secondary">Auto-refresh: Off</div>
           )}
         </div>
 
@@ -309,18 +309,18 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
           type="button"
           onClick={() => void onAuthorize()}
           disabled={state.kind !== "idle" || !isPending || isCancelled || isConfirmed || isExpired || redirecting}
-          className="mt-3 h-11 w-full rounded-2xl bg-[#16A6C8] px-4 text-sm font-semibold text-white hover:opacity-95 disabled:opacity-60"
+          className="mt-3 h-11 w-full rounded-2xl bg-brand px-4 text-sm font-semibold text-accent-text hover:opacity-95 disabled:opacity-60"
         >
           {redirecting ? "Redirecting to TELR…" : state.kind === "authorizing" ? "Starting…" : "Pay now"}
         </button>
 
         {authorizeRes ? (
-          <div className="mt-3 text-xs text-slate-700">
+          <div className="mt-3 text-xs text-secondary">
             {authorizeRes.redirectUrl ? <>Redirecting to TELR hosted payment…</> : <>TELR response received. Try again.</>}
           </div>
         ) : null}
 
-        <div className="mt-3 text-xs text-slate-600">
+        <div className="mt-3 text-xs text-secondary">
           Booking confirmation is webhook-only. Use “Refresh status” if needed.
         </div>
       </div>
@@ -328,21 +328,21 @@ export function PendingPaymentCard(props: { bookingId: string; status: string; s
       <div className="mt-5 flex flex-col gap-2 sm:flex-row">
         <Link
           href="/account/bookings"
-          className="inline-flex items-center justify-center rounded-2xl bg-[#16A6C8] px-4 py-2 text-sm font-semibold text-white hover:opacity-95"
+          className="inline-flex items-center justify-center rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:opacity-95"
         >
           View my bookings
         </Link>
 
         <Link
           href={`/account/bookings/${encodeURIComponent(props.bookingId)}`}
-          className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white"
+          className="inline-flex items-center justify-center rounded-2xl border border-line/80 bg-surface/70 px-4 py-2 text-sm font-semibold text-primary hover:bg-surface"
         >
           Booking details
         </Link>
 
         <Link
           href="/properties"
-          className="inline-flex items-center justify-center rounded-2xl border border-black/10 bg-white/70 px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-white"
+          className="inline-flex items-center justify-center rounded-2xl border border-line/80 bg-surface/70 px-4 py-2 text-sm font-semibold text-primary hover:bg-surface"
         >
           Continue browsing
         </Link>

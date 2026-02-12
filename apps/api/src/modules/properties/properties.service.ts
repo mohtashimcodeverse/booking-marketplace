@@ -1,5 +1,11 @@
-import { Injectable } from '@nestjs/common';
-import { Prisma, PropertyStatus } from '@prisma/client';
+import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BookingStatus,
+  CalendarDayStatus,
+  GuestReviewStatus,
+  Prisma,
+  PropertyStatus,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { ListPropertiesDto } from './dto/list-properties.dto';
 
@@ -23,6 +29,24 @@ type AmenityDto = {
 @Injectable()
 export class PropertiesService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private isoDayRegex = /^\d{4}-\d{2}-\d{2}$/;
+
+  private parseIsoDay(value: string, fallback?: Date): Date {
+    const raw = value.trim();
+    if (!this.isoDayRegex.test(raw)) {
+      if (fallback) return fallback;
+      throw new BadRequestException('Invalid date range. Use YYYY-MM-DD.');
+    }
+    return new Date(`${raw}T00:00:00.000Z`);
+  }
+
+  private toIsoDay(date: Date): string {
+    const y = date.getUTCFullYear();
+    const m = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const d = String(date.getUTCDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  }
 
   async list(input: ListPropertiesDto) {
     const page = input.page ?? 1;
@@ -85,6 +109,11 @@ export class PropertiesService {
             take: 1,
             select: { url: true, alt: true },
           },
+          guestReviews: {
+            where: { status: GuestReviewStatus.APPROVED },
+            select: { rating: true },
+            take: 200,
+          },
         },
       }),
     ]);
@@ -95,6 +124,12 @@ export class PropertiesService {
       total,
       totalPages: Math.ceil(total / limit),
       items: items.map((p) => ({
+        ratingAvg:
+          p.guestReviews.length > 0
+            ? p.guestReviews.reduce((sum, row) => sum + row.rating, 0) /
+              p.guestReviews.length
+            : null,
+        ratingCount: p.guestReviews.length,
         ...p,
         cover: p.media[0] ?? null,
       })),
@@ -125,6 +160,23 @@ export class PropertiesService {
         media: {
           orderBy: { sortOrder: 'asc' },
           select: { url: true, alt: true, sortOrder: true, category: true },
+        },
+        guestReviews: {
+          where: { status: GuestReviewStatus.APPROVED },
+          orderBy: { createdAt: 'desc' },
+          take: 20,
+          select: {
+            id: true,
+            rating: true,
+            title: true,
+            comment: true,
+            createdAt: true,
+            customer: {
+              select: {
+                fullName: true,
+              },
+            },
+          },
         },
 
         // ✅ Amenities + groups (Frank Porter style)
@@ -192,8 +244,108 @@ export class PropertiesService {
 
     return {
       ...property,
+      ratingAvg:
+        property.guestReviews.length > 0
+          ? property.guestReviews.reduce((sum, row) => sum + row.rating, 0) /
+            property.guestReviews.length
+          : null,
+      ratingCount: property.guestReviews.length,
       amenities,
       amenitiesGrouped,
+    };
+  }
+
+  async publicCalendarBySlug(slug: string, fromRaw?: string, toRaw?: string) {
+    const property = await this.prisma.property.findFirst({
+      where: { slug, status: PropertyStatus.PUBLISHED },
+      select: { id: true, slug: true },
+    });
+    if (!property) return null;
+
+    const now = new Date();
+    const defaultFrom = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1, 0, 0, 0, 0),
+    );
+    const defaultTo = new Date(
+      Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1, 0, 0, 0, 0),
+    );
+
+    const from = this.parseIsoDay(fromRaw?.trim() ?? '', defaultFrom);
+    const to = this.parseIsoDay(toRaw?.trim() ?? '', defaultTo);
+
+    const rangeDays = Math.ceil(
+      (to.getTime() - from.getTime()) / (24 * 60 * 60 * 1000),
+    );
+
+    if (rangeDays <= 0 || rangeDays > 120) {
+      throw new BadRequestException(
+        'Invalid date range. Max 120 days and to must be after from.',
+      );
+    }
+
+    const [bookings, blockedDays] = await this.prisma.$transaction([
+      this.prisma.booking.findMany({
+        where: {
+          propertyId: property.id,
+          status: {
+            in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED],
+          },
+          checkIn: { lt: to },
+          checkOut: { gt: from },
+        },
+        select: { checkIn: true, checkOut: true },
+      }),
+      this.prisma.propertyCalendarDay.findMany({
+        where: {
+          propertyId: property.id,
+          status: CalendarDayStatus.BLOCKED,
+          date: { gte: from, lt: to },
+        },
+        select: { date: true },
+      }),
+    ]);
+
+    const blockedSet = new Set(
+      blockedDays.map((row) => this.toIsoDay(row.date)),
+    );
+
+    const bookedSet = new Set<string>();
+    for (const booking of bookings) {
+      const start =
+        booking.checkIn.getTime() > from.getTime() ? booking.checkIn : from;
+      const end =
+        booking.checkOut.getTime() < to.getTime() ? booking.checkOut : to;
+
+      for (
+        let t = start.getTime();
+        t < end.getTime();
+        t += 24 * 60 * 60 * 1000
+      ) {
+        bookedSet.add(this.toIsoDay(new Date(t)));
+      }
+    }
+
+    const days: Array<{
+      date: string;
+      status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED';
+    }> = [];
+
+    for (let t = from.getTime(); t < to.getTime(); t += 24 * 60 * 60 * 1000) {
+      const iso = this.toIsoDay(new Date(t));
+      const status = blockedSet.has(iso)
+        ? 'BLOCKED'
+        : bookedSet.has(iso)
+          ? 'BOOKED'
+          : 'AVAILABLE';
+      days.push({ date: iso, status });
+    }
+
+    return {
+      propertyId: property.id,
+      slug: property.slug,
+      from: this.toIsoDay(from),
+      to: this.toIsoDay(to),
+      days,
     };
   }
 }

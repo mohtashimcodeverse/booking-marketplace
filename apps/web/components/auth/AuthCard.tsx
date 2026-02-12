@@ -40,53 +40,53 @@ export function AuthCard({
   footnote,
 }: AuthCardProps) {
   return (
-    <main className="relative min-h-screen bg-[color:var(--tourm-bg)]">
+    <main className="relative min-h-screen bg-bg">
+      <div className="auth-dark-band pointer-events-none absolute inset-0" />
       {/* Animated background */}
-      <div className="pointer-events-none absolute inset-0">
+      <div className="pointer-events-none absolute inset-0 opacity-[0.86]">
         <AuthSkylineScene />
       </div>
 
-      {/* MUCH lighter readability overlay (so background stays vivid) */}
-      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_35%,rgba(255,255,255,0.60),rgba(255,255,255,0.22)_55%,rgba(255,255,255,0.30)_100%)]" />
+      <div className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_22%,rgba(79,70,229,0.12),rgba(248,250,252,0.44)_52%,rgba(248,250,252,0.72)_100%)]" />
 
       {/* Centered content */}
       <div className="relative z-10 mx-auto flex min-h-screen w-full items-center justify-center px-4 py-10 sm:px-6 lg:px-8">
         <div className={`w-full ${widthClass(width)}`}>
           <div className="relative">
             {/* Accent cards (kept subtle, not dull) */}
-            <div className="pointer-events-none absolute -left-10 -top-10 hidden h-24 w-32 rotate-[-6deg] rounded-2xl bg-white/75 shadow-[0_24px_70px_rgba(2,10,20,0.10)] ring-1 ring-black/5 backdrop-blur-xl lg:block">
+            <div className="pointer-events-none absolute -left-10 -top-10 hidden h-24 w-32 rotate-[-6deg] rounded-2xl bg-surface/78 shadow-[0_24px_70px_rgba(11,15,25,0.10)] ring-1 ring-line/55 backdrop-blur-xl lg:block">
               <div className="h-full w-full overflow-hidden rounded-2xl">
-                <div className="h-full w-full bg-[radial-gradient(circle_at_30%_30%,rgba(22,166,200,0.38),transparent_55%),radial-gradient(circle_at_70%_60%,rgba(11,34,48,0.14),transparent_60%),linear-gradient(135deg,rgba(255,255,255,0.86),rgba(255,255,255,0.45))]" />
+                <div className="h-full w-full bg-[radial-gradient(circle_at_28%_30%,rgba(79,70,229,0.28),transparent_56%),radial-gradient(circle_at_72%_62%,rgba(198,169,109,0.24),transparent_62%),linear-gradient(135deg,rgba(255,255,255,0.90),rgba(255,255,255,0.52))]" />
               </div>
             </div>
 
-            <div className="pointer-events-none absolute -right-8 -bottom-10 hidden h-24 w-32 rotate-[7deg] rounded-2xl bg-white/75 shadow-[0_24px_70px_rgba(2,10,20,0.10)] ring-1 ring-black/5 backdrop-blur-xl lg:block">
+            <div className="pointer-events-none absolute -right-8 -bottom-10 hidden h-24 w-32 rotate-[7deg] rounded-2xl bg-surface/78 shadow-[0_24px_70px_rgba(11,15,25,0.10)] ring-1 ring-line/55 backdrop-blur-xl lg:block">
               <div className="h-full w-full overflow-hidden rounded-2xl">
-                <div className="h-full w-full bg-[radial-gradient(circle_at_60%_35%,rgba(22,166,200,0.34),transparent_60%),radial-gradient(circle_at_35%_65%,rgba(11,34,48,0.12),transparent_60%),linear-gradient(135deg,rgba(255,255,255,0.82),rgba(255,255,255,0.42))]" />
+                <div className="h-full w-full bg-[radial-gradient(circle_at_60%_35%,rgba(79,70,229,0.26),transparent_60%),radial-gradient(circle_at_35%_65%,rgba(198,169,109,0.22),transparent_60%),linear-gradient(135deg,rgba(255,255,255,0.86),rgba(255,255,255,0.48))]" />
               </div>
             </div>
 
             {/* Form card */}
-            <div className="rounded-3xl bg-white/82 p-6 ring-1 ring-black/10 shadow-[0_28px_90px_rgba(2,10,20,0.14)] backdrop-blur-2xl sm:p-8">
+            <div className="premium-card rounded-3xl border-line-strong bg-surface p-6 shadow-[0_26px_68px_rgba(11,15,25,0.16)] sm:p-8">
               <header className="mb-6">
                 {eyebrow ? (
-                  <div className="inline-flex items-center gap-2 rounded-full bg-black/5 px-3 py-1 text-xs font-semibold text-[color:var(--tourm-ink)]">
-                    <span className="h-1.5 w-1.5 rounded-full bg-[color:var(--tourm-primary)]" />
+                  <div className="inline-flex items-center gap-2 rounded-full border border-line bg-brand-soft px-3 py-1 text-xs font-semibold text-primary">
+                    <span className="h-1.5 w-1.5 rounded-full bg-brand" />
                     {eyebrow}
                   </div>
                 ) : null}
 
-                <h1 className="mt-3 text-2xl font-semibold tracking-tight text-[color:var(--tourm-ink)] sm:text-3xl">
+                <h1 className="mt-3 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
                   {title}
                 </h1>
 
-                <p className="mt-2 text-sm leading-relaxed text-[color:var(--tourm-muted)]">
+                <p className="mt-2 text-sm leading-relaxed text-secondary">
                   {subtitle}
                 </p>
 
                 {showBackHome ? (
-                  <div className="mt-3 text-xs text-[color:var(--tourm-muted)]">
-                    <Link href="/" className="font-semibold text-[color:var(--tourm-ink)] hover:underline">
+                  <div className="mt-3 text-xs text-secondary">
+                    <Link href="/" className="font-semibold text-brand hover:underline">
                       Back to home
                     </Link>
                   </div>
@@ -98,13 +98,13 @@ export function AuthCard({
 
             {footnote ? <div className="mt-4">{footnote}</div> : null}
 
-            <div className="mt-4 text-center text-[11px] leading-relaxed text-[color:var(--tourm-muted)]">
+            <div className="mt-4 text-center text-[11px] leading-relaxed text-secondary">
               By continuing, you agree to our{" "}
-              <Link href="/terms" className="font-semibold text-[color:var(--tourm-ink)] hover:underline">
+              <Link href="/terms" className="font-semibold text-brand hover:underline">
                 Terms
               </Link>{" "}
               and{" "}
-              <Link href="/privacy" className="font-semibold text-[color:var(--tourm-ink)] hover:underline">
+              <Link href="/privacy" className="font-semibold text-brand hover:underline">
                 Privacy Policy
               </Link>
               .

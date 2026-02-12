@@ -51,21 +51,21 @@ export default function FloatingSearchBar(props: { defaultQ?: string }) {
       animate={{ y: 0, opacity: 1 }}
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
     >
-      <div className="rounded-2xl border border-slate-200 bg-white/85 p-3 shadow-lg backdrop-blur-md">
+      <div className="rounded-2xl border border-line bg-surface/85 p-3 shadow-lg backdrop-blur-md">
         <div className="grid gap-2 md:grid-cols-[1.4fr_0.9fr_0.9fr_0.7fr_0.6fr] md:items-center">
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-            <MapPin className="h-4 w-4 text-slate-500" />
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2">
+            <MapPin className="h-4 w-4 text-muted" />
             <input
               value={draft.q}
               onChange={(e) => setDraft((s) => ({ ...s, q: e.target.value }))}
               placeholder="Area, community, or landmark"
-              className="w-full bg-transparent text-sm outline-none placeholder:text-slate-400"
+              className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
               aria-label="Search location"
             />
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-            <CalendarDays className="h-4 w-4 text-slate-500" />
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2">
+            <CalendarDays className="h-4 w-4 text-muted" />
             <input
               type="date"
               value={draft.checkIn}
@@ -75,8 +75,8 @@ export default function FloatingSearchBar(props: { defaultQ?: string }) {
             />
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-            <CalendarDays className="h-4 w-4 text-slate-500" />
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2">
+            <CalendarDays className="h-4 w-4 text-muted" />
             <input
               type="date"
               value={draft.checkOut}
@@ -86,8 +86,8 @@ export default function FloatingSearchBar(props: { defaultQ?: string }) {
             />
           </div>
 
-          <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2">
-            <Users className="h-4 w-4 text-slate-500" />
+          <div className="flex items-center gap-2 rounded-xl border border-line bg-surface px-3 py-2">
+            <Users className="h-4 w-4 text-muted" />
             <input
               type="number"
               min={1}
@@ -103,7 +103,7 @@ export default function FloatingSearchBar(props: { defaultQ?: string }) {
             type="button"
             onClick={pushSearch}
             disabled={!canSearch}
-            className="inline-flex w-full items-center justify-center rounded-xl bg-slate-900 px-4 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-60"
+            className="inline-flex w-full items-center justify-center rounded-xl bg-brand px-4 py-2.5 text-sm font-semibold text-accent-text shadow-sm transition hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
             <Search className="mr-2 h-4 w-4" />
             Search

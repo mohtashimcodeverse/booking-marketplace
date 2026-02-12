@@ -18,14 +18,14 @@ export function Toolbar(props: {
   );
 
   return (
-    <section className="rounded-3xl border border-black/5 bg-white p-6 shadow-sm">
+    <section className="rounded-3xl border border-line/50 bg-surface p-6 shadow-sm">
       <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
         <div className="min-w-0">
-          <h2 className="text-xl font-semibold text-slate-900">
+          <h2 className="text-xl font-semibold text-primary">
             {props.title}
           </h2>
           {props.subtitle ? (
-            <p className="mt-1 max-w-2xl text-sm text-slate-600">
+            <p className="mt-1 max-w-2xl text-sm text-secondary">
               {props.subtitle}
             </p>
           ) : null}
@@ -33,7 +33,7 @@ export function Toolbar(props: {
 
         <div className="flex w-full flex-col gap-3 sm:w-auto sm:flex-row sm:items-center">
           <div className="relative">
-            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
+            <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" />
             <input
               value={q}
               onChange={(e) => {
@@ -42,7 +42,7 @@ export function Toolbar(props: {
                 props.onSearch?.(v);
               }}
               placeholder={placeholder}
-              className="h-11 w-full rounded-2xl border border-black/10 bg-white pl-10 pr-3 text-sm text-slate-900 shadow-sm outline-none placeholder:text-slate-400 focus:border-[#16A6C8]/40 focus:ring-4 focus:ring-[#16A6C8]/15 sm:w-[320px]"
+              className="h-11 w-full rounded-2xl border border-line/80 bg-surface pl-10 pr-3 text-sm text-primary shadow-sm outline-none placeholder:text-muted focus:border-brand/45 focus:ring-4 focus:ring-brand/20 sm:w-[320px]"
             />
           </div>
 

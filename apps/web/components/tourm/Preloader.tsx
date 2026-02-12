@@ -35,14 +35,14 @@ export default function Preloader(props: PreloaderProps) {
   useEffect(() => {
     const alreadySeen = oncePerSession && sessionStorage.getItem(SESSION_KEY) === "1";
     if (alreadySeen) {
-      // Keep initial SSR/client render identical, then disable on mount.
-      setState("disabled");
-      return;
+      // Keep initial SSR/client render identical, then disable on next tick.
+      const disableTimer = window.setTimeout(() => setState("disabled"), 0);
+      return () => window.clearTimeout(disableTimer);
     }
 
     const start = performance.now();
 
-    // Simulated “premium” progress: fast at first, slower near end.
+    // Simulated "premium" progress: fast at first, slower near end.
     let raf = 0;
     const tick = () => {
       const now = performance.now();
@@ -69,26 +69,26 @@ export default function Preloader(props: PreloaderProps) {
   }, [minDurationMs, oncePerSession]);
 
   if (state === "disabled") return null;
-
+  
   return (
     <AnimatePresence>
       {state === "show" ? (
         <motion.div
-          className="fixed inset-0 z-[100] grid place-items-center bg-white"
+          className="fixed inset-0 z-[100] grid place-items-center bg-surface"
           initial={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           transition={{ duration: 0.35, ease: [0.22, 1, 0.36, 1] }}
         >
           {/* background accents (Tourm-ish, subtle) */}
           <div className="pointer-events-none absolute inset-0 overflow-hidden">
-            <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-slate-200/40 blur-3xl" />
-            <div className="absolute -right-32 top-10 h-96 w-96 rounded-full bg-slate-200/40 blur-3xl" />
-            <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-slate-50 to-transparent" />
+            <div className="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-warm-alt/40 blur-3xl" />
+            <div className="absolute -right-32 top-10 h-96 w-96 rounded-full bg-warm-alt/40 blur-3xl" />
+            <div className="absolute bottom-0 left-0 right-0 h-40 bg-gradient-to-t from-warm-base to-transparent" />
           </div>
 
           <div className="relative flex w-full max-w-sm flex-col items-center px-6 text-center">
             <motion.div
-              className="relative h-16 w-16 overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm"
+              className="relative h-16 w-16 overflow-hidden rounded-2xl border border-line bg-surface shadow-sm"
               initial={{ scale: 0.95, opacity: 0 }}
               animate={{ scale: 1, opacity: 1 }}
               transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
@@ -103,7 +103,7 @@ export default function Preloader(props: PreloaderProps) {
             </motion.div>
 
             <motion.div
-              className="mt-4 text-sm font-semibold tracking-wide text-slate-900"
+              className="mt-4 text-sm font-semibold tracking-wide text-primary"
               initial={{ y: 8, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.4, delay: 0.05, ease: [0.22, 1, 0.36, 1] }}
@@ -112,34 +112,34 @@ export default function Preloader(props: PreloaderProps) {
             </motion.div>
 
             <motion.div
-              className="mt-1 text-xs text-slate-600"
+              className="mt-1 text-xs text-secondary"
               initial={{ y: 8, opacity: 0 }}
               animate={{ y: 0, opacity: 1 }}
               transition={{ duration: 0.4, delay: 0.1, ease: [0.22, 1, 0.36, 1] }}
             >
-              Preparing your stay experience…
+              Preparing your stay experience...
             </motion.div>
 
             {/* progress bar */}
             <div className="mt-6 w-full">
-              <div className="h-2 w-full overflow-hidden rounded-full bg-slate-200/70">
+              <div className="h-2 w-full overflow-hidden rounded-full bg-warm-alt/70">
                 <motion.div
-                  className="h-full rounded-full bg-slate-900"
+                  className="h-full rounded-full bg-brand"
                   initial={{ width: "0%" }}
                   animate={{ width: `${Math.round(progress * 100)}%` }}
                   transition={{ duration: 0.12, ease: "linear" }}
                 />
               </div>
 
-              <div className="mt-2 flex items-center justify-between text-[11px] text-slate-500">
+              <div className="mt-2 flex items-center justify-between text-[11px] text-muted">
                 <span>Loading</span>
                 <span>{Math.round(progress * 100)}%</span>
               </div>
             </div>
 
-            {/* subtle “breathing” line */}
+            {/* subtle "breathing" line */}
             <motion.div
-              className="mt-6 h-[2px] w-24 rounded-full bg-slate-900/20"
+              className="mt-6 h-[2px] w-24 rounded-full bg-brand/20"
               animate={{ opacity: [0.25, 0.6, 0.25], scaleX: [0.9, 1.15, 0.9] }}
               transition={{ duration: 1.4, repeat: Infinity, ease: "easeInOut" }}
             />

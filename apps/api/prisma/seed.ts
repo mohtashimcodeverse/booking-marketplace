@@ -1,93 +1,144 @@
 import 'dotenv/config';
 import bcrypt from 'bcryptjs';
-import { PrismaClient, PropertyStatus, UserRole, VendorStatus, ServicePlanType, VendorAgreementStatus, PropertyMediaCategory } from '@prisma/client';
+import { randomUUID } from 'crypto';
+import { mkdirSync, rmSync, writeFileSync } from 'fs';
+import { join } from 'path';
+import {
+  BookingDocumentType,
+  BookingStatus,
+  CalendarDayStatus,
+  FxQuoteCurrency,
+  GuestReviewStatus,
+  HoldStatus,
+  MessageCounterpartyRole,
+  OpsTaskStatus,
+  OpsTaskType,
+  PaymentEventType,
+  PaymentProvider,
+  PaymentStatus,
+  Prisma,
+  PrismaClient,
+  PropertyDocumentType,
+  PropertyMediaCategory,
+  PropertyReviewDecision,
+  PropertyStatus,
+  ServicePlanType,
+  UserRole,
+  VendorAgreementStatus,
+  VendorStatus,
+} from '@prisma/client';
 
 const prisma = new PrismaClient();
 
-/**
- * Shared password for all seeded users
- * - set SEED_PASSWORD in apps/api/.env if you want a custom one
- */
 const SEED_PASSWORD = (process.env.SEED_PASSWORD ?? 'Password123!').trim();
 
-function slugify(input: string) {
-  return input
-    .toLowerCase()
-    .trim()
-    .replace(/[^\w\s-]/g, '')
-    .replace(/\s+/g, '-')
-    .replace(/-+/g, '-');
-}
-
-function clamp(n: number, min: number, max: number) {
-  return Math.max(min, Math.min(max, n));
-}
-
-// deterministic pseudo-random (no external deps)
-function mulberry32(seed: number) {
-  let t = seed >>> 0;
-  return function rand() {
-    t += 0x6d2b79f5;
-    let x = Math.imul(t ^ (t >>> 15), 1 | t);
-    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
-    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function pick<T>(rand: () => number, arr: readonly T[]): T {
-  return arr[Math.floor(rand() * arr.length)]!;
-}
-
-function uniq<T>(arr: T[]) {
-  return Array.from(new Set(arr));
-}
-
-type AreaSeed = {
-  city: string;
-  area: string;
-  // approximate centers for map realism
-  lat: number;
-  lng: number;
+const TARGET_COUNTS = {
+  vendors: 15,
+  customers: 50,
+  properties: 42,
+  completedBookings: 90,
+  confirmedBookings: 70,
+  pendingBookings: 25,
 };
 
-const AREAS: readonly AreaSeed[] = [
+const ONE_DAY_MS = 24 * 60 * 60 * 1000;
+
+const PRIVATE_UPLOAD_BASES = Array.from(
+  new Set([
+    join(process.cwd(), 'private_uploads'),
+    join(process.cwd(), 'apps', 'api', 'private_uploads'),
+  ]),
+);
+
+const DUBAI_AREAS = [
   { city: 'Dubai', area: 'Downtown Dubai', lat: 25.1972, lng: 55.2744 },
   { city: 'Dubai', area: 'Dubai Marina', lat: 25.0772, lng: 55.1406 },
-  { city: 'Dubai', area: 'Palm Jumeirah', lat: 25.1124, lng: 55.1390 },
+  { city: 'Dubai', area: 'Palm Jumeirah', lat: 25.1124, lng: 55.139 },
   { city: 'Dubai', area: 'JBR', lat: 25.0785, lng: 55.1333 },
-  { city: 'Dubai', area: 'Business Bay', lat: 25.1850, lng: 55.2690 },
+  { city: 'Dubai', area: 'Business Bay', lat: 25.185, lng: 55.269 },
   { city: 'Dubai', area: 'DIFC', lat: 25.2132, lng: 55.2796 },
   { city: 'Dubai', area: 'JLT', lat: 25.0686, lng: 55.1423 },
   { city: 'Dubai', area: 'Al Barsha', lat: 25.1052, lng: 55.1951 },
-  { city: 'Dubai', area: 'City Walk', lat: 25.2046, lng: 55.2560 },
+  { city: 'Dubai', area: 'City Walk', lat: 25.2046, lng: 55.256 },
   { city: 'Dubai', area: 'Creek Harbour', lat: 25.1978, lng: 55.3322 },
   { city: 'Dubai', area: 'Jumeirah Village Circle', lat: 25.0602, lng: 55.2083 },
   { city: 'Dubai', area: 'Dubai Hills', lat: 25.0816, lng: 55.2401 },
-  { city: 'Dubai', area: 'The Greens', lat: 25.0956, lng: 55.1658 },
+  { city: 'Dubai', area: 'Bluewaters Island', lat: 25.0829, lng: 55.1205 },
+  { city: 'Dubai', area: 'Meydan', lat: 25.1574, lng: 55.2915 },
+  { city: 'Dubai', area: 'Al Wasl', lat: 25.2068, lng: 55.2527 },
 ] as const;
 
-// Real Unsplash image IDs (stable, hotlink-friendly)
-const UNSPLASH_IDS = [
+const DUBAI_PROPERTY_IMAGE_IDS = [
+  'photo-1512453979798-5ea266f8880c',
+  'photo-1518684079-3c830dcef090',
+  'photo-1526495124232-a04e1849168c',
+  'photo-1546412414-8035e1776c9a',
   'photo-1505693416388-ac5ce068fe85',
-  'photo-1560067174-8943bd8f1fbd',
   'photo-1522708323590-d24dbb6b0267',
   'photo-1502672260266-1c1ef2d93688',
-  'photo-1502005229762-cf1b2da7c5d6',
-  'photo-1493809842364-78817add7ffb',
-  'photo-1507089947368-19c1da9775ae',
-  'photo-1501183638710-841dd1904471',
   'photo-1484154218962-a197022b5858',
   'photo-1512917774080-9991f1c4c750',
   'photo-1505691938895-1758d7feb511',
-  'photo-1523217582562-09d0def993a6',
   'photo-1524758631624-e2822e304c36',
+  'photo-1501183638710-841dd1904471',
+  'photo-1507089947368-19c1da9775ae',
+  'photo-1493809842364-78817add7ffb',
+  'photo-1502005229762-cf1b2da7c5d6',
   'photo-1549187774-b4e9b0445b41',
+  'photo-1523217582562-09d0def993a6',
+  'photo-1560067174-8943bd8f1fbd',
+  'photo-1526498460520-4c246339dccb',
+  'photo-1534237710431-e2fc698436d0',
 ] as const;
 
-function unsplashUrl(id: string, w: number) {
-  // keep it deterministic, avoid random query params
-  return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${w}&q=80`;
-}
+const PROPERTY_TITLE_STEMS = [
+  'Burj View Signature Suite',
+  'Marina Horizon Residence',
+  'Palm Waterfront Escape',
+  'Canal Luxe Apartment',
+  'Downtown Executive Loft',
+  'Skyline Family Residence',
+  'Bluewaters Premium Stay',
+  'Dubai Hills Designer Home',
+  'JBR Sea Breeze Apartment',
+  'Business Bay Modern Retreat',
+  'City Walk Urban Penthouse',
+  'Meydan Golf View Residence',
+] as const;
+
+const REVIEW_TITLES = [
+  'Excellent managed stay',
+  'Great location and cleanliness',
+  'Smooth check-in and support',
+  'Premium apartment experience',
+  'Would book again in Dubai',
+] as const;
+
+const REVIEW_COMMENTS = [
+  'The apartment matched the listing, was very clean, and communication was quick.',
+  'Great location near transport and restaurants. Professional hosting team.',
+  'Everything was organized and backend-confirmed before arrival. Very smooth stay.',
+  'Well furnished, comfortable beds, and a reliable check-in process.',
+  'Strong value for Dubai standards. Support team handled requests promptly.',
+] as const;
+
+const VENDOR_COMPANIES = [
+  'Harborline Stays',
+  'Desert Pearl Homes',
+  'Skyline Key Hosting',
+  'Marina Crest Holidays',
+  'Palm Axis Living',
+  'Canalfront Hospitality',
+  'DIFC Luxe Rentals',
+  'Bluewaters Residence Co',
+  'Urban Dunes Management',
+  'Horizon Bay Properties',
+  'Jumeirah Nest Rentals',
+  'Creekline Suites',
+  'Vertex Stay Operations',
+  'Asteria Homes',
+  'Metroline Guest Homes',
+] as const;
 
 type SeedAmenity = {
   key: string;
@@ -112,14 +163,11 @@ const AMENITY_GROUPS: readonly SeedAmenityGroup[] = [
 ] as const;
 
 const AMENITIES: readonly SeedAmenity[] = [
-  // Essentials
   { key: 'WIFI', name: 'Wi-Fi', groupKey: 'ESSENTIALS', sortOrder: 10 },
   { key: 'TOWELS', name: 'Towels', groupKey: 'ESSENTIALS', sortOrder: 20 },
   { key: 'BED_LINENS', name: 'Bed linens', groupKey: 'ESSENTIALS', sortOrder: 30 },
   { key: 'SHAMPOO', name: 'Shampoo', groupKey: 'ESSENTIALS', sortOrder: 40 },
   { key: 'BASIC_TOILETRIES', name: 'Basic toiletries', groupKey: 'ESSENTIALS', sortOrder: 50 },
-
-  // Kitchen
   { key: 'KITCHEN', name: 'Kitchen', groupKey: 'KITCHEN', sortOrder: 10 },
   { key: 'REFRIGERATOR', name: 'Refrigerator', groupKey: 'KITCHEN', sortOrder: 20 },
   { key: 'MICROWAVE', name: 'Microwave', groupKey: 'KITCHEN', sortOrder: 30 },
@@ -128,85 +176,247 @@ const AMENITIES: readonly SeedAmenity[] = [
   { key: 'KETTLE', name: 'Kettle', groupKey: 'KITCHEN', sortOrder: 60 },
   { key: 'COFFEE_MAKER', name: 'Coffee maker', groupKey: 'KITCHEN', sortOrder: 70 },
   { key: 'DISHES_CUTLERY', name: 'Dishes & cutlery', groupKey: 'KITCHEN', sortOrder: 80 },
-
-  // Bathroom
   { key: 'HOT_WATER', name: 'Hot water', groupKey: 'BATHROOM', sortOrder: 10 },
   { key: 'HAIR_DRYER', name: 'Hair dryer', groupKey: 'BATHROOM', sortOrder: 20 },
-
-  // Bedroom & Laundry
   { key: 'HANGERS', name: 'Hangers', groupKey: 'BEDROOM_LAUNDRY', sortOrder: 10 },
   { key: 'IRON', name: 'Iron', groupKey: 'BEDROOM_LAUNDRY', sortOrder: 20 },
   { key: 'WASHING_MACHINE', name: 'Washing machine', groupKey: 'BEDROOM_LAUNDRY', sortOrder: 30 },
-
-  // Heating & Cooling
   { key: 'AIR_CONDITIONING', name: 'Air conditioning', groupKey: 'HEATING_COOLING', sortOrder: 10 },
   { key: 'HEATING', name: 'Heating', groupKey: 'HEATING_COOLING', sortOrder: 20 },
-
-  // Entertainment
   { key: 'TV', name: 'TV', groupKey: 'ENTERTAINMENT', sortOrder: 10 },
   { key: 'NETFLIX', name: 'Netflix', groupKey: 'ENTERTAINMENT', sortOrder: 20 },
-
-  // Family
   { key: 'BABY_COT', name: 'Baby cot / crib', groupKey: 'FAMILY', sortOrder: 10 },
   { key: 'HIGH_CHAIR', name: 'High chair', groupKey: 'FAMILY', sortOrder: 20 },
-
-  // Building
   { key: 'ELEVATOR', name: 'Elevator', groupKey: 'BUILDING', sortOrder: 10 },
   { key: 'GYM', name: 'Gym', groupKey: 'BUILDING', sortOrder: 20 },
   { key: 'POOL', name: 'Pool', groupKey: 'BUILDING', sortOrder: 30 },
   { key: 'PARKING', name: 'Free parking', groupKey: 'BUILDING', sortOrder: 40 },
   { key: 'DOORMAN', name: 'Doorman', groupKey: 'BUILDING', sortOrder: 50 },
-
-  // Outdoor
   { key: 'BALCONY', name: 'Balcony', groupKey: 'OUTDOOR', sortOrder: 10 },
-
-  // Safety
   { key: 'SMOKE_ALARM', name: 'Smoke alarm', groupKey: 'SAFETY', sortOrder: 10 },
   { key: 'FIRE_EXTINGUISHER', name: 'Fire extinguisher', groupKey: 'SAFETY', sortOrder: 20 },
   { key: 'FIRST_AID_KIT', name: 'First aid kit', groupKey: 'SAFETY', sortOrder: 30 },
 ] as const;
 
+type SeedVendor = {
+  userId: string;
+  email: string;
+  fullName: string;
+  vendorProfileId: string;
+  agreementId: string;
+  planCode: 'FP_LIST' | 'FP_SEMI' | 'FP_FULL';
+};
+
+type SeedProperty = {
+  id: string;
+  slug: string;
+  title: string;
+  status: PropertyStatus;
+  vendorId: string;
+  basePrice: number;
+  cleaningFee: number;
+  city: string;
+  area: string | null;
+};
+
+type SeedBooking = {
+  id: string;
+  propertyId: string;
+  customerId: string;
+  status: BookingStatus;
+  checkIn: Date;
+  checkOut: Date;
+  totalAmount: number;
+};
+
+function slugify(input: string): string {
+  return input
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-');
+}
+
+function clamp(value: number, min: number, max: number): number {
+  return Math.max(min, Math.min(max, value));
+}
+
+function mulberry32(seed: number) {
+  let t = seed >>> 0;
+  return function rand() {
+    t += 0x6d2b79f5;
+    let x = Math.imul(t ^ (t >>> 15), 1 | t);
+    x ^= x + Math.imul(x ^ (x >>> 7), 61 | x);
+    return ((x ^ (x >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
+function pick<T>(rand: () => number, items: readonly T[]): T {
+  return items[Math.floor(rand() * items.length)] as T;
+}
+
+function shuffle<T>(rand: () => number, input: T[]): T[] {
+  const arr = [...input];
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(rand() * (i + 1));
+    const left = arr[i] as T;
+    arr[i] = arr[j] as T;
+    arr[j] = left;
+  }
+  return arr;
+}
+
+function addDays(base: Date, days: number): Date {
+  return new Date(base.getTime() + days * ONE_DAY_MS);
+}
+
+function addHours(base: Date, hours: number): Date {
+  return new Date(base.getTime() + hours * 60 * 60 * 1000);
+}
+
+function startOfUtcDay(input = new Date()): Date {
+  return new Date(
+    Date.UTC(input.getUTCFullYear(), input.getUTCMonth(), input.getUTCDate()),
+  );
+}
+
+function toIsoDay(input: Date): string {
+  const y = input.getUTCFullYear();
+  const m = String(input.getUTCMonth() + 1).padStart(2, '0');
+  const d = String(input.getUTCDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
+function unsplashUrl(id: string, width = 2200): string {
+  return `https://images.unsplash.com/${id}?auto=format&fit=crop&w=${width}&q=84`;
+}
+
+function ensureSeedStorageDirs() {
+  for (const base of PRIVATE_UPLOAD_BASES) {
+    const propertyDocs = join(base, 'properties', 'documents');
+    const bookingDocs = join(base, 'bookings', 'documents');
+
+    rmSync(propertyDocs, { recursive: true, force: true });
+    rmSync(bookingDocs, { recursive: true, force: true });
+
+    mkdirSync(propertyDocs, { recursive: true });
+    mkdirSync(bookingDocs, { recursive: true });
+  }
+}
+
+function buildPdfBuffer(text: string): Buffer {
+  const safeText = text
+    .slice(0, 80)
+    .replace(/\\/g, '\\\\')
+    .replace(/\(/g, '\\(')
+    .replace(/\)/g, '\\)');
+
+  const stream = `BT\n/F1 14 Tf\n50 780 Td\n(${safeText}) Tj\nET`;
+
+  const objects = [
+    '1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n',
+    '2 0 obj\n<< /Type /Pages /Kids [3 0 R] /Count 1 >>\nendobj\n',
+    '3 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 595 842] /Resources << /Font << /F1 5 0 R >> >> /Contents 4 0 R >>\nendobj\n',
+    `4 0 obj\n<< /Length ${Buffer.byteLength(stream, 'utf8')} >>\nstream\n${stream}\nendstream\nendobj\n`,
+    '5 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n',
+  ];
+
+  let body = '%PDF-1.4\n';
+  const offsets: number[] = [0];
+
+  for (const obj of objects) {
+    offsets.push(Buffer.byteLength(body, 'utf8'));
+    body += obj;
+  }
+
+  const xrefOffset = Buffer.byteLength(body, 'utf8');
+  body += `xref\n0 ${objects.length + 1}\n`;
+  body += '0000000000 65535 f \n';
+
+  for (let i = 1; i <= objects.length; i++) {
+    body += `${String(offsets[i]).padStart(10, '0')} 00000 n \n`;
+  }
+
+  body += `trailer\n<< /Size ${objects.length + 1} /Root 1 0 R >>\n`;
+  body += `startxref\n${xrefOffset}\n%%EOF\n`;
+
+  return Buffer.from(body, 'utf8');
+}
+
+function createSeedPdf(scope: 'properties' | 'bookings', label: string) {
+  const storageKey = `${randomUUID()}.pdf`;
+  const originalName = `${label}.pdf`;
+  const payload = buildPdfBuffer(`Luxivo Seed Document: ${label}`);
+
+  for (const base of PRIVATE_UPLOAD_BASES) {
+    const abs = join(base, scope, 'documents', storageKey);
+    writeFileSync(abs, payload);
+  }
+
+  return {
+    storageKey,
+    originalName,
+    mimeType: 'application/pdf',
+  };
+}
+
 async function cleanAll() {
-  // Operator layer
   await prisma.workOrder.deleteMany().catch(() => undefined);
   await prisma.maintenanceRequest.deleteMany().catch(() => undefined);
   await prisma.opsTask.deleteMany().catch(() => undefined);
-  await prisma.propertyServiceConfig.deleteMany().catch(() => undefined);
-  await prisma.vendorServiceAgreement.deleteMany().catch(() => undefined);
-  await prisma.servicePlan.deleteMany().catch(() => undefined);
 
-  // Payments/Cancellation/Booking
+  await prisma.message.deleteMany().catch(() => undefined);
+  await prisma.messageThread.deleteMany().catch(() => undefined);
+
+  await prisma.guestReview.deleteMany().catch(() => undefined);
+  await prisma.bookingDocument.deleteMany().catch(() => undefined);
+
+  await prisma.propertyUnpublishRequest.deleteMany().catch(() => undefined);
+  await prisma.propertyDeletionRequest.deleteMany().catch(() => undefined);
+  await prisma.propertyReview.deleteMany().catch(() => undefined);
+  await prisma.propertyDocument.deleteMany().catch(() => undefined);
+  await prisma.media.deleteMany().catch(() => undefined);
+
   await prisma.paymentEvent.deleteMany().catch(() => undefined);
+  await prisma.ledgerEntry.deleteMany().catch(() => undefined);
+  await prisma.payout.deleteMany().catch(() => undefined);
+  await prisma.vendorStatement.deleteMany().catch(() => undefined);
+
+  await prisma.securityDeposit.deleteMany().catch(() => undefined);
   await prisma.refund.deleteMany().catch(() => undefined);
   await prisma.payment.deleteMany().catch(() => undefined);
 
   await prisma.bookingCancellation.deleteMany().catch(() => undefined);
-  await prisma.cancellationPolicyConfig.deleteMany().catch(() => undefined);
-
   await prisma.bookingIdempotency.deleteMany().catch(() => undefined);
   await prisma.booking.deleteMany().catch(() => undefined);
 
-  // Availability
   await prisma.propertyHold.deleteMany().catch(() => undefined);
   await prisma.propertyCalendarDay.deleteMany().catch(() => undefined);
   await prisma.propertyAvailabilitySettings.deleteMany().catch(() => undefined);
+  await prisma.cancellationPolicyConfig.deleteMany().catch(() => undefined);
+  await prisma.securityDepositPolicy.deleteMany().catch(() => undefined);
 
-  // Listing
-  await prisma.media.deleteMany().catch(() => undefined);
-
-  // Amenities
   await prisma.propertyAmenity.deleteMany().catch(() => undefined);
+  await prisma.propertyServiceConfig.deleteMany().catch(() => undefined);
+
+  await prisma.fxRate.deleteMany().catch(() => undefined);
+  await prisma.notificationEvent.deleteMany().catch(() => undefined);
+
+  await prisma.property.deleteMany().catch(() => undefined);
+
+  await prisma.vendorServiceAgreement.deleteMany().catch(() => undefined);
+  await prisma.servicePlan.deleteMany().catch(() => undefined);
+
   await prisma.amenity.deleteMany().catch(() => undefined);
   await prisma.amenityGroup.deleteMany().catch(() => undefined);
 
   await prisma.location.deleteMany().catch(() => undefined);
 
-  // Listing / users
-  await prisma.propertyReview.deleteMany().catch(() => undefined);
-  await prisma.propertyDocument.deleteMany().catch(() => undefined);
-
-  await prisma.property.deleteMany().catch(() => undefined);
   await prisma.vendorProfile.deleteMany().catch(() => undefined);
+  await prisma.refreshToken.deleteMany().catch(() => undefined);
+  await prisma.passwordResetToken.deleteMany().catch(() => undefined);
+  await prisma.emailVerificationToken.deleteMany().catch(() => undefined);
   await prisma.user.deleteMany().catch(() => undefined);
 }
 
@@ -219,41 +429,45 @@ async function seedAmenityCatalog() {
     });
   }
 
-  const groups = await prisma.amenityGroup.findMany({ where: { isActive: true } });
+  const groups = await prisma.amenityGroup.findMany({
+    where: { isActive: true },
+    select: { id: true, key: true },
+  });
   const groupByKey = new Map(groups.map((x) => [x.key, x.id]));
 
   function groupId(key: string) {
     const id = groupByKey.get(key);
-    if (!id) throw new Error(`AmenityGroup missing: ${key}`);
+    if (!id) throw new Error(`Amenity group missing: ${key}`);
     return id;
   }
 
-  for (const a of AMENITIES) {
+  for (const amenity of AMENITIES) {
     await prisma.amenity.upsert({
-      where: { key: a.key },
+      where: { key: amenity.key },
       create: {
-        key: a.key,
-        name: a.name,
+        key: amenity.key,
+        name: amenity.name,
         icon: null,
-        groupId: groupId(a.groupKey),
-        sortOrder: a.sortOrder,
+        groupId: groupId(amenity.groupKey),
+        sortOrder: amenity.sortOrder,
         isActive: true,
       },
       update: {
-        name: a.name,
-        groupId: groupId(a.groupKey),
-        sortOrder: a.sortOrder,
+        name: amenity.name,
+        groupId: groupId(amenity.groupKey),
+        sortOrder: amenity.sortOrder,
         isActive: true,
       },
     });
   }
 
-  // safe backfill
-  const essentialsId = groupId('ESSENTIALS');
-  await prisma.amenity.updateMany({ where: { groupId: null }, data: { groupId: essentialsId } });
+  const all = await prisma.amenity.findMany({
+    select: { id: true, key: true },
+  });
 
-  const all = await prisma.amenity.findMany({ select: { id: true, key: true } });
-  return { amenityByKey: new Map(all.map((x) => [x.key, x.id])) };
+  return {
+    amenityByKey: new Map(all.map((x) => [x.key, x.id])),
+  };
 }
 
 async function seedServicePlans() {
@@ -262,7 +476,7 @@ async function seedServicePlans() {
       code: 'FP_LIST',
       type: ServicePlanType.LISTING_ONLY,
       name: 'Listing Only',
-      description: 'We list and manage bookings. Owner handles operations.',
+      description: 'Managed listing and reservations. Owner handles on-ground operations.',
       managementFeeBps: 0,
       includesCleaning: false,
       includesLinen: false,
@@ -275,7 +489,7 @@ async function seedServicePlans() {
       code: 'FP_SEMI',
       type: ServicePlanType.SEMI_MANAGED,
       name: 'Semi-Managed',
-      description: 'Bookings + core ops. Some responsibilities remain with owner.',
+      description: 'Bookings plus core operations with shared owner responsibility.',
       managementFeeBps: 1500,
       includesCleaning: true,
       includesLinen: true,
@@ -288,7 +502,7 @@ async function seedServicePlans() {
       code: 'FP_FULL',
       type: ServicePlanType.FULLY_MANAGED,
       name: 'Fully Managed',
-      description: 'Full program: bookings + operations + maintenance coordination.',
+      description: 'End-to-end operations, compliance, and guest experience management.',
       managementFeeBps: 1900,
       includesCleaning: true,
       includesLinen: true,
@@ -299,219 +513,262 @@ async function seedServicePlans() {
     },
   ] as const;
 
-  for (const p of plans) {
+  for (const plan of plans) {
     await prisma.servicePlan.upsert({
-      where: { code: p.code },
-      create: p,
-      update: { ...p },
+      where: { code: plan.code },
+      create: plan,
+      update: plan,
     });
   }
 
   const seeded = await prisma.servicePlan.findMany();
   const byCode = new Map(seeded.map((x) => [x.code, x]));
+
   const list = byCode.get('FP_LIST');
   const semi = byCode.get('FP_SEMI');
   const full = byCode.get('FP_FULL');
-  if (!list || !semi || !full) throw new Error('ServicePlan seeding failed');
+
+  if (!list || !semi || !full) {
+    throw new Error('Service plans were not seeded correctly.');
+  }
+
   return { list, semi, full };
 }
 
-type SeedVendor = {
-  userId: string;
-  email: string;
-  vendorProfileId: string;
-  agreementId: string;
-  planCode: 'FP_LIST' | 'FP_SEMI' | 'FP_FULL';
-};
-
 async function main() {
-  if (!process.env.DATABASE_URL) throw new Error('DATABASE_URL is missing. Put it in apps/api/.env');
+  if (!process.env.DATABASE_URL) {
+    throw new Error('DATABASE_URL is missing. Put it in apps/api/.env');
+  }
+
+  const rand = mulberry32(20260211);
+  const now = new Date();
+  const today = startOfUtcDay(now);
 
   const passwordHash = await bcrypt.hash(SEED_PASSWORD, 10);
 
+  ensureSeedStorageDirs();
   await cleanAll();
-
-  // -----------------------------
-  // USERS
-  // -----------------------------
 
   const admin = await prisma.user.create({
     data: {
       email: 'admin@demo.com',
       passwordHash,
       role: UserRole.ADMIN,
-      fullName: 'Demo Admin',
+      fullName: 'Luxivo Operator Admin',
       isEmailVerified: true,
     },
   });
 
-  // 6 vendors
-  const vendorEmails = [
-    'vendor.alpha@demo.com',
-    'vendor.bravo@demo.com',
-    'vendor.charlie@demo.com',
-    'vendor.delta@demo.com',
-    'vendor.echo@demo.com',
-    'vendor.foxtrot@demo.com',
-  ] as const;
+  const vendorUsers = [] as Array<{ id: string; email: string; fullName: string }>;
+  const vendorProfiles = [] as Array<{ id: string }>;
 
-  const vendorsUsers = await Promise.all(
-    vendorEmails.map((email, idx) =>
-      prisma.user.create({
-        data: {
-          email,
-          passwordHash,
-          role: UserRole.VENDOR,
-          fullName: `Vendor ${idx + 1}`,
-          isEmailVerified: true,
-        },
-      }),
-    ),
-  );
+  for (let i = 0; i < TARGET_COUNTS.vendors; i++) {
+    const company = VENDOR_COMPANIES[i] ?? `Vendor Company ${i + 1}`;
+    const fullName = `${company} Team`;
+    const email = `vendor${String(i + 1).padStart(2, '0')}@demo.com`;
 
-  const vendorProfiles = await Promise.all(
-    vendorsUsers.map((u, idx) =>
-      prisma.vendorProfile.create({
-        data: {
-          userId: u.id,
-          displayName: `Vendor ${idx + 1}`,
-          companyName: `Vendor ${idx + 1} Hospitality`,
-          phone: `+971 50 0000${String(idx + 1).padStart(2, '0')}`,
-          status: VendorStatus.APPROVED,
-        },
-      }),
-    ),
-  );
+    const user = await prisma.user.create({
+      data: {
+        email,
+        passwordHash,
+        role: UserRole.VENDOR,
+        fullName,
+        isEmailVerified: true,
+      },
+      select: { id: true, email: true, fullName: true },
+    });
 
-  // 12 customers
-  const customerEmails = Array.from({ length: 12 }).map((_, i) => `customer${i + 1}@demo.com`);
-  const customers = await Promise.all(
-    customerEmails.map((email, idx) =>
-      prisma.user.create({
-        data: {
-          email,
-          passwordHash,
-          role: UserRole.CUSTOMER,
-          fullName: `Customer ${idx + 1}`,
-          isEmailVerified: true,
-        },
-      }),
-    ),
-  );
+    const profile = await prisma.vendorProfile.create({
+      data: {
+        userId: user.id,
+        displayName: company,
+        companyName: company,
+        phone: `+971 50 ${String(1000000 + i * 331).slice(-7)}`,
+        status: VendorStatus.APPROVED,
+      },
+      select: { id: true },
+    });
 
-  // -----------------------------
-  // AMENITIES CATALOG
-  // -----------------------------
+    vendorUsers.push({
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName ?? company,
+    });
+    vendorProfiles.push(profile);
+  }
+
+  const customers = [] as Array<{ id: string; email: string; fullName: string }>;
+  for (let i = 0; i < TARGET_COUNTS.customers; i++) {
+    const user = await prisma.user.create({
+      data: {
+        email: `customer${String(i + 1).padStart(2, '0')}@demo.com`,
+        passwordHash,
+        role: UserRole.CUSTOMER,
+        fullName: `Customer ${i + 1}`,
+        isEmailVerified: true,
+      },
+      select: { id: true, email: true, fullName: true },
+    });
+
+    customers.push({
+      id: user.id,
+      email: user.email,
+      fullName: user.fullName ?? `Customer ${i + 1}`,
+    });
+  }
+
   const { amenityByKey } = await seedAmenityCatalog();
-
-  // -----------------------------
-  // OPERATOR: SERVICE PLANS + AGREEMENTS
-  // -----------------------------
   const { list, semi, full } = await seedServicePlans();
 
-  // assign vendor plans (mix)
-  const vendorPlanCodes: Array<'FP_LIST' | 'FP_SEMI' | 'FP_FULL'> = ['FP_FULL', 'FP_SEMI', 'FP_FULL', 'FP_LIST', 'FP_SEMI', 'FP_FULL'];
-
-  const now = new Date();
+  const vendorPlanCodes: Array<'FP_LIST' | 'FP_SEMI' | 'FP_FULL'> = vendorUsers.map(
+    (_, index) => {
+      const cycle = index % 3;
+      if (cycle === 0) return 'FP_FULL';
+      if (cycle === 1) return 'FP_SEMI';
+      return 'FP_LIST';
+    },
+  );
 
   const seededVendors: SeedVendor[] = [];
-
-  for (let i = 0; i < vendorsUsers.length; i++) {
-    const user = vendorsUsers[i]!;
-    const vp = vendorProfiles[i]!;
-    const code = vendorPlanCodes[i]!;
+  for (let i = 0; i < vendorUsers.length; i++) {
+    const vendor = vendorUsers[i] as { id: string; email: string; fullName: string };
+    const profile = vendorProfiles[i] as { id: string };
+    const code = vendorPlanCodes[i] as 'FP_LIST' | 'FP_SEMI' | 'FP_FULL';
     const plan = code === 'FP_LIST' ? list : code === 'FP_SEMI' ? semi : full;
 
     const agreement = await prisma.vendorServiceAgreement.create({
       data: {
-        vendorProfileId: vp.id,
+        vendorProfileId: profile.id,
         servicePlanId: plan.id,
         status: VendorAgreementStatus.ACTIVE,
-        startDate: now,
+        startDate: addDays(today, -120),
         endDate: null,
         agreedManagementFeeBps: plan.managementFeeBps,
-        notes: `Seed agreement (${plan.name}).`,
+        notes: `Seeded agreement for ${plan.name}.`,
         approvedByAdminId: admin.id,
-        approvedAt: now,
+        approvedAt: addDays(today, -121),
       },
+      select: { id: true },
     });
 
     seededVendors.push({
-      userId: user.id,
-      email: user.email,
-      vendorProfileId: vp.id,
+      userId: vendor.id,
+      email: vendor.email,
+      fullName: vendor.fullName,
+      vendorProfileId: profile.id,
       agreementId: agreement.id,
       planCode: code,
     });
   }
 
-  // -----------------------------
-  // PROPERTIES (26)
-  // -----------------------------
-  const rand = mulberry32(20260206);
+  const statusPool: PropertyStatus[] = shuffle(rand, [
+    ...Array.from({ length: 22 }, () => PropertyStatus.PUBLISHED),
+    ...Array.from({ length: 6 }, () => PropertyStatus.APPROVED),
+    ...Array.from({ length: 5 }, () => PropertyStatus.UNDER_REVIEW),
+    ...Array.from({ length: 3 }, () => PropertyStatus.CHANGES_REQUESTED),
+    ...Array.from({ length: 3 }, () => PropertyStatus.DRAFT),
+    ...Array.from({ length: 1 }, () => PropertyStatus.REJECTED),
+    ...Array.from({ length: 1 }, () => PropertyStatus.SUSPENDED),
+    ...Array.from({ length: 1 }, () => PropertyStatus.ARCHIVED),
+  ]);
 
-  const TITLES = [
-    'Skyline Studio Retreat',
-    'Marina View Apartment',
-    'Downtown Luxe Residence',
-    'Palm Resort Suite',
-    'Canal-Side Business Bay Stay',
-    'DIFC City Apartment',
-    'Family-Ready Two Bedroom',
-    'Minimalist Urban Escape',
-    'Premium High-Floor View',
-    'Quiet Community Home',
-    'Modern Designer Flat',
-    'Serviced Comfort Suite',
-  ] as const;
-
-  const propertyCount = 26;
-  const properties: { id: string; slug: string; vendorEmail: string; status: PropertyStatus }[] = [];
-
-  // amenity “profiles” for realism
   const amenityProfiles: readonly string[][] = [
-    ['WIFI', 'AIR_CONDITIONING', 'TV', 'KITCHEN', 'REFRIGERATOR', 'MICROWAVE', 'ELEVATOR', 'POOL', 'GYM', 'PARKING'],
-    ['WIFI', 'AIR_CONDITIONING', 'TV', 'KITCHEN', 'OVEN', 'COFFEE_MAKER', 'DISHES_CUTLERY', 'DOORMAN', 'POOL'],
-    ['WIFI', 'AIR_CONDITIONING', 'TV', 'KITCHEN', 'REFRIGERATOR', 'PARKING', 'BALCONY', 'SMOKE_ALARM', 'FIRE_EXTINGUISHER'],
-    ['WIFI', 'AIR_CONDITIONING', 'TV', 'KITCHEN', 'MICROWAVE', 'ELEVATOR', 'GYM', 'SMOKE_ALARM', 'FIRST_AID_KIT'],
+    ['WIFI', 'AIR_CONDITIONING', 'TV', 'KITCHEN', 'REFRIGERATOR', 'MICROWAVE', 'ELEVATOR', 'POOL', 'GYM', 'PARKING', 'BALCONY'],
+    ['WIFI', 'AIR_CONDITIONING', 'TV', 'KITCHEN', 'OVEN', 'COFFEE_MAKER', 'DISHES_CUTLERY', 'DOORMAN', 'POOL', 'SMOKE_ALARM'],
+    ['WIFI', 'AIR_CONDITIONING', 'TV', 'KITCHEN', 'REFRIGERATOR', 'PARKING', 'BALCONY', 'SMOKE_ALARM', 'FIRE_EXTINGUISHER', 'FIRST_AID_KIT'],
+    ['WIFI', 'AIR_CONDITIONING', 'TV', 'KITCHEN', 'MICROWAVE', 'ELEVATOR', 'GYM', 'NETFLIX', 'WASHING_MACHINE', 'HOT_WATER'],
   ] as const;
 
-  const statusMix: readonly PropertyStatus[] = [
-    PropertyStatus.PUBLISHED,
-    PropertyStatus.PUBLISHED,
-    PropertyStatus.PUBLISHED,
-    PropertyStatus.APPROVED,
-    PropertyStatus.APPROVED,
-    PropertyStatus.UNDER_REVIEW,
-    PropertyStatus.UNDER_REVIEW,
-    PropertyStatus.CHANGES_REQUESTED,
-    PropertyStatus.DRAFT,
-  ] as const;
+  const properties: SeedProperty[] = [];
 
-  for (let i = 0; i < propertyCount; i++) {
-    const vendor = seededVendors[i % seededVendors.length]!;
-    const area = pick(rand, AREAS);
-    const titleBase = pick(rand, TITLES);
-    const bedrooms = clamp(1 + Math.floor(rand() * 4), 1, 5);
-    const bathrooms = clamp(1 + Math.floor(rand() * 3), 1, 4);
+  for (let i = 0; i < TARGET_COUNTS.properties; i++) {
+    const vendor = seededVendors[i % seededVendors.length] as SeedVendor;
+    const area = pick(rand, DUBAI_AREAS);
+    const titleStem = pick(rand, PROPERTY_TITLE_STEMS);
+
+    const bedrooms = clamp(1 + Math.floor(rand() * 5), 1, 5);
+    const bathrooms = clamp(1 + Math.floor(rand() * 4), 1, 4);
     const maxGuests = clamp(2 + bedrooms + Math.floor(rand() * 3), 2, 10);
 
-    const basePrice = clamp(24000 + Math.floor(rand() * 90000), 24000, 120000);
-    const cleaningFee = clamp(3000 + Math.floor(rand() * 7000), 3000, 12000);
+    const nightlyAed = clamp(
+      420 + bedrooms * 230 + Math.floor(rand() * 1200),
+      420,
+      bedrooms >= 4 ? 4200 : 2600,
+    );
 
-    const status = statusMix[i % statusMix.length]!;
-    const slug = `${slugify(`${titleBase} ${area.area}`)}-${i + 1}`;
+    const basePrice = nightlyAed * 100;
+    const cleaningFee = clamp(120 + bedrooms * 45 + Math.floor(rand() * 180), 120, 650) * 100;
 
-    const lat = area.lat + (rand() - 0.5) * 0.02;
-    const lng = area.lng + (rand() - 0.5) * 0.02;
+    const status = statusPool[i] as PropertyStatus;
+    const slug = `${slugify(`${titleStem} ${area.area}`)}-${String(i + 1).padStart(2, '0')}`;
+
+    const lat = area.lat + (rand() - 0.5) * 0.018;
+    const lng = area.lng + (rand() - 0.5) * 0.018;
+
+    const mediaData = [
+      {
+        url: unsplashUrl(pick(rand, DUBAI_PROPERTY_IMAGE_IDS), 2600),
+        alt: `${area.area} cover`,
+        sortOrder: 0,
+        category: PropertyMediaCategory.COVER,
+      },
+      {
+        url: unsplashUrl(pick(rand, DUBAI_PROPERTY_IMAGE_IDS), 1800),
+        alt: `${area.area} living room`,
+        sortOrder: 1,
+        category: PropertyMediaCategory.LIVING_ROOM,
+      },
+      {
+        url: unsplashUrl(pick(rand, DUBAI_PROPERTY_IMAGE_IDS), 1800),
+        alt: `${area.area} bedroom`,
+        sortOrder: 2,
+        category: PropertyMediaCategory.BEDROOM,
+      },
+      {
+        url: unsplashUrl(pick(rand, DUBAI_PROPERTY_IMAGE_IDS), 1800),
+        alt: `${area.area} bathroom`,
+        sortOrder: 3,
+        category: PropertyMediaCategory.BATHROOM,
+      },
+      {
+        url: unsplashUrl(pick(rand, DUBAI_PROPERTY_IMAGE_IDS), 1800),
+        alt: `${area.area} kitchen`,
+        sortOrder: 4,
+        category: PropertyMediaCategory.KITCHEN,
+      },
+      {
+        url: unsplashUrl(pick(rand, DUBAI_PROPERTY_IMAGE_IDS), 1800),
+        alt: `${area.area} balcony`,
+        sortOrder: 5,
+        category: PropertyMediaCategory.BALCONY,
+      },
+      {
+        url: unsplashUrl(pick(rand, DUBAI_PROPERTY_IMAGE_IDS), 1800),
+        alt: `${area.area} view`,
+        sortOrder: 6,
+        category: PropertyMediaCategory.VIEW,
+      },
+      {
+        url: unsplashUrl(pick(rand, DUBAI_PROPERTY_IMAGE_IDS), 1800),
+        alt: `${area.area} building exterior`,
+        sortOrder: 7,
+        category: PropertyMediaCategory.EXTERIOR,
+      },
+      {
+        url: unsplashUrl(pick(rand, DUBAI_PROPERTY_IMAGE_IDS), 1800),
+        alt: `${area.area} amenities`,
+        sortOrder: 8,
+        category: PropertyMediaCategory.AMENITY,
+      },
+    ];
 
     const created = await prisma.property.create({
       data: {
         vendorId: vendor.userId,
-        title: `${titleBase} • ${area.area}`,
+        title: `${titleStem} • ${area.area}`,
         slug,
         description:
-          'A professionally managed stay with hotel-grade standards and backend-verified availability. Seed content for UI realism.',
+          'Professionally managed Dubai stay with backend-verified availability, audited pricing, and premium guest support.',
         city: area.city,
         area: area.area,
         address: `${Math.floor(10 + rand() * 80)} ${area.area}, Dubai`,
@@ -524,62 +781,63 @@ async function main() {
 
         basePrice,
         cleaningFee,
-        currency: 'PKR',
+        currency: 'AED',
 
-        minNights: clamp(1 + Math.floor(rand() * 3), 1, 4),
+        minNights: clamp(1 + Math.floor(rand() * 4), 1, 5),
         maxNights: null,
-        isInstantBook: rand() > 0.75,
+        isInstantBook: rand() > 0.65,
 
         status,
 
         media: {
           createMany: {
-            data: [
-              // COVER-ish first image (we keep category OTHER in schema; UI can treat first as cover)
-              { url: unsplashUrl(pick(rand, UNSPLASH_IDS), 2400), alt: 'Cover', sortOrder: 0, category: PropertyMediaCategory.OTHER },
-
-              // Required categories (submit workflow wants these)
-              { url: unsplashUrl(pick(rand, UNSPLASH_IDS), 1600), alt: 'Living room', sortOrder: 1, category: PropertyMediaCategory.LIVING_ROOM },
-              { url: unsplashUrl(pick(rand, UNSPLASH_IDS), 1600), alt: 'Bedroom', sortOrder: 2, category: PropertyMediaCategory.BEDROOM },
-              { url: unsplashUrl(pick(rand, UNSPLASH_IDS), 1600), alt: 'Bathroom', sortOrder: 3, category: PropertyMediaCategory.BATHROOM },
-              { url: unsplashUrl(pick(rand, UNSPLASH_IDS), 1600), alt: 'Kitchen', sortOrder: 4, category: PropertyMediaCategory.KITCHEN },
-
-              // Extras for nicer galleries
-              { url: unsplashUrl(pick(rand, UNSPLASH_IDS), 1600), alt: 'Exterior', sortOrder: 5, category: PropertyMediaCategory.EXTERIOR },
-              { url: unsplashUrl(pick(rand, UNSPLASH_IDS), 1600), alt: 'Amenities', sortOrder: 6, category: PropertyMediaCategory.AMENITY },
-              { url: unsplashUrl(pick(rand, UNSPLASH_IDS), 1600), alt: 'Another angle', sortOrder: 7, category: PropertyMediaCategory.OTHER },
-            ],
+            data: mediaData,
           },
         },
       },
-      select: { id: true, slug: true, status: true },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        status: true,
+        vendorId: true,
+        basePrice: true,
+        cleaningFee: true,
+        city: true,
+        area: true,
+      },
     });
 
-    properties.push({ id: created.id, slug: created.slug, vendorEmail: vendor.email, status: created.status });
+    properties.push(created);
 
-    // Attach amenities
     const profile = pick(rand, amenityProfiles);
-    const chosenKeys = uniq(profile.filter((k) => amenityByKey.has(k)));
+    const amenityIds = Array.from(
+      new Set(
+        profile
+          .map((k) => amenityByKey.get(k))
+          .filter((id): id is string => typeof id === 'string'),
+      ),
+    );
 
-    const rows = chosenKeys
-      .map((k) => amenityByKey.get(k))
-      .filter((x): x is string => typeof x === 'string');
-
-    if (rows.length > 0) {
+    if (amenityIds.length > 0) {
       await prisma.propertyAmenity.createMany({
-        data: rows.map((amenityId) => ({ propertyId: created.id, amenityId })),
+        data: amenityIds.map((amenityId) => ({ propertyId: created.id, amenityId })),
         skipDuplicates: true,
       });
     }
 
-    // PropertyServiceConfig based on vendor plan
-    const plan = vendor.planCode === 'FP_LIST' ? list : vendor.planCode === 'FP_SEMI' ? semi : full;
+    const plan =
+      vendor.planCode === 'FP_LIST'
+        ? list
+        : vendor.planCode === 'FP_SEMI'
+          ? semi
+          : full;
+
     await prisma.propertyServiceConfig.create({
       data: {
         propertyId: created.id,
         servicePlanId: plan.id,
         vendorAgreementId: vendor.agreementId,
-        // keep overrides null so plan defaults are the source of truth
         cleaningRequired: null,
         linenChangeRequired: null,
         inspectionRequired: null,
@@ -589,15 +847,14 @@ async function main() {
         linenFee: null,
         inspectionFee: null,
         restockFee: null,
-        currency: 'PKR',
+        currency: 'AED',
       },
     });
 
-    // Cancellation policy config (optional but makes UI richer)
     await prisma.cancellationPolicyConfig.create({
       data: {
         propertyId: created.id,
-        version: `seed-v1-${i + 1}`,
+        version: `seed-v2-${i + 1}`,
         isActive: true,
         freeCancelBeforeHours: 72,
         partialRefundBeforeHours: 48,
@@ -605,33 +862,684 @@ async function main() {
         penaltyValue: 20,
       },
     });
+
+    await prisma.propertyAvailabilitySettings.create({
+      data: {
+        propertyId: created.id,
+        defaultMinNights: Math.max(1, Math.min(4, created.basePrice > 200000 ? 2 : 1)),
+        defaultMaxNights: null,
+        advanceNoticeDays: 0,
+        preparationDays: 0,
+      },
+    });
+
+    const ownerBlockAStart = addDays(today, 8 + (i % 35));
+    const ownerBlockBStart = addDays(today, 45 + (i % 30));
+    const ownerBlocks = [
+      ...Array.from({ length: 2 + Math.floor(rand() * 3) }, (_, day) =>
+        addDays(ownerBlockAStart, day),
+      ),
+      ...Array.from({ length: 1 + Math.floor(rand() * 3) }, (_, day) =>
+        addDays(ownerBlockBStart, day),
+      ),
+    ];
+
+    await prisma.propertyCalendarDay.createMany({
+      data: ownerBlocks.map((date) => ({
+        propertyId: created.id,
+        date,
+        status: CalendarDayStatus.BLOCKED,
+        note: 'Owner use (seeded)',
+      })),
+      skipDuplicates: true,
+    });
+
+    const ownershipPdf = createSeedPdf('properties', `${slug}-ownership-proof`);
+
+    const ownershipDoc = await prisma.propertyDocument.create({
+      data: {
+        propertyId: created.id,
+        type: PropertyDocumentType.OWNERSHIP_PROOF,
+        uploadedByUserId: vendor.userId,
+        reviewedByAdminId:
+          created.status === PropertyStatus.PUBLISHED ||
+          created.status === PropertyStatus.APPROVED
+            ? admin.id
+            : null,
+        storageKey: ownershipPdf.storageKey,
+        originalName: ownershipPdf.originalName,
+        mimeType: ownershipPdf.mimeType,
+        url: null,
+      },
+      select: { id: true },
+    });
+
+    await prisma.propertyDocument.update({
+      where: { id: ownershipDoc.id },
+      data: {
+        url: `/api/vendor/properties/${created.id}/documents/${ownershipDoc.id}/download`,
+      },
+    });
+
+    if (rand() > 0.45) {
+      const permitPdf = createSeedPdf('properties', `${slug}-holiday-home-permit`);
+      const permit = await prisma.propertyDocument.create({
+        data: {
+          propertyId: created.id,
+          type: PropertyDocumentType.HOLIDAY_HOME_PERMIT,
+          uploadedByUserId: vendor.userId,
+          reviewedByAdminId:
+            created.status === PropertyStatus.PUBLISHED ? admin.id : null,
+          storageKey: permitPdf.storageKey,
+          originalName: permitPdf.originalName,
+          mimeType: permitPdf.mimeType,
+          url: null,
+        },
+        select: { id: true },
+      });
+
+      await prisma.propertyDocument.update({
+        where: { id: permit.id },
+        data: {
+          url: `/api/vendor/properties/${created.id}/documents/${permit.id}/download`,
+        },
+      });
+    }
+
+    if (
+      created.status === PropertyStatus.APPROVED ||
+      created.status === PropertyStatus.PUBLISHED ||
+      created.status === PropertyStatus.CHANGES_REQUESTED ||
+      created.status === PropertyStatus.REJECTED
+    ) {
+      const decision =
+        created.status === PropertyStatus.CHANGES_REQUESTED
+          ? PropertyReviewDecision.REQUEST_CHANGES
+          : created.status === PropertyStatus.REJECTED
+            ? PropertyReviewDecision.REJECT
+            : PropertyReviewDecision.APPROVE;
+
+      await prisma.propertyReview.create({
+        data: {
+          propertyId: created.id,
+          adminId: admin.id,
+          decision,
+          notes:
+            decision === PropertyReviewDecision.APPROVE
+              ? 'Seeded admin approval.'
+              : decision === PropertyReviewDecision.REQUEST_CHANGES
+                ? 'Seeded request changes: improve staging photos and compliance labels.'
+                : 'Seeded rejection example for moderation state coverage.',
+        },
+      });
+    }
   }
 
-  // -----------------------------
-  // DONE
-  // -----------------------------
+  const bookableProperties = properties.filter(
+    (p) =>
+      p.status === PropertyStatus.PUBLISHED ||
+      p.status === PropertyStatus.APPROVED,
+  );
+
+  const allBookings: SeedBooking[] = [];
+  const completedBookings: SeedBooking[] = [];
+  const upcomingBookings: SeedBooking[] = [];
+
+  async function createSeedBooking(params: {
+    property: SeedProperty;
+    customerId: string;
+    checkIn: Date;
+    checkOut: Date;
+    status: BookingStatus;
+  }) {
+    const nights = Math.max(
+      1,
+      Math.round((params.checkOut.getTime() - params.checkIn.getTime()) / ONE_DAY_MS),
+    );
+    const totalAmount = params.property.basePrice * nights + params.property.cleaningFee;
+
+    const hold = await prisma.propertyHold.create({
+      data: {
+        propertyId: params.property.id,
+        checkIn: params.checkIn,
+        checkOut: params.checkOut,
+        status: HoldStatus.ACTIVE,
+        expiresAt: addHours(now, 4),
+        createdById: params.customerId,
+      },
+      select: { id: true },
+    });
+
+    const booking = await prisma.booking.create({
+      data: {
+        customerId: params.customerId,
+        propertyId: params.property.id,
+        holdId: hold.id,
+        checkIn: params.checkIn,
+        checkOut: params.checkOut,
+        adults: clamp(1 + Math.floor(rand() * 4), 1, 6),
+        children: Math.floor(rand() * 2),
+        status: params.status,
+        totalAmount,
+        currency: 'AED',
+        expiresAt:
+          params.status === BookingStatus.PENDING_PAYMENT
+            ? addHours(now, 24)
+            : null,
+      },
+      select: {
+        id: true,
+        propertyId: true,
+        customerId: true,
+        status: true,
+        checkIn: true,
+        checkOut: true,
+        totalAmount: true,
+      },
+    });
+
+    await prisma.propertyHold.update({
+      where: { id: hold.id },
+      data: {
+        status: HoldStatus.CONVERTED,
+        bookingId: booking.id,
+        convertedAt: now,
+      },
+    });
+
+    const paymentStatus =
+      params.status === BookingStatus.PENDING_PAYMENT
+        ? PaymentStatus.REQUIRES_ACTION
+        : PaymentStatus.CAPTURED;
+
+    const payment = await prisma.payment.create({
+      data: {
+        bookingId: booking.id,
+        provider: PaymentProvider.MANUAL,
+        status: paymentStatus,
+        amount: totalAmount,
+        currency: 'AED',
+        providerRef: `seed_manual_${booking.id}`,
+      },
+      select: { id: true, providerRef: true },
+    });
+
+    await prisma.paymentEvent.create({
+      data: {
+        paymentId: payment.id,
+        type:
+          paymentStatus === PaymentStatus.CAPTURED
+            ? PaymentEventType.CAPTURE
+            : PaymentEventType.AUTHORIZE,
+        providerRef: payment.providerRef,
+        payloadJson: JSON.stringify({
+          source: 'seed',
+          bookingId: booking.id,
+          paymentStatus,
+        }),
+      },
+    });
+
+    const seededBooking: SeedBooking = {
+      id: booking.id,
+      propertyId: booking.propertyId,
+      customerId: booking.customerId,
+      status: booking.status,
+      checkIn: booking.checkIn,
+      checkOut: booking.checkOut,
+      totalAmount: booking.totalAmount,
+    };
+
+    allBookings.push(seededBooking);
+
+    if (seededBooking.status === BookingStatus.COMPLETED) {
+      completedBookings.push(seededBooking);
+    } else {
+      upcomingBookings.push(seededBooking);
+    }
+
+    return seededBooking;
+  }
+
+  for (let i = 0; i < TARGET_COUNTS.completedBookings; i++) {
+    const property = bookableProperties[i % bookableProperties.length] as SeedProperty;
+    const customer = customers[(i * 7) % customers.length] as { id: string };
+
+    const stayNights = clamp(2 + Math.floor(rand() * 6), 2, 8);
+    const checkIn = addDays(today, -(240 - (i % 200)));
+    const checkOut = addDays(checkIn, stayNights);
+
+    await createSeedBooking({
+      property,
+      customerId: customer.id,
+      checkIn,
+      checkOut,
+      status: BookingStatus.COMPLETED,
+    });
+  }
+
+  for (let i = 0; i < TARGET_COUNTS.confirmedBookings; i++) {
+    const property =
+      bookableProperties[(i * 3 + 2) % bookableProperties.length] as SeedProperty;
+    const customer = customers[(i * 11 + 3) % customers.length] as { id: string };
+
+    const stayNights = clamp(2 + Math.floor(rand() * 7), 2, 10);
+    const checkIn = addDays(today, 3 + (i % 180));
+    const checkOut = addDays(checkIn, stayNights);
+
+    await createSeedBooking({
+      property,
+      customerId: customer.id,
+      checkIn,
+      checkOut,
+      status: BookingStatus.CONFIRMED,
+    });
+  }
+
+  for (let i = 0; i < TARGET_COUNTS.pendingBookings; i++) {
+    const property =
+      bookableProperties[(i * 5 + 1) % bookableProperties.length] as SeedProperty;
+    const customer = customers[(i * 13 + 1) % customers.length] as { id: string };
+
+    const stayNights = clamp(2 + Math.floor(rand() * 4), 2, 6);
+    const checkIn = addDays(today, 1 + (i % 35));
+    const checkOut = addDays(checkIn, stayNights);
+
+    await createSeedBooking({
+      property,
+      customerId: customer.id,
+      checkIn,
+      checkOut,
+      status: BookingStatus.PENDING_PAYMENT,
+    });
+  }
+
+  const opsSourceBookings = allBookings.slice(0, 120);
+  for (const booking of opsSourceBookings) {
+    const isDone = booking.status === BookingStatus.COMPLETED;
+    const scheduled = addDays(booking.checkIn, -1);
+
+    await prisma.opsTask.create({
+      data: {
+        propertyId: booking.propertyId,
+        bookingId: booking.id,
+        type: OpsTaskType.CLEANING,
+        status: isDone ? OpsTaskStatus.DONE : OpsTaskStatus.PENDING,
+        scheduledFor: scheduled,
+        dueAt: addHours(scheduled, 12),
+        completedAt: isDone ? addDays(booking.checkOut, -1) : null,
+        notes: 'Seeded cleaning run for booking turnover.',
+      },
+    });
+
+    await prisma.opsTask.create({
+      data: {
+        propertyId: booking.propertyId,
+        bookingId: booking.id,
+        type: OpsTaskType.INSPECTION,
+        status: isDone ? OpsTaskStatus.DONE : OpsTaskStatus.PENDING,
+        scheduledFor: addHours(scheduled, 6),
+        dueAt: addHours(scheduled, 20),
+        completedAt: isDone ? addDays(booking.checkOut, -1) : null,
+        notes: 'Seeded inspection checkpoint for quality control.',
+      },
+    });
+  }
+
+  const bookingDocsTargets = [
+    ...upcomingBookings.slice(0, 45),
+    ...completedBookings.slice(0, 15),
+  ];
+
+  for (const booking of bookingDocsTargets) {
+    const docTypes: BookingDocumentType[] = [
+      BookingDocumentType.PASSPORT,
+      BookingDocumentType.EMIRATES_ID,
+      ...(rand() > 0.55 ? [BookingDocumentType.VISA] : []),
+    ];
+
+    for (const type of docTypes) {
+      const pdf = createSeedPdf('bookings', `${booking.id}-${type.toLowerCase()}`);
+      await prisma.bookingDocument.create({
+        data: {
+          bookingId: booking.id,
+          uploadedByUserId: booking.customerId,
+          type,
+          storageKey: pdf.storageKey,
+          originalName: pdf.originalName,
+          mimeType: pdf.mimeType,
+          notes: 'Seeded booking verification document.',
+        },
+      });
+    }
+  }
+
+  const reviewableBookings = completedBookings.slice(0, 70);
+  for (let i = 0; i < reviewableBookings.length; i++) {
+    const booking = reviewableBookings[i] as SeedBooking;
+    const moderationRoll = rand();
+
+    const reviewStatus =
+      moderationRoll < 0.74
+        ? GuestReviewStatus.APPROVED
+        : moderationRoll < 0.92
+          ? GuestReviewStatus.PENDING
+          : GuestReviewStatus.REJECTED;
+
+    const rating = clamp(3 + Math.floor(rand() * 3), 1, 5);
+
+    await prisma.guestReview.create({
+      data: {
+        propertyId: booking.propertyId,
+        bookingId: booking.id,
+        customerId: booking.customerId,
+        rating,
+        title: pick(rand, REVIEW_TITLES),
+        comment: pick(rand, REVIEW_COMMENTS),
+        status: reviewStatus,
+        moderatedByAdminId:
+          reviewStatus === GuestReviewStatus.PENDING ? null : admin.id,
+        moderatedAt:
+          reviewStatus === GuestReviewStatus.PENDING
+            ? null
+            : addDays(today, -Math.floor(rand() * 40)),
+        moderationNotes:
+          reviewStatus === GuestReviewStatus.REJECTED
+            ? 'Seeded rejection note for moderation queue coverage.'
+            : reviewStatus === GuestReviewStatus.APPROVED
+              ? 'Approved: completed stay and policy compliant.'
+              : null,
+      },
+    });
+  }
+
+  const vendorCounterparties = vendorUsers.map((v) => ({
+    userId: v.id,
+    role: MessageCounterpartyRole.VENDOR,
+    subject: `Operations sync: ${v.fullName}`,
+  }));
+
+  const customerCounterparties = customers.slice(0, 20).map((c, index) => ({
+    userId: c.id,
+    role: MessageCounterpartyRole.CUSTOMER,
+    subject: `Guest support ticket #${String(1000 + index)}`,
+  }));
+
+  const threads = [...vendorCounterparties, ...customerCounterparties];
+
+  for (let i = 0; i < threads.length; i++) {
+    const threadSeed = threads[i] as {
+      userId: string;
+      role: MessageCounterpartyRole;
+      subject: string;
+    };
+
+    const thread = await prisma.messageThread.create({
+      data: {
+        adminId: admin.id,
+        counterpartyUserId: threadSeed.userId,
+        counterpartyRole: threadSeed.role,
+        subject: threadSeed.subject,
+      },
+      select: { id: true },
+    });
+
+    const base = addDays(today, -(85 - i));
+    const messages = [
+      {
+        senderId: threadSeed.userId,
+        body:
+          threadSeed.role === MessageCounterpartyRole.VENDOR
+            ? 'Please confirm cleaning and linen schedule for the next check-ins.'
+            : 'I uploaded my travel documents and need confirmation before arrival.',
+      },
+      {
+        senderId: admin.id,
+        body:
+          threadSeed.role === MessageCounterpartyRole.VENDOR
+            ? 'Received. Ops team is scheduled and dashboard tasks are updated.'
+            : 'Documents received. Booking remains confirmed and verified from backend records.',
+      },
+      {
+        senderId: threadSeed.userId,
+        body:
+          threadSeed.role === MessageCounterpartyRole.VENDOR
+            ? 'Great, I will keep owner-use blocks updated as well.'
+            : 'Thanks, appreciated. Looking forward to check-in.',
+      },
+    ];
+
+    let lastMessageAt = base;
+    let lastPreview = '';
+    let lastSenderId = admin.id;
+
+    for (let m = 0; m < messages.length; m++) {
+      const msg = messages[m] as { senderId: string; body: string };
+      const createdAt = addHours(base, m * 5);
+      await prisma.message.create({
+        data: {
+          threadId: thread.id,
+          senderId: msg.senderId,
+          body: msg.body,
+          createdAt,
+        },
+      });
+
+      lastMessageAt = createdAt;
+      lastPreview = msg.body;
+      lastSenderId = msg.senderId;
+    }
+
+    await prisma.messageThread.update({
+      where: { id: thread.id },
+      data: {
+        lastMessageAt,
+        lastMessagePreview: lastPreview.slice(0, 280),
+        lastMessageSenderId: lastSenderId,
+        adminLastReadAt: addHours(lastMessageAt, -1),
+        counterpartyLastReadAt: lastMessageAt,
+      },
+    });
+  }
+
+  const publishedVendorProperties = properties.filter(
+    (p) => p.status === PropertyStatus.PUBLISHED,
+  );
+
+  if (publishedVendorProperties.length >= 3) {
+    const pending = publishedVendorProperties[0] as SeedProperty;
+    const approved = publishedVendorProperties[1] as SeedProperty;
+    const rejected = publishedVendorProperties[2] as SeedProperty;
+
+    await prisma.propertyUnpublishRequest.create({
+      data: {
+        propertyId: pending.id,
+        propertyTitleSnapshot: pending.title,
+        propertyCitySnapshot: pending.city,
+        requestedByVendorId: pending.vendorId,
+        status: 'PENDING',
+        reason: 'Owner intends to reserve this unit for extended family use.',
+      },
+    });
+
+    await prisma.propertyUnpublishRequest.create({
+      data: {
+        propertyId: approved.id,
+        propertyTitleSnapshot: approved.title,
+        propertyCitySnapshot: approved.city,
+        requestedByVendorId: approved.vendorId,
+        status: 'APPROVED',
+        reason: 'Seasonal owner occupancy request.',
+        reviewedByAdminId: admin.id,
+        reviewedAt: addDays(today, -3),
+        adminNotes: 'Approved with owner-proof docs verified.',
+      },
+    });
+
+    await prisma.property.update({
+      where: { id: approved.id },
+      data: { status: PropertyStatus.APPROVED },
+    });
+
+    await prisma.propertyUnpublishRequest.create({
+      data: {
+        propertyId: rejected.id,
+        propertyTitleSnapshot: rejected.title,
+        propertyCitySnapshot: rejected.city,
+        requestedByVendorId: rejected.vendorId,
+        status: 'REJECTED',
+        reason: 'Requested temporary removal for pricing adjustment.',
+        reviewedByAdminId: admin.id,
+        reviewedAt: addDays(today, -1),
+        adminNotes: 'Rejected until active booking window is complete.',
+      },
+    });
+  }
+
+  if (properties.length >= 2) {
+    const deletionA = properties[0] as SeedProperty;
+    const deletionB = properties[1] as SeedProperty;
+
+    await prisma.propertyDeletionRequest.create({
+      data: {
+        propertyId: deletionA.id,
+        propertyTitleSnapshot: deletionA.title,
+        propertyCitySnapshot: deletionA.city,
+        requestedByVendorId: deletionA.vendorId,
+        status: 'PENDING',
+        reason: 'Unit planned for long-term lease conversion.',
+      },
+    });
+
+    await prisma.propertyDeletionRequest.create({
+      data: {
+        propertyId: deletionB.id,
+        propertyTitleSnapshot: deletionB.title,
+        propertyCitySnapshot: deletionB.city,
+        requestedByVendorId: deletionB.vendorId,
+        status: 'REJECTED',
+        reason: 'Requested archival due to renovations.',
+        reviewedByAdminId: admin.id,
+        reviewedAt: addDays(today, -2),
+        adminNotes: 'Rejected until pending guest stays complete.',
+      },
+    });
+  }
+
+  const yesterday = addDays(today, -1);
+  const fxSnapshots = [
+    {
+      asOfDate: yesterday,
+      usd: new Prisma.Decimal('0.2721'),
+      eur: new Prisma.Decimal('0.2512'),
+      gbp: new Prisma.Decimal('0.2147'),
+    },
+    {
+      asOfDate: today,
+      usd: new Prisma.Decimal('0.2726'),
+      eur: new Prisma.Decimal('0.2520'),
+      gbp: new Prisma.Decimal('0.2151'),
+    },
+  ];
+
+  for (const snapshot of fxSnapshots) {
+    await prisma.fxRate.upsert({
+      where: {
+        baseCurrency_quoteCurrency_asOfDate: {
+          baseCurrency: 'AED',
+          quoteCurrency: FxQuoteCurrency.USD,
+          asOfDate: snapshot.asOfDate,
+        },
+      },
+      update: { rate: snapshot.usd },
+      create: {
+        baseCurrency: 'AED',
+        quoteCurrency: FxQuoteCurrency.USD,
+        rate: snapshot.usd,
+        asOfDate: snapshot.asOfDate,
+      },
+    });
+
+    await prisma.fxRate.upsert({
+      where: {
+        baseCurrency_quoteCurrency_asOfDate: {
+          baseCurrency: 'AED',
+          quoteCurrency: FxQuoteCurrency.EUR,
+          asOfDate: snapshot.asOfDate,
+        },
+      },
+      update: { rate: snapshot.eur },
+      create: {
+        baseCurrency: 'AED',
+        quoteCurrency: FxQuoteCurrency.EUR,
+        rate: snapshot.eur,
+        asOfDate: snapshot.asOfDate,
+      },
+    });
+
+    await prisma.fxRate.upsert({
+      where: {
+        baseCurrency_quoteCurrency_asOfDate: {
+          baseCurrency: 'AED',
+          quoteCurrency: FxQuoteCurrency.GBP,
+          asOfDate: snapshot.asOfDate,
+        },
+      },
+      update: { rate: snapshot.gbp },
+      create: {
+        baseCurrency: 'AED',
+        quoteCurrency: FxQuoteCurrency.GBP,
+        rate: snapshot.gbp,
+        asOfDate: snapshot.asOfDate,
+      },
+    });
+  }
+
+  const seededStats = {
+    users: await prisma.user.count(),
+    vendors: await prisma.user.count({ where: { role: UserRole.VENDOR } }),
+    customers: await prisma.user.count({ where: { role: UserRole.CUSTOMER } }),
+    properties: await prisma.property.count(),
+    bookings: await prisma.booking.count(),
+    bookingDocuments: await prisma.bookingDocument.count(),
+    guestReviews: await prisma.guestReview.count(),
+    messageThreads: await prisma.messageThread.count(),
+    messages: await prisma.message.count(),
+    fxRates: await prisma.fxRate.count(),
+  };
+
   // eslint-disable-next-line no-console
-  console.log('✅ Seed complete');
+  console.log('✅ Seed complete (Dubai operations dataset)');
   // eslint-disable-next-line no-console
-  console.log('--- LOGINS (shared password) ---');
+  console.log({
+    password: SEED_PASSWORD,
+    admin: admin.email,
+    vendorSample: vendorUsers.slice(0, 5).map((v) => v.email),
+    customerSample: customers.slice(0, 5).map((c) => c.email),
+  });
   // eslint-disable-next-line no-console
-  console.log({ password: SEED_PASSWORD });
+  console.log(seededStats);
   // eslint-disable-next-line no-console
-  console.log({ admin: admin.email });
+  console.table(
+    properties.slice(0, 12).map((p) => ({
+      slug: p.slug,
+      status: p.status,
+      city: p.city,
+      area: p.area,
+      nightlyAED: (p.basePrice / 100).toFixed(0),
+    })),
+  );
   // eslint-disable-next-line no-console
-  console.log({ vendors: seededVendors.map((v) => v.email) });
-  // eslint-disable-next-line no-console
-  console.log({ customers: customers.map((c) => c.email) });
-  // eslint-disable-next-line no-console
-  console.log('--- PROPERTIES ---');
-  // eslint-disable-next-line no-console
-  console.table(properties.map((p) => ({ slug: p.slug, status: p.status, vendor: p.vendorEmail })));
+  console.log({
+    seededFxAsOf: fxSnapshots.map((x) => toIsoDay(x.asOfDate)),
+    privateUploadBases: PRIVATE_UPLOAD_BASES,
+  });
 }
 
 main()
-  .catch((e) => {
+  .catch((error) => {
     // eslint-disable-next-line no-console
-    console.error('❌ Seed failed:', e);
+    console.error('❌ Seed failed:', error);
     process.exitCode = 1;
   })
   .finally(async () => {

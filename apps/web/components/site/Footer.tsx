@@ -41,16 +41,19 @@ const COL_LEGAL: FooterLink[] = [
 function FooterCol(props: { title: string; links: FooterLink[] }) {
   return (
     <div>
-      <div className="text-sm font-semibold text-white">{props.title}</div>
+      <div className="flex items-center justify-center gap-2 lg:justify-start">
+        <span className="h-px w-5 bg-white/55" />
+        <div className="text-sm font-semibold text-white">{props.title}</div>
+      </div>
       <ul className="mt-4 space-y-2">
         {props.links.map((l) => (
           <li key={l.href}>
             <Link
               href={l.href}
-              className="inline-flex items-center gap-1 text-sm text-white/85 transition hover:text-white"
+              className="inline-flex items-center gap-1 text-sm text-white/82 transition hover:text-white"
             >
               {l.label}
-              <ArrowUpRight className="h-4 w-4 opacity-70" />
+              <ArrowUpRight className="h-4 w-4 text-white/76" />
             </Link>
           </li>
         ))}
@@ -63,67 +66,63 @@ export default function Footer() {
   const year = new Date().getFullYear();
 
   return (
-    <footer className="relative overflow-hidden bg-[#16a6c8]">
-      {/* Tourm-ish soft overlays, but on cyan */}
+    <footer id="site-footer" className="relative overflow-hidden bg-[#4F46E5] text-white">
       <div className="pointer-events-none absolute inset-0">
-        <div className="absolute -left-40 -top-40 h-[520px] w-[520px] rounded-full bg-white/20 blur-3xl" />
-        <div className="absolute -right-40 top-20 h-[560px] w-[560px] rounded-full bg-white/15 blur-3xl" />
-        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.28),transparent_58%)]" />
-        <div className="absolute inset-0 bg-gradient-to-b from-black/0 via-black/0 to-black/10" />
+        <div className="absolute -left-32 -top-28 h-[500px] w-[500px] rounded-full bg-white/16 blur-3xl" />
+        <div className="absolute -right-36 top-24 h-[520px] w-[520px] rounded-full bg-white/12 blur-3xl" />
+        <div className="absolute inset-0 bg-[linear-gradient(180deg,rgba(248,250,252,0.08)_0%,rgba(248,250,252,0.02)_100%)]" />
       </div>
 
-      <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-14 sm:px-6 lg:px-8">
-        <div className="flex flex-col gap-10 border-b border-white/25 pb-10 lg:flex-row lg:items-start lg:justify-between">
-          {/* Brand block */}
-          <div className="max-w-md">
-            <div className="flex items-center gap-3">
-              <div className="relative h-10 w-10 overflow-hidden rounded-xl bg-white/20">
+      <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-16 sm:px-6 lg:px-8">
+        <div className="border-b border-white/20 pb-12">
+          <div className="mx-auto max-w-3xl text-center">
+            <Link href="/" className="inline-flex flex-col items-center">
+              <div className="relative h-24 w-[380px] max-w-[94vw] overflow-hidden rounded-2xl border border-white/28 bg-white/14 p-2 backdrop-blur">
                 <Image
                   src="/brand/logo.svg"
                   alt="Laugh & Lodge"
                   fill
-                  className="object-contain p-1.5"
+                  className="object-contain p-1"
                   priority={false}
                 />
               </div>
-              <div className="leading-tight">
-                <div className="text-base font-semibold text-white">Laugh &amp; Lodge</div>
-                <div className="text-xs text-white/90">Vocation Homes Rental LLC</div>
-              </div>
-            </div>
+            </Link>
 
-            <p className="mt-4 text-sm leading-relaxed text-white/90">
+            <p className="mx-auto mt-5 max-w-2xl text-sm leading-relaxed text-white/88">
               Operator-grade short-term rentals in Dubai. Verified availability,
               transparent pricing, and professionally managed stays — aligned with
               our backend booking engine (no stale inventory).
             </p>
 
-            <div className="mt-6 grid gap-3 text-sm text-white/90">
-              <div className="flex items-center gap-2">
+            <div className="mt-7 flex flex-wrap items-center justify-center gap-4 text-sm text-white/86">
+              <div className="inline-flex items-center gap-2">
                 <Mail className="h-4 w-4 text-white/90" />
-                <a href="mailto:Info@rentpropertyuae.com" className="hover:text-white">
+                <a href="mailto:Info@rentpropertyuae.com" className="transition hover:text-white">
                   Info@rentpropertyuae.com
                 </a>
               </div>
-              <div className="flex items-center gap-2">
+              <span className="hidden h-1 w-1 rounded-full bg-white/68 sm:inline-block" />
+              <div className="inline-flex items-center gap-2">
                 <Mail className="h-4 w-4 text-white/90" />
-                <a href="mailto:Booking@rentpropertyuae.com" className="hover:text-white">
+                <a href="mailto:Booking@rentpropertyuae.com" className="transition hover:text-white">
                   Booking@rentpropertyuae.com
                 </a>
               </div>
-              <div className="flex items-center gap-2">
+              <span className="hidden h-1 w-1 rounded-full bg-white/68 sm:inline-block" />
+              <div className="inline-flex items-center gap-2">
                 <Phone className="h-4 w-4 text-white/90" />
-                <a href="tel:+971502348756" className="hover:text-white">
+                <a href="tel:+971502348756" className="transition hover:text-white">
                   +971 50 234 8756
                 </a>
               </div>
-              <div className="flex items-center gap-2">
+              <span className="hidden h-1 w-1 rounded-full bg-white/68 sm:inline-block" />
+              <div className="inline-flex items-center gap-2">
                 <MapPin className="h-4 w-4 text-white/90" />
                 <span>United Arab Emirates</span>
               </div>
             </div>
 
-            <div className="mt-6 flex items-center gap-2">
+            <div className="mt-7 flex items-center justify-center gap-2">
               {[
                 { Icon: Instagram, href: "#", label: "Instagram" },
                 { Icon: Facebook, href: "#", label: "Facebook" },
@@ -133,30 +132,29 @@ export default function Footer() {
                   key={label}
                   href={href}
                   aria-label={label}
-                  className="grid h-10 w-10 place-items-center rounded-xl border border-white/25 bg-white/10 text-white transition hover:bg-white/15"
+                  className="grid h-10 w-10 place-items-center rounded-xl border border-white/30 bg-white/12 text-white transition hover:bg-white/24"
                 >
                   <Icon className="h-5 w-5" />
                 </a>
               ))}
             </div>
           </div>
+        </div>
 
-          {/* Columns */}
-          <div className="grid gap-10 sm:grid-cols-2 lg:grid-cols-3">
-            <FooterCol title="Stays" links={COL_STAYS} />
-            <FooterCol title="Company" links={COL_COMPANY} />
-            <FooterCol title="Legal" links={COL_LEGAL} />
-          </div>
+        <div className="mt-10 grid gap-10 text-center sm:grid-cols-2 lg:grid-cols-3 lg:text-left">
+          <FooterCol title="Stays" links={COL_STAYS} />
+          <FooterCol title="Company" links={COL_COMPANY} />
+          <FooterCol title="Legal" links={COL_LEGAL} />
         </div>
 
         <div className="mt-8 flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="text-xs text-white/90">
+          <div className="text-xs text-white/84">
             © {year} Laugh &amp; Lodge Vocation Homes Rental LLC. All rights reserved.
           </div>
 
           <motion.a
             href="#top"
-            className="inline-flex items-center justify-center rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/15"
+            className="inline-flex items-center justify-center rounded-xl border border-white/30 bg-white/12 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/20"
             whileHover={{ y: -2 }}
             whileTap={{ y: 0 }}
             onClick={(e) => {

@@ -1,5 +1,9 @@
 // src/portal/admin/admin-portal.service.ts
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  ForbiddenException,
+  Injectable,
+  NotFoundException,
+} from '@nestjs/common';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import {
   BookingStatus,
@@ -21,6 +25,8 @@ import type {
   TimeBucket,
 } from '../common/portal.types';
 import { formatLabel } from '../common/portal.utils';
+import { existsSync } from 'fs';
+import { join } from 'path';
 
 type AdminOverview = {
   kpis: {
@@ -260,8 +266,7 @@ export class AdminPortalService {
       };
     }
 
-    const selectedPropertyId =
-      params.propertyId ?? propertyRows[0]?.id ?? null;
+    const selectedPropertyId = params.propertyId ?? propertyRows[0]?.id ?? null;
     const propertyIds = selectedPropertyId ? [selectedPropertyId] : [];
 
     const properties: PortalCalendarProperty[] = propertyRows.map((p) => ({
@@ -568,6 +573,83 @@ export class AdminPortalService {
         customerEmail: b.customer.email,
         createdAt: b.createdAt.toISOString(),
       })),
+    };
+  }
+
+  async listBookingDocuments(params: {
+    userId: string;
+    role: UserRole;
+    bookingId: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: params.bookingId },
+      select: { id: true, property: { select: { title: true } } },
+    });
+    if (!booking) throw new NotFoundException('Booking not found.');
+
+    const items = await this.prisma.bookingDocument.findMany({
+      where: { bookingId: params.bookingId },
+      orderBy: { createdAt: 'desc' },
+      include: {
+        uploadedByUser: {
+          select: { id: true, email: true, fullName: true },
+        },
+      },
+    });
+
+    return {
+      booking: {
+        id: booking.id,
+        propertyTitle: booking.property.title,
+      },
+      items: items.map((doc) => ({
+        ...doc,
+        downloadUrl: `/api/portal/admin/bookings/${params.bookingId}/documents/${doc.id}/download`,
+      })),
+    };
+  }
+
+  async getBookingDocumentDownload(params: {
+    userId: string;
+    role: UserRole;
+    bookingId: string;
+    documentId: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const doc = await this.prisma.bookingDocument.findUnique({
+      where: { id: params.documentId },
+      select: {
+        id: true,
+        bookingId: true,
+        storageKey: true,
+        originalName: true,
+        mimeType: true,
+      },
+    });
+
+    if (!doc || doc.bookingId !== params.bookingId) {
+      throw new NotFoundException('Document not found.');
+    }
+
+    const absolutePath = join(
+      process.cwd(),
+      'private_uploads',
+      'bookings',
+      'documents',
+      doc.storageKey,
+    );
+
+    if (!existsSync(absolutePath)) {
+      throw new NotFoundException('Document file not found on disk.');
+    }
+
+    return {
+      absolutePath,
+      mimeType: doc.mimeType ?? 'application/octet-stream',
+      downloadName: doc.originalName ?? doc.storageKey,
     };
   }
 

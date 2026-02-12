@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useAuth } from "@/lib/auth/auth-context";
 import { getUserOverview } from "@/lib/api/portal/user";
 import { PortalShell } from "@/components/portal/PortalShell";
+import { StatCard } from "@/components/portal/StatCard";
 
 type ViewState =
   | { kind: "loading" }
@@ -42,7 +43,7 @@ export default function AccountOverviewPage() {
   const content = useMemo(() => {
     if (state.kind === "loading") {
       return (
-        <div className="rounded-2xl border bg-white p-6 text-sm text-slate-600">
+        <div className="premium-card premium-card-tinted rounded-2xl p-6 text-sm text-secondary">
           Loading overview…
         </div>
       );
@@ -50,9 +51,9 @@ export default function AccountOverviewPage() {
 
     if (state.kind === "error") {
       return (
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm font-semibold text-slate-900">Could not load account</div>
-          <div className="mt-2 text-sm text-slate-600">{state.message}</div>
+        <div className="premium-card premium-card-tinted rounded-2xl p-6">
+          <div className="text-sm font-semibold text-primary">Could not load account</div>
+          <div className="mt-2 text-sm text-secondary">{state.message}</div>
         </div>
       );
     }
@@ -61,12 +62,12 @@ export default function AccountOverviewPage() {
 
     return (
       <div className="space-y-6">
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm text-slate-500">Welcome</div>
-          <div className="mt-1 text-xl font-semibold text-slate-900">
+        <div className="premium-card premium-card-dark rounded-2xl p-6">
+          <div className="text-sm text-muted">Welcome</div>
+          <div className="mt-1 text-xl font-semibold text-primary">
             {user?.email ?? "Account"}
           </div>
-          <div className="mt-2 text-sm text-slate-600">
+          <div className="mt-2 text-sm text-secondary">
             Email verification:{" "}
             <span className="font-medium">
               {user?.isEmailVerified ? "Verified" : "Not verified"}
@@ -75,45 +76,28 @@ export default function AccountOverviewPage() {
         </div>
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          <div className="rounded-2xl border bg-white p-6">
-            <div className="text-sm text-slate-500">Bookings Upcoming</div>
-            <div className="mt-2 text-2xl font-semibold text-slate-900">
-              {kpis.bookingsUpcoming}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border bg-white p-6">
-            <div className="text-sm text-slate-500">Bookings Total</div>
-            <div className="mt-2 text-2xl font-semibold text-slate-900">
-              {kpis.bookingsTotal}
-            </div>
-          </div>
-
-          <div className="rounded-2xl border bg-white p-6">
-            <div className="text-sm text-slate-500">Refunds Total</div>
-            <div className="mt-2 text-2xl font-semibold text-slate-900">
-              {kpis.refundsTotal}
-            </div>
-          </div>
+          <StatCard label="Bookings Upcoming" value={kpis.bookingsUpcoming} variant="dark" />
+          <StatCard label="Bookings Total" value={kpis.bookingsTotal} variant="tinted" />
+          <StatCard label="Refunds Total" value={kpis.refundsTotal} variant="tinted" />
         </div>
 
-        <div className="rounded-2xl border bg-white p-6">
-          <div className="text-sm font-semibold text-slate-900">Become a host</div>
-          <div className="mt-2 text-sm text-slate-600">
+        <div className="premium-card premium-card-tinted rounded-2xl p-6">
+          <div className="text-sm font-semibold text-primary">Become a host</div>
+          <div className="mt-2 text-sm text-secondary">
             List your property and start earning with managed short-term rentals.
           </div>
 
           <div className="mt-4 flex flex-col gap-2 sm:flex-row">
             <Link
               href="/owners"
-              className="inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm font-semibold text-slate-900 hover:bg-slate-50"
+              className="inline-flex items-center justify-center rounded-xl border px-4 py-2 text-sm font-semibold text-primary hover:bg-warm-alt"
             >
               Learn about hosting
             </Link>
 
             <Link
               href="/vendor/onboarding"
-              className="inline-flex items-center justify-center rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+              className="inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
             >
               List your property
             </Link>

@@ -1,4 +1,4 @@
-export type CurrencyCode = "AED" | "USD" | "EUR" | "GBP" | "PKR";
+export type CurrencyCode = "AED" | "USD" | "EUR" | "GBP";
 
 export type PropertyStatus = "DRAFT" | "PUBLISHED";
 

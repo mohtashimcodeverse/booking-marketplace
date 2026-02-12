@@ -161,12 +161,12 @@ export default function PropertiesSearchShell(props: Props) {
 
         {/* Results header */}
         <div className="flex items-end justify-between gap-3">
-          <div className="text-sm text-white/70">
+          <div className="text-sm text-secondary">
             {props.meta ? (
               <>
                 Showing{" "}
-                <span className="font-semibold text-white">{props.items.length}</span> of{" "}
-                <span className="font-semibold text-white">{props.meta.total}</span>
+                <span className="font-semibold text-primary">{props.items.length}</span> of{" "}
+                <span className="font-semibold text-primary">{props.meta.total}</span>
               </>
             ) : (
               "Browse stays"
@@ -202,8 +202,8 @@ export default function PropertiesSearchShell(props: Props) {
                   className={[
                     "rounded-xl border px-4 py-2 text-sm transition",
                     active
-                      ? "border-white/20 bg-white text-black"
-                      : "border-white/10 bg-white/[0.03] text-white hover:bg-white/[0.06]",
+                      ? "border-line bg-brand text-text-invert"
+                      : "border-line bg-surface text-secondary hover:bg-brand-soft-2",
                   ].join(" ")}
                 >
                   {p}
@@ -216,10 +216,10 @@ export default function PropertiesSearchShell(props: Props) {
 
       {/* RIGHT: Map */}
       <div className="lg:sticky lg:top-24">
-        <div className="relative overflow-hidden rounded-2xl border border-white/10 bg-white/[0.03]">
-          <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-3">
-            <div className="text-sm font-semibold text-white">Map</div>
-            <div className="text-xs text-white/60">
+        <div className="relative overflow-hidden rounded-2xl border border-line bg-surface">
+          <div className="flex items-center justify-between gap-3 border-b border-line/70 bg-bg-2/70 px-4 py-3">
+            <div className="text-sm font-semibold text-primary">Map</div>
+            <div className="text-xs text-secondary">
               {mapLoading ? "Updating pins…" : mapError ? "Pins unavailable" : `${mapPoints.length} pins`}
             </div>
           </div>
@@ -238,7 +238,7 @@ export default function PropertiesSearchShell(props: Props) {
             />
 
             {mapError ? (
-              <div className="pointer-events-none absolute inset-x-3 top-3 rounded-xl border border-white/10 bg-black/40 px-3 py-2 text-xs text-white/80 backdrop-blur">
+              <div className="pointer-events-none absolute inset-x-3 top-3 rounded-xl border border-line/30 bg-ink/65 px-3 py-2 text-xs text-inverted backdrop-blur">
                 {mapError}
               </div>
             ) : null}
@@ -256,7 +256,7 @@ export default function PropertiesSearchShell(props: Props) {
           </div>
         </div>
 
-        <p className="mt-3 text-xs text-white/50">
+        <p className="mt-3 text-xs text-muted">
           Pins update when you pan/zoom. Results remain server-driven for pricing + availability truth.
         </p>
       </div>

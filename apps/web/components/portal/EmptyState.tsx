@@ -9,14 +9,14 @@ interface EmptyStateProps {
 
 export function EmptyState({ title, description, actionHref, actionLabel }: EmptyStateProps) {
   return (
-    <div className="rounded-2xl border bg-white p-8">
-      <div className="text-base font-semibold text-slate-900">{title}</div>
-      <div className="mt-2 text-sm text-slate-600">{description}</div>
+    <div className="rounded-2xl border bg-surface p-8">
+      <div className="text-base font-semibold text-primary">{title}</div>
+      <div className="mt-2 text-sm text-secondary">{description}</div>
 
       {actionHref && actionLabel ? (
         <Link
           href={actionHref}
-          className="mt-5 inline-flex rounded-xl bg-slate-900 px-4 py-2 text-sm font-semibold text-white hover:bg-slate-800"
+          className="mt-5 inline-flex rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
         >
           {actionLabel}
         </Link>

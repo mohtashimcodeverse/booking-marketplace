@@ -48,19 +48,19 @@ export function DataTable<Row extends { id?: string }>(props: {
   const clickable = typeof props.onRowClick === "function";
 
   return (
-    <div className="overflow-hidden rounded-3xl border border-black/5 bg-white shadow-sm">
-      <div className="border-b border-black/5 bg-[#f6f3ec]/40 px-5 py-4">
+    <div className="premium-card overflow-hidden rounded-3xl">
+      <div className="border-b border-line/50 bg-bg-2/86 px-5 py-4">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2">
-              <div className="text-sm font-semibold text-slate-900">{props.title}</div>
+              <div className="text-sm font-semibold text-primary">{props.title}</div>
               {typeof props.count === "number" ? (
-                <div className="rounded-full bg-white px-2.5 py-1 text-xs font-semibold text-slate-700 ring-1 ring-black/10">
+                <div className="rounded-full border border-line bg-brand-soft px-2.5 py-1 text-xs font-semibold text-primary">
                   {props.count}
                 </div>
               ) : null}
             </div>
-            {props.subtitle ? <div className="mt-1 text-sm text-slate-600">{props.subtitle}</div> : null}
+            {props.subtitle ? <div className="mt-1 text-sm text-secondary">{props.subtitle}</div> : null}
           </div>
 
           {props.headerRight ? <div className="shrink-0">{props.headerRight}</div> : null}
@@ -69,14 +69,14 @@ export function DataTable<Row extends { id?: string }>(props: {
 
       {props.rows.length === 0 ? (
         <div className="p-8">
-          <div className="rounded-3xl border border-black/5 bg-[#f6f3ec] p-6">
+          <div className="rounded-3xl border border-line/50 bg-bg p-6">
             <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-sm ring-1 ring-black/5">
-                <Search className="h-4 w-4 text-slate-700" />
+              <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-surface shadow-sm ring-1 ring-line/55">
+                <Search className="h-4 w-4 text-secondary" />
               </div>
               <div>
-                <div className="text-sm font-semibold text-slate-900">Nothing to show</div>
-                <div className="mt-1 text-sm text-slate-600">{props.empty ?? "No rows found."}</div>
+                <div className="text-sm font-semibold text-primary">Nothing to show</div>
+                <div className="mt-1 text-sm text-secondary">{props.empty ?? "No rows found."}</div>
               </div>
             </div>
           </div>
@@ -85,7 +85,7 @@ export function DataTable<Row extends { id?: string }>(props: {
         <>
           {/* Header row */}
           {props.hideHeaderRow ? null : (
-            <div className="grid grid-cols-12 gap-3 border-b border-black/5 bg-white px-5 py-3 text-[12px] font-semibold tracking-wide text-slate-500">
+            <div className="grid grid-cols-12 gap-3 border-b border-line/50 bg-bg-2 px-5 py-3 text-[12px] font-semibold tracking-wide text-muted">
               {props.columns.map((c) => (
                 <div key={c.key} className={c.className ?? "col-span-2"}>
                   {c.header}
@@ -97,7 +97,7 @@ export function DataTable<Row extends { id?: string }>(props: {
 
           {/* Body */}
           {variant === "table" ? (
-            <div className="divide-y divide-black/5">
+            <div className="divide-y divide-line/50">
               {props.rows.map((row, idx) => {
                 const key = row.id ?? `row_${idx}`;
                 return (
@@ -116,9 +116,9 @@ export function DataTable<Row extends { id?: string }>(props: {
                     className={cn(
                       "grid grid-cols-12 gap-3 px-5 text-sm",
                       compact ? "py-3" : "py-4",
-                      "bg-white transition-colors",
-                      clickable ? "cursor-pointer hover:bg-slate-50/60" : "cursor-default",
-                      "outline-none focus-visible:ring-4 focus-visible:ring-[#16A6C8]/15"
+                      "bg-surface transition-colors",
+                      clickable ? "cursor-pointer hover:border-l-2 hover:border-brand hover:bg-brand-soft-2" : "cursor-default",
+                      "outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
                     )}
                   >
                     {props.columns.map((c) => (
@@ -137,7 +137,7 @@ export function DataTable<Row extends { id?: string }>(props: {
                       </div>
                     ) : (
                       <div className="col-span-2 flex items-center justify-end">
-                        <ChevronRight className="h-4 w-4 text-slate-300" />
+                        <ChevronRight className="h-4 w-4 text-muted" />
                       </div>
                     )}
                   </div>
@@ -145,7 +145,7 @@ export function DataTable<Row extends { id?: string }>(props: {
               })}
             </div>
           ) : (
-            <div className="bg-white p-4 sm:p-5">
+            <div className="bg-surface p-4 sm:p-5">
               <div className="space-y-3">
                 {props.rows.map((row, idx) => {
                   const key = row.id ?? `row_${idx}`;
@@ -162,10 +162,10 @@ export function DataTable<Row extends { id?: string }>(props: {
                           props.onRowClick?.(row);
                         }
                       }}
-                      className={cn(
-                        "rounded-3xl border border-black/5 bg-white shadow-sm transition",
-                        clickable ? "cursor-pointer hover:shadow-md hover:bg-slate-50/30" : "cursor-default",
-                        "outline-none focus-visible:ring-4 focus-visible:ring-[#16A6C8]/15"
+                    className={cn(
+                        "rounded-3xl border border-line/50 bg-surface shadow-sm transition",
+                        clickable ? "cursor-pointer hover:border-brand/45 hover:shadow-md hover:bg-brand-soft-2" : "cursor-default",
+                        "outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
                       )}
                     >
                       <div className={cn("grid grid-cols-12 gap-3 px-4 sm:px-5 text-sm", compact ? "py-3" : "py-4")}>
@@ -185,7 +185,7 @@ export function DataTable<Row extends { id?: string }>(props: {
                           </div>
                         ) : (
                           <div className="col-span-2 flex items-center justify-end">
-                            <ChevronRight className="h-4 w-4 text-slate-300" />
+                            <ChevronRight className="h-4 w-4 text-muted" />
                           </div>
                         )}
                       </div>

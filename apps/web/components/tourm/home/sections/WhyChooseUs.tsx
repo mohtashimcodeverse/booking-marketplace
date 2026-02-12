@@ -14,6 +14,12 @@ type Stat = {
   value: string; // keep string to avoid formatting assumptions
 };
 
+const FALLBACK_IMAGES = [
+  "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1400&q=85",
+  "https://images.unsplash.com/photo-1560448204-e02f11c3d0e2?auto=format&fit=crop&w=1400&q=80",
+  "https://images.unsplash.com/photo-1477959858617-67f85cf4f1df?auto=format&fit=crop&w=1400&q=80",
+] as const;
+
 export default function WhyChooseUs({
   title,
   subtitle,
@@ -27,11 +33,13 @@ export default function WhyChooseUs({
   stats: Stat[];
   images: { a?: string; b?: string; c?: string };
 }) {
+  const trio = [images.a, images.b, images.c].map((src, idx) => src ?? FALLBACK_IMAGES[idx]);
+
   return (
     <section className="relative w-full py-16 sm:py-20">
       <div className="mx-auto w-full max-w-6xl px-4 sm:px-6">
         <div className="grid grid-cols-1 gap-12 lg:grid-cols-2 lg:items-center">
-          {/* Stacked imagery (Tourm-ish) */}
+          {/* Aligned image trio */}
           <motion.div
             className="relative"
             initial={{ y: 18, opacity: 0 }}
@@ -39,66 +47,79 @@ export default function WhyChooseUs({
             viewport={{ once: true, margin: "-120px" }}
             transition={{ duration: 0.5, ease: [0.22, 1, 0.36, 1] }}
           >
-            <div className="relative aspect-[4/3] w-full overflow-hidden rounded-[32px] border border-stone bg-white shadow-card">
-              {images.a ? (
+            <div className="relative mx-auto w-full max-w-[650px]">
+              <motion.div
+                className="relative aspect-[16/10] w-full overflow-hidden rounded-[1.9rem] border border-inverted/70 bg-surface shadow-[0_20px_58px_rgba(11,15,25,0.16)]"
+                initial={{ y: 12, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                viewport={{ once: true, margin: "-120px" }}
+                transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
+              >
                 <Image
-                  src={images.a}
-                  alt="Why choose us"
+                  src={trio[0]}
+                  alt="Why choose us visual 1"
                   fill
-                  sizes="(max-width: 1024px) 100vw, 520px"
+                  sizes="(max-width: 1024px) 100vw, 620px"
                   className="object-cover"
                 />
-              ) : (
-                <div className="h-full w-full bg-gradient-to-br from-stone to-white" />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-midnight/40 via-transparent to-transparent" />
+                <div className="absolute inset-0 bg-gradient-to-t from-ink/34 via-transparent to-transparent" />
+              </motion.div>
+
+              <motion.div
+                className="absolute -left-4 top-6 hidden w-[34%] min-w-[170px] overflow-hidden rounded-[1.35rem] border border-inverted/70 bg-surface shadow-[0_16px_40px_rgba(11,15,25,0.16)] sm:block"
+                initial={{ y: 12, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                viewport={{ once: true, margin: "-120px" }}
+                transition={{ duration: 0.45, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="relative aspect-[4/5] w-full">
+                  <Image
+                    src={trio[1]}
+                    alt="Why choose us visual 2"
+                    fill
+                    sizes="220px"
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink/30 via-transparent to-transparent" />
+                </div>
+              </motion.div>
+
+              <motion.div
+                className="absolute -bottom-6 -right-4 hidden w-[38%] min-w-[180px] overflow-hidden rounded-[1.35rem] border border-inverted/70 bg-surface shadow-[0_16px_40px_rgba(11,15,25,0.16)] sm:block"
+                initial={{ y: 12, opacity: 0 }}
+                whileInView={{ y: 0, opacity: 1 }}
+                viewport={{ once: true, margin: "-120px" }}
+                transition={{ duration: 0.45, delay: 0.14, ease: [0.22, 1, 0.36, 1] }}
+              >
+                <div className="relative aspect-[5/4] w-full">
+                  <Image
+                    src={trio[2]}
+                    alt="Why choose us visual 3"
+                    fill
+                    sizes="240px"
+                    className="object-cover"
+                  />
+                  <div className="absolute inset-0 bg-gradient-to-t from-ink/30 via-transparent to-transparent" />
+                </div>
+              </motion.div>
+
+              <div className="mt-4 grid grid-cols-2 gap-3 sm:hidden">
+                {[trio[1], trio[2]].map((src, idx) => (
+                  <div
+                    key={`${src}-mobile-${idx}`}
+                    className="relative aspect-[4/3] w-full overflow-hidden rounded-[1.15rem] border border-inverted/70 bg-surface shadow-soft"
+                  >
+                    <Image
+                      src={src}
+                      alt={`Why choose us visual ${idx + 2}`}
+                      fill
+                      sizes="(max-width: 640px) 50vw, 200px"
+                      className="object-cover"
+                    />
+                  </div>
+                ))}
+              </div>
             </div>
-
-            {/* Left small card */}
-            <motion.div
-              className="absolute -bottom-7 -left-2 hidden w-44 overflow-hidden rounded-3xl border border-stone bg-white shadow-card sm:block"
-              initial={{ y: 14, opacity: 0, rotate: -4 }}
-              whileInView={{ y: 0, opacity: 1, rotate: -2 }}
-              viewport={{ once: true, margin: "-120px" }}
-              transition={{ duration: 0.55, delay: 0.08, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <div className="relative aspect-[3/4] w-full">
-                {images.b ? (
-                  <Image
-                    src={images.b}
-                    alt="Detail"
-                    fill
-                    sizes="176px"
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full bg-gradient-to-br from-stone to-white" />
-                )}
-              </div>
-            </motion.div>
-
-            {/* Right small card */}
-            <motion.div
-              className="absolute -top-7 right-2 hidden w-48 overflow-hidden rounded-3xl border border-stone bg-white shadow-card sm:block"
-              initial={{ y: 14, opacity: 0, rotate: 4 }}
-              whileInView={{ y: 0, opacity: 1, rotate: 2 }}
-              viewport={{ once: true, margin: "-120px" }}
-              transition={{ duration: 0.55, delay: 0.12, ease: [0.22, 1, 0.36, 1] }}
-            >
-              <div className="relative aspect-[4/3] w-full">
-                {images.c ? (
-                  <Image
-                    src={images.c}
-                    alt="Experience"
-                    fill
-                    sizes="192px"
-                    className="object-cover"
-                  />
-                ) : (
-                  <div className="h-full w-full bg-gradient-to-br from-stone to-white" />
-                )}
-              </div>
-            </motion.div>
 
             {/* Soft glow behind imagery */}
             <div className="pointer-events-none absolute -inset-10 -z-10 rounded-[40px] bg-brand/10 blur-3xl" />
@@ -106,19 +127,19 @@ export default function WhyChooseUs({
 
           {/* Copy */}
           <div>
-            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-ink/60">
+            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-secondary/60">
               Why us
             </p>
-            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-midnight sm:text-3xl">
+            <h2 className="mt-2 text-2xl font-semibold tracking-tight text-primary sm:text-3xl">
               {title}
             </h2>
-            <p className="mt-2 text-sm text-ink/75 sm:text-base">{subtitle}</p>
+            <p className="mt-2 text-sm text-secondary/75 sm:text-base">{subtitle}</p>
 
             <div className="mt-8 space-y-4">
               {reasons.slice(0, 4).map((r, idx) => (
                 <motion.div
                   key={r.title}
-                  className="rounded-3xl border border-stone bg-white p-5 shadow-sm"
+                  className="premium-card premium-card-tinted premium-card-hover card-accent-left rounded-3xl p-5"
                   initial={{ y: 14, opacity: 0 }}
                   whileInView={{ y: 0, opacity: 1 }}
                   viewport={{ once: true, margin: "-120px" }}
@@ -129,12 +150,12 @@ export default function WhyChooseUs({
                   }}
                 >
                   <div className="flex items-start gap-3">
-                    <div className="grid h-10 w-10 shrink-0 place-items-center rounded-2xl bg-sand">
+                    <div className="card-icon-plate h-10 w-10 shrink-0">
                       <CheckCircle2 className="h-5 w-5 text-brand" />
                     </div>
                     <div className="min-w-0">
-                      <p className="text-base font-extrabold text-midnight">{r.title}</p>
-                      <p className="mt-1 text-sm text-ink/75">{r.desc}</p>
+                      <p className="text-base font-extrabold text-primary">{r.title}</p>
+                      <p className="mt-1 text-sm text-secondary/75">{r.desc}</p>
                     </div>
                   </div>
                 </motion.div>
@@ -145,7 +166,12 @@ export default function WhyChooseUs({
               {stats.slice(0, 4).map((s, idx) => (
                 <motion.div
                   key={s.label}
-                  className="rounded-3xl border border-stone bg-white p-5 shadow-sm"
+                  className={[
+                    "rounded-3xl p-5",
+                    idx === 0
+                      ? "premium-card premium-card-dark"
+                      : "premium-card premium-card-tinted premium-card-hover card-accent-left",
+                  ].join(" ")}
                   initial={{ y: 14, opacity: 0 }}
                   whileInView={{ y: 0, opacity: 1 }}
                   viewport={{ once: true, margin: "-120px" }}
@@ -155,8 +181,8 @@ export default function WhyChooseUs({
                     ease: [0.22, 1, 0.36, 1],
                   }}
                 >
-                  <p className="text-2xl font-extrabold text-midnight">{s.value}</p>
-                  <p className="mt-1 text-xs font-extrabold uppercase tracking-[0.18em] text-ink/60">
+                  <p className="text-2xl font-extrabold text-primary">{s.value}</p>
+                  <p className="mt-1 text-xs font-extrabold uppercase tracking-[0.18em] text-secondary/60">
                     {s.label}
                   </p>
                 </motion.div>
@@ -168,7 +194,7 @@ export default function WhyChooseUs({
 
       {/* background */}
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute left-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-midnight/10 blur-3xl" />
+        <div className="absolute left-0 top-1/2 h-64 w-64 -translate-y-1/2 rounded-full bg-dark-1/10 blur-3xl" />
       </div>
     </section>
   );

@@ -68,22 +68,22 @@ function VendorDrawer(props: {
 
   return (
     <div className="fixed inset-0 z-[80]">
-      <div className="absolute inset-0 bg-black/40" onClick={props.onClose} />
+      <div className="absolute inset-0 bg-dark-1/40" onClick={props.onClose} />
 
-      <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-white shadow-2xl">
-        <div className="border-b border-black/5 p-5">
+      <div className="absolute right-0 top-0 h-full w-full max-w-xl bg-surface shadow-2xl">
+        <div className="border-b border-line/50 p-5">
           <div className="flex items-center justify-between">
             <div>
-              <div className="text-lg font-semibold text-slate-900">
+              <div className="text-lg font-semibold text-primary">
                 Vendor details
               </div>
-              <div className="mt-1 text-xs text-slate-500">
+              <div className="mt-1 text-xs text-muted">
                 ID: {vendorId}
               </div>
             </div>
             <button
               onClick={props.onClose}
-              className="rounded-2xl border border-black/10 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
+              className="rounded-2xl border border-line/80 bg-surface px-3 py-1.5 text-xs font-semibold text-secondary hover:bg-warm-alt"
             >
               Close
             </button>
@@ -91,16 +91,16 @@ function VendorDrawer(props: {
         </div>
 
         <div className="h-[calc(100%-72px)] overflow-auto p-5 space-y-5">
-          <div className="rounded-3xl border border-black/5 bg-white p-5 shadow-sm">
+          <div className="rounded-3xl border border-line/50 bg-surface p-5 shadow-sm">
             <div className="flex items-center gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-slate-900 text-lg font-bold text-white">
+              <div className="flex h-14 w-14 items-center justify-center rounded-3xl bg-brand text-lg font-bold text-accent-text">
                 {initials(email)}
               </div>
               <div>
-                <div className="text-base font-semibold text-slate-900">
+                <div className="text-base font-semibold text-primary">
                   {company}
                 </div>
-                <div className="mt-1 text-sm text-slate-600">
+                <div className="mt-1 text-sm text-secondary">
                   {email ?? "—"}
                 </div>
               </div>
@@ -114,32 +114,32 @@ function VendorDrawer(props: {
           </div>
 
           <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-3xl border border-black/5 bg-[#f6f3ec] p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <div className="rounded-3xl border border-line/50 bg-warm-base p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-secondary">
                 <Building2 className="h-4 w-4" />
                 Company
               </div>
-              <div className="mt-2 text-sm font-semibold text-slate-900">
+              <div className="mt-2 text-sm font-semibold text-primary">
                 {company}
               </div>
             </div>
 
-            <div className="rounded-3xl border border-black/5 bg-[#f6f3ec] p-4">
-              <div className="flex items-center gap-2 text-xs font-semibold text-slate-600">
+            <div className="rounded-3xl border border-line/50 bg-warm-base p-4">
+              <div className="flex items-center gap-2 text-xs font-semibold text-secondary">
                 <CalendarDays className="h-4 w-4" />
                 Joined
               </div>
-              <div className="mt-2 text-sm font-semibold text-slate-900">
+              <div className="mt-2 text-sm font-semibold text-primary">
                 {fmtDate(createdAt)}
               </div>
             </div>
           </div>
 
-          <div className="rounded-3xl border border-black/5 bg-white p-5 shadow-sm">
-            <div className="text-sm font-semibold text-slate-900">
+          <div className="rounded-3xl border border-line/50 bg-surface p-5 shadow-sm">
+            <div className="text-sm font-semibold text-primary">
               Coming next
             </div>
-            <div className="mt-2 text-sm text-slate-600">
+            <div className="mt-2 text-sm text-secondary">
               Properties count, bookings, payouts, and compliance actions will
               appear here.
             </div>
@@ -206,7 +206,7 @@ export default function AdminVendorsPage() {
             ))}
           </div>
         ) : state.kind === "error" ? (
-          <div className="rounded-3xl border border-rose-200 bg-rose-50 p-6 text-sm text-rose-800">
+          <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
             {state.message}
           </div>
         ) : vendors.length === 0 ? (
@@ -227,18 +227,18 @@ export default function AdminVendorsPage() {
                 <button
                   key={vendorId}
                   onClick={() => setSelected(v)}
-                  className="text-left rounded-3xl border border-black/5 bg-white p-5 shadow-sm hover:bg-slate-50/60 transition"
+                  className="text-left rounded-3xl border border-line/50 bg-surface p-5 shadow-sm hover:bg-warm-alt/60 transition"
                 >
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex items-center gap-3">
-                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-slate-900 text-sm font-bold text-white">
+                      <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-brand text-sm font-bold text-accent-text">
                         {initials(email)}
                       </div>
                       <div>
-                        <div className="text-sm font-semibold text-slate-900 truncate">
+                        <div className="text-sm font-semibold text-primary truncate">
                           {company}
                         </div>
-                        <div className="mt-1 text-xs text-slate-500 truncate">
+                        <div className="mt-1 text-xs text-muted truncate">
                           {email ?? "—"}
                         </div>
                       </div>
@@ -249,7 +249,7 @@ export default function AdminVendorsPage() {
                     </StatusPill>
                   </div>
 
-                  <div className="mt-4 flex items-center gap-3 text-xs text-slate-600">
+                  <div className="mt-4 flex items-center gap-3 text-xs text-secondary">
                     <span className="inline-flex items-center gap-1">
                       <Mail className="h-3.5 w-3.5" />
                       Email

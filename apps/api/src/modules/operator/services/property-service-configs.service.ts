@@ -1,6 +1,11 @@
-import { BadRequestException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpsertPropertyServiceConfigDto } from '../dto/upsert-property-service-config.dto';
+import { UserRole } from '@prisma/client';
 
 @Injectable()
 export class PropertyServiceConfigsService {
@@ -13,12 +18,19 @@ export class PropertyServiceConfigsService {
     });
   }
 
-  async upsert(dto: UpsertPropertyServiceConfigDto) {
+  async upsertByActor(
+    actor: { id: string; role: UserRole },
+    dto: UpsertPropertyServiceConfigDto,
+  ) {
     const property = await this.prisma.property.findUnique({
       where: { id: dto.propertyId },
-      select: { id: true },
+      select: { id: true, vendorId: true },
     });
     if (!property) throw new BadRequestException('Property not found');
+
+    if (actor.role === UserRole.VENDOR && property.vendorId !== actor.id) {
+      throw new ForbiddenException('Not allowed to configure this property.');
+    }
 
     const plan = await this.prisma.servicePlan.findUnique({
       where: { id: dto.servicePlanId },

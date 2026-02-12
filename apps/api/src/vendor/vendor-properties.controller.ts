@@ -164,9 +164,29 @@ export class VendorPropertiesController {
   async unpublish(
     @Req() req: { user: JwtUser },
     @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: RequestPropertyDeletionDto,
   ) {
     this.assertVendor(req.user);
-    return this.service.unpublish(req.user.id, id);
+    return this.service.requestUnpublish(req.user.id, id, dto.reason);
+  }
+
+  @Get(':id/unpublish-request')
+  async getUnpublishRequest(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    this.assertVendor(req.user);
+    return this.service.getUnpublishRequest(req.user.id, id);
+  }
+
+  @Post(':id/unpublish-request')
+  async requestUnpublish(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() dto: RequestPropertyDeletionDto,
+  ) {
+    this.assertVendor(req.user);
+    return this.service.requestUnpublish(req.user.id, id, dto.reason);
   }
 
   @Get(':id/deletion-request')

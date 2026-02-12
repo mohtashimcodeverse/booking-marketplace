@@ -67,24 +67,21 @@ export default async function PropertiesPage(props: PageProps) {
   const totalPages = meta ? Math.max(1, Math.ceil(meta.total / meta.limit)) : 1;
 
   return (
-    <main className="min-h-screen bg-[var(--tourm-bg)]">
-      {/* Light Tourm-ish header strip */}
-      <section className="relative overflow-hidden border-b border-stone">
-        <div className="pointer-events-none absolute inset-0">
-          <div className="absolute -left-28 -top-24 h-72 w-72 rounded-full bg-[color:var(--tourm-primary)]/10 blur-3xl" />
-          <div className="absolute -right-28 top-10 h-80 w-80 rounded-full bg-midnight/10 blur-3xl" />
-          <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top,rgba(255,255,255,0.75),transparent_55%)]" />
+    <main className="min-h-screen bg-warm-base">
+      <section className="hero-light-shell relative overflow-hidden border-b border-line">
+        <div className="hero-light-overlay pointer-events-none absolute inset-0">
+          <div className="absolute inset-0 opacity-24 [background-image:linear-gradient(rgba(11,15,25,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(11,15,25,0.05)_1px,transparent_1px)] [background-size:34px_34px]" />
         </div>
 
-        <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-28 sm:px-6 lg:px-8">
+        <div className="relative mx-auto max-w-7xl px-4 pb-10 pt-12 sm:px-6 sm:pt-14 lg:px-8">
           <div className="max-w-3xl">
-            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-ink/60">
+            <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-secondary">
               Stays
             </p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-midnight sm:text-4xl">
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-primary sm:text-4xl">
               Stays in Dubai &amp; UAE
             </h1>
-            <p className="mt-2 text-sm text-ink/75 sm:text-base">
+            <p className="mt-2 text-sm text-secondary sm:text-base">
               Date-aware availability search powered by our booking engine — no stale inventory, no surprises.
             </p>
           </div>
@@ -97,20 +94,21 @@ export default async function PropertiesPage(props: PageProps) {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-4 py-10 sm:px-6 lg:px-8">
+      <section className="bg-warm-alt/86 py-10">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
         {!res.ok ? (
-          <div className="rounded-2xl border border-stone bg-white/70 p-6 text-sm text-ink/85 shadow-sm backdrop-blur">
+          <div className="premium-card premium-card-tinted rounded-2xl p-6 text-sm text-secondary">
             Could not load properties:{" "}
-            <span className="font-semibold text-midnight">{res.message}</span>
+            <span className="font-semibold text-primary">{res.message}</span>
           </div>
         ) : null}
 
         <div className="flex items-end justify-between gap-3">
-          <div className="text-sm text-ink/75">
+          <div className="text-sm text-secondary/75">
             {meta ? (
               <>
-                Showing <span className="font-extrabold text-midnight">{items.length}</span> of{" "}
-                <span className="font-extrabold text-midnight">{meta.total}</span>
+                Showing <span className="font-extrabold text-primary">{items.length}</span> of{" "}
+                <span className="font-extrabold text-primary">{meta.total}</span>
               </>
             ) : (
               "Browse stays"
@@ -156,8 +154,8 @@ export default async function PropertiesPage(props: PageProps) {
                   className={[
                     "rounded-xl border px-4 py-2 text-sm font-semibold transition",
                     active
-                      ? "border-transparent bg-[#16a6c8] text-white shadow-[0_14px_40px_rgba(22,166,200,0.25)]"
-                      : "border-stone bg-white/70 text-midnight hover:bg-white",
+                      ? "border-transparent bg-brand text-accent-text shadow-brand-soft"
+                      : "border-line bg-surface text-primary hover:bg-accent-soft/55",
                   ].join(" ")}
                 >
                   {p}
@@ -166,11 +164,12 @@ export default async function PropertiesPage(props: PageProps) {
             })}
           </div>
         ) : null}
+        </div>
       </section>
 
       <div className="pointer-events-none absolute inset-0 -z-10">
-        <div className="absolute -left-24 bottom-10 h-72 w-72 rounded-full bg-[color:var(--tourm-primary)]/8 blur-3xl" />
-        <div className="absolute -right-24 top-32 h-72 w-72 rounded-full bg-midnight/8 blur-3xl" />
+        <div className="absolute -left-24 bottom-10 h-72 w-72 rounded-full bg-brand/8 blur-3xl" />
+        <div className="absolute -right-24 top-32 h-72 w-72 rounded-full bg-dark-1/8 blur-3xl" />
       </div>
     </main>
   );
