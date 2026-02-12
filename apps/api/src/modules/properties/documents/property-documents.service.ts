@@ -70,7 +70,10 @@ export class PropertyDocumentsService {
     }
 
     if (normalized.startsWith('uploads/')) {
-      pushIfUnderRoot(path.resolve(API_ROOT_DIR, normalized), PUBLIC_UPLOADS_DIR);
+      pushIfUnderRoot(
+        path.resolve(API_ROOT_DIR, normalized),
+        PUBLIC_UPLOADS_DIR,
+      );
     }
 
     const fileName = path.basename(normalized);
@@ -83,7 +86,9 @@ export class PropertyDocumentsService {
       PROPERTY_DOCUMENTS_LEGACY_DIR,
     );
 
-    return candidates.find((absPath) => fs.existsSync(absPath)) ?? candidates[0];
+    return (
+      candidates.find((absPath) => fs.existsSync(absPath)) ?? candidates[0]
+    );
   }
 
   private async assertVendorOwnsProperty(

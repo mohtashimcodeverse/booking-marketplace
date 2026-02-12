@@ -33,17 +33,15 @@ async function bootstrap() {
    * - ONLY property images are public
    * - Ownership / verification docs must NEVER be public
    */
-  app.use(
-    '/uploads/properties/images',
-    express.static(PROPERTY_IMAGES_DIR),
-  );
+  app.use('/uploads/properties/images', express.static(PROPERTY_IMAGES_DIR));
 
   const staticAllowedOrigins = new Set<string>([
     'https://rentpropertyuae.vercel.app',
     'http://localhost:3000',
   ]);
 
-  const extraCorsOriginsRaw = process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN;
+  const extraCorsOriginsRaw =
+    process.env.CORS_ORIGINS ?? process.env.CORS_ORIGIN;
   if (extraCorsOriginsRaw) {
     for (const raw of extraCorsOriginsRaw.split(',')) {
       const normalized = normalizeOrigin(raw);
@@ -60,7 +58,6 @@ async function bootstrap() {
     origin: (origin: string | undefined, callback: CorsOriginCallback) => {
       // Allow non-browser calls (curl, server-to-server) with no Origin header.
       if (!origin) {
-        // eslint-disable-next-line no-console
         console.log('[cors] origin=<none> allowed=true');
         callback(null, true);
         return;
@@ -72,7 +69,7 @@ async function bootstrap() {
         vercelPreviewPattern.test(normalizedOrigin);
 
       // Temporary proof log for CORS verification.
-      // eslint-disable-next-line no-console
+
       console.log(`[cors] origin=${normalizedOrigin} allowed=${allowed}`);
 
       if (allowed) {
