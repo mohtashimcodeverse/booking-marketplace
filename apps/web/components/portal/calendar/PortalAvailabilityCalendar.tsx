@@ -15,14 +15,8 @@ import {
   startOfWeek,
 } from "date-fns";
 import { CalendarCheck2 } from "lucide-react";
-import type {
-  PortalCalendarEvent,
-  PortalCalendarResponse,
-} from "@/lib/api/portal/calendar";
-import {
-  SharedAvailabilityCalendar,
-  type SharedAvailabilityStatus,
-} from "@/components/calendar/SharedAvailabilityCalendar";
+import type { PortalCalendarEvent, PortalCalendarResponse } from "@/lib/api/portal/calendar";
+import { SharedAvailabilityCalendar, type SharedAvailabilityStatus } from "@/components/calendar/SharedAvailabilityCalendar";
 import { Modal } from "@/components/portal/ui/Modal";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
 import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
@@ -35,15 +29,7 @@ type DateRange = {
 };
 
 function startOfDay(value: Date): Date {
-  return new Date(
-    value.getFullYear(),
-    value.getMonth(),
-    value.getDate(),
-    0,
-    0,
-    0,
-    0,
-  );
+  return new Date(value.getFullYear(), value.getMonth(), value.getDate(), 0, 0, 0, 0);
 }
 
 function toIsoDay(value: Date): string {
@@ -91,11 +77,7 @@ function statusTone(event: PortalCalendarEvent): "success" | "warning" | "danger
 function formatMoney(amount: number | null, currency: string | null): string {
   if (amount === null || !currency) return "-";
   try {
-    return new Intl.NumberFormat(undefined, {
-      style: "currency",
-      currency,
-      maximumFractionDigits: 0,
-    }).format(amount);
+    return new Intl.NumberFormat(undefined, { style: "currency", currency, maximumFractionDigits: 0 }).format(amount);
   } catch {
     return `${amount} ${currency}`;
   }
@@ -117,30 +99,18 @@ function roleIntro(role: RoleView): string {
 
 export function PortalAvailabilityCalendar(props: {
   role: RoleView;
-  loadData: (params: {
-    from: string;
-    to: string;
-    propertyId?: string;
-  }) => Promise<PortalCalendarResponse>;
+  loadData: (params: { from: string; to: string; propertyId?: string }) => Promise<PortalCalendarResponse>;
   allowBlockControls?: boolean;
   blockControlMode?: "direct" | "request";
-  onBlockRange?: (params: {
-    propertyId: string;
-    from: string;
-    to: string;
-    note?: string;
-  }) => Promise<unknown>;
-  onUnblockRange?: (params: {
-    propertyId: string;
-    from: string;
-    to: string;
-    note?: string;
-  }) => Promise<unknown>;
+  onBlockRange?: (params: { propertyId: string; from: string; to: string; note?: string }) => Promise<unknown>;
+  onUnblockRange?: (params: { propertyId: string; from: string; to: string; note?: string }) => Promise<unknown>;
 }) {
   const { loadData, role } = props;
+
   const [month, setMonth] = useState<Date>(startOfMonth(new Date()));
   const [selectedPropertyId, setSelectedPropertyId] = useState<string | null>(null);
   const [refreshTick, setRefreshTick] = useState(0);
+
   const [rangeFrom, setRangeFrom] = useState<string>("");
   const [rangeTo, setRangeTo] = useState<string>("");
   const [rangeNote, setRangeNote] = useState<string>("");
@@ -234,22 +204,16 @@ export function PortalAvailabilityCalendar(props: {
 
   function pickDay(day: Date) {
     setRange((current) => {
-      if (!current.from || current.to) {
-        return { from: day, to: null };
-      }
-      if (isBefore(day, current.from)) {
-        return { from: day, to: current.from };
-      }
-      if (isSameDay(day, current.from)) {
-        return { from: day, to: day };
-      }
+      if (!current.from || current.to) return { from: day, to: null };
+      if (isBefore(day, current.from)) return { from: day, to: current.from };
+      if (isSameDay(day, current.from)) return { from: day, to: day };
       return { from: current.from, to: day };
     });
     setOpenDetails(true);
   }
 
   const propertySelector = (
-    <label className="flex items-center gap-3 rounded-2xl border border-line/80 bg-surface px-4 py-3">
+    <label className="flex items-center gap-3 rounded-2xl bg-white/70 px-4 py-3 shadow-sm ring-1 ring-black/5">
       <span className="text-xs font-semibold tracking-wide text-muted">PROPERTY</span>
       <select
         value={selectedPropertyId ?? data?.selectedPropertyId ?? ""}
@@ -275,7 +239,7 @@ export function PortalAvailabilityCalendar(props: {
           <SkeletonBlock className="h-[420px]" />
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
+        <div className="rounded-3xl bg-[rgb(var(--color-danger-rgb)/0.12)] p-6 text-sm text-[rgb(var(--color-danger-rgb)/1)] shadow-sm ring-1 ring-black/5">
           {state.message}
         </div>
       ) : (
@@ -293,7 +257,7 @@ export function PortalAvailabilityCalendar(props: {
           />
 
           {props.allowBlockControls && role === "vendor" ? (
-            <div className="rounded-2xl border border-line/80 bg-surface p-3">
+            <div className="rounded-3xl bg-white/70 p-4 shadow-sm ring-1 ring-black/5">
               <div className="text-sm font-semibold text-primary">
                 {props.blockControlMode === "request" ? "Block date request" : "Owner-use date controls"}
               </div>
@@ -302,9 +266,10 @@ export function PortalAvailabilityCalendar(props: {
                   ? "Submit a block request for admin approval. End date is checkout-style (exclusive)."
                   : "Block or unblock dates for owner-use. End date is checkout-style (exclusive)."}
               </div>
+
               <div
                 className={[
-                  "mt-3 grid gap-2",
+                  "mt-4 grid gap-2",
                   props.blockControlMode === "request"
                     ? "lg:grid-cols-[1fr_1fr_2fr_auto]"
                     : "lg:grid-cols-[1fr_1fr_2fr_auto_auto]",
@@ -314,19 +279,19 @@ export function PortalAvailabilityCalendar(props: {
                   type="date"
                   value={rangeFrom}
                   onChange={(event) => setRangeFrom(event.target.value)}
-                  className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+                  className="h-10 rounded-2xl bg-white/70 px-3 text-sm text-primary shadow-sm ring-1 ring-black/5 outline-none focus-visible:ring-4 focus-visible:ring-[rgba(198,169,109,0.18)]"
                 />
                 <input
                   type="date"
                   value={rangeTo}
                   onChange={(event) => setRangeTo(event.target.value)}
-                  className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+                  className="h-10 rounded-2xl bg-white/70 px-3 text-sm text-primary shadow-sm ring-1 ring-black/5 outline-none focus-visible:ring-4 focus-visible:ring-[rgba(198,169,109,0.18)]"
                 />
                 <input
                   value={rangeNote}
                   onChange={(event) => setRangeNote(event.target.value)}
                   placeholder="Note (optional)"
-                  className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+                  className="h-10 rounded-2xl bg-white/70 px-3 text-sm text-primary shadow-sm ring-1 ring-black/5 outline-none focus-visible:ring-4 focus-visible:ring-[rgba(198,169,109,0.18)]"
                 />
                 <button
                   type="button"
@@ -346,7 +311,7 @@ export function PortalAvailabilityCalendar(props: {
                       setRangeMessage(
                         props.blockControlMode === "request"
                           ? "Block request submitted successfully."
-                          : "Dates blocked successfully."
+                          : "Dates blocked successfully.",
                       );
                       setRefreshTick((value) => value + 1);
                     } catch (error) {
@@ -355,16 +320,17 @@ export function PortalAvailabilityCalendar(props: {
                           ? error.message
                           : props.blockControlMode === "request"
                             ? "Failed to submit block request"
-                            : "Failed to block dates"
+                            : "Failed to block dates",
                       );
                     } finally {
                       setRangeBusy(null);
                     }
                   }}
-                  className="rounded-xl bg-danger px-3 py-2 text-sm font-semibold text-inverted hover:bg-danger disabled:opacity-60"
+                  className="rounded-2xl bg-[rgb(var(--color-danger-rgb)/1)] px-4 py-2 text-sm font-semibold text-white shadow-sm hover:opacity-95 disabled:opacity-60"
                 >
                   {props.blockControlMode === "request" ? "Submit request" : "Block"}
                 </button>
+
                 {props.blockControlMode !== "request" && props.onUnblockRange ? (
                   <button
                     type="button"
@@ -389,20 +355,23 @@ export function PortalAvailabilityCalendar(props: {
                         setRangeBusy(null);
                       }
                     }}
-                    className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
+                    className="rounded-2xl bg-white/70 px-4 py-2 text-sm font-semibold text-primary shadow-sm ring-1 ring-black/5 hover:bg-white disabled:opacity-60"
                   >
                     Unblock
                   </button>
                 ) : null}
               </div>
+
               {rangeBusy ? <div className="mt-2 text-xs font-semibold text-secondary">{rangeBusy}</div> : null}
+
               {rangeMessage ? (
-                <div className="mt-2 rounded-xl border border-success/30 bg-success/12 p-2 text-xs text-success">
+                <div className="mt-3 rounded-2xl bg-[rgb(var(--color-success-rgb)/0.12)] p-3 text-xs text-[rgb(var(--color-success-rgb)/1)] shadow-sm ring-1 ring-black/5">
                   {rangeMessage}
                 </div>
               ) : null}
+
               {rangeError ? (
-                <div className="mt-2 rounded-xl border border-danger/30 bg-danger/12 p-2 text-xs text-danger">
+                <div className="mt-3 rounded-2xl bg-[rgb(var(--color-danger-rgb)/0.12)] p-3 text-xs text-[rgb(var(--color-danger-rgb)/1)] shadow-sm ring-1 ring-black/5">
                   {rangeError}
                 </div>
               ) : null}
@@ -411,36 +380,29 @@ export function PortalAvailabilityCalendar(props: {
         </>
       )}
 
-      <Modal
-        open={openDetails}
-        onClose={() => setOpenDetails(false)}
-        title="Availability details"
-        subtitle={rangeLabel(range)}
-        size="lg"
-      >
+      <Modal open={openDetails} onClose={() => setOpenDetails(false)} title="Availability details" subtitle={rangeLabel(range)} size="lg">
         <div className="space-y-4">
-          <div className="rounded-2xl border border-line/80 bg-warm-base p-4 text-sm text-secondary">
+          <div className="rounded-3xl bg-white/70 p-4 text-sm text-secondary shadow-sm ring-1 ring-black/5">
             <div className="font-semibold text-primary">{rangeLabel(range)}</div>
             <div className="mt-1">
-              {(data?.properties ?? []).find((property) => property.id === (selectedPropertyId ?? data?.selectedPropertyId ?? ""))?.title
-                ?? "Selected property"}
+              {(data?.properties ?? []).find(
+                (property) => property.id === (selectedPropertyId ?? data?.selectedPropertyId ?? ""),
+              )?.title ?? "Selected property"}
             </div>
           </div>
 
           {detailEvents.length === 0 ? (
-            <div className="rounded-2xl border border-success/30 bg-success/12 p-4 text-sm text-success">
+            <div className="rounded-3xl bg-[rgb(var(--color-success-rgb)/0.12)] p-4 text-sm text-[rgb(var(--color-success-rgb)/1)] shadow-sm ring-1 ring-black/5">
               <div className="font-semibold">Available</div>
               <div className="mt-1">No bookings, holds, or blocks overlap this date selection.</div>
             </div>
           ) : (
             <div className="space-y-3">
               {detailEvents.map((event) => (
-                <div key={`${event.type}:${event.id}`} className="rounded-2xl border border-line/80 bg-surface p-4">
+                <div key={`${event.type}:${event.id}`} className="rounded-3xl bg-white/70 p-4 shadow-sm ring-1 ring-black/5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="text-sm font-semibold text-primary">{event.propertyTitle}</div>
-                    <StatusPill tone={statusTone(event)}>
-                      {event.type === "BOOKING" ? event.status : event.type}
-                    </StatusPill>
+                    <StatusPill tone={statusTone(event)}>{event.type === "BOOKING" ? event.status : event.type}</StatusPill>
                   </div>
 
                   <div className="mt-3 grid gap-3 text-sm text-secondary sm:grid-cols-2 lg:grid-cols-4">
@@ -463,15 +425,15 @@ export function PortalAvailabilityCalendar(props: {
                   </div>
 
                   <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-secondary">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-warm-alt px-3 py-1">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 shadow-sm ring-1 ring-black/5">
                       <CalendarCheck2 className="h-3.5 w-3.5" />
                       Status: {event.status}
                     </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-warm-alt px-3 py-1">
+                    <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 shadow-sm ring-1 ring-black/5">
                       Value: {formatMoney(event.totalAmount, event.currency)}
                     </span>
                     {event.note ? (
-                      <span className="inline-flex items-center gap-1 rounded-full bg-warm-alt px-3 py-1">
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 shadow-sm ring-1 ring-black/5">
                         Note: {event.note}
                       </span>
                     ) : null}

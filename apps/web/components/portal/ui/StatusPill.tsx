@@ -4,11 +4,27 @@ import type React from "react";
 
 type Tone = "neutral" | "success" | "warning" | "danger";
 
-const TONES: Record<Tone, { bg: string; fg: string; ring: string }> = {
-  neutral: { bg: "bg-warm-alt", fg: "text-secondary", ring: "ring-line" },
-  success: { bg: "bg-success/12", fg: "text-success", ring: "ring-success/30" },
-  warning: { bg: "bg-warning/12", fg: "text-warning", ring: "ring-warning/30" },
-  danger: { bg: "bg-danger/12", fg: "text-danger", ring: "ring-danger/30" },
+const TONES: Record<Tone, { bg: string; fg: string; shadow: string }> = {
+  neutral: {
+    bg: "bg-[rgba(255,255,255,0.72)]",
+    fg: "text-[#0B0F19]/72",
+    shadow: "shadow-[0_10px_22px_rgba(11,15,25,0.10)]",
+  },
+  success: {
+    bg: "bg-[rgba(30,122,75,0.12)]",
+    fg: "text-success",
+    shadow: "shadow-[0_10px_22px_rgba(11,15,25,0.10)]",
+  },
+  warning: {
+    bg: "bg-[rgba(166,106,28,0.12)]",
+    fg: "text-warning",
+    shadow: "shadow-[0_10px_22px_rgba(11,15,25,0.10)]",
+  },
+  danger: {
+    bg: "bg-[rgba(180,35,24,0.12)]",
+    fg: "text-danger",
+    shadow: "shadow-[0_10px_22px_rgba(11,15,25,0.10)]",
+  },
 };
 
 function cn(...xs: Array<string | false | null | undefined>) {
@@ -25,7 +41,7 @@ function toneFromStatus(raw: string | null | undefined): Tone {
   if (["FAILED", "FAIL", "CANCELLED", "CANCELED", "VOID", "REJECTED", "BLOCKED", "EXPIRED"].includes(s)) {
     return "danger";
   }
-  if (["PENDING", "PROCESSING", "DRAFT", "REVIEW", "IN_REVIEW", "ON_HOLD", "HOLD"].includes(s)) {
+  if (["PENDING", "PROCESSING", "DRAFT", "REVIEW", "IN_REVIEW", "ON_HOLD", "HOLD", "UNDER_REVIEW"].includes(s)) {
     return "warning";
   }
   return "neutral";
@@ -45,10 +61,10 @@ export function StatusPill(props: {
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold ring-1",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-semibold",
         t.bg,
         t.fg,
-        t.ring,
+        t.shadow,
         props.className
       )}
     >

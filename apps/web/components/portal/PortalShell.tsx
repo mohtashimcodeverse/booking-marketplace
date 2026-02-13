@@ -36,11 +36,16 @@ export function PortalShell(props: {
   const pathname = usePathname();
 
   // Enforce one role-aware sidebar source across all portals.
-  // `nav` remains in the prop contract only for backwards compatibility.
   const navItems = getRoleNav(props.role);
 
   return (
-    <div className="portal-density min-h-screen bg-bg">
+    <div className="portal-density min-h-screen">
+      {/* Background layer (portal-wide) */}
+      <div className="pointer-events-none fixed inset-0 -z-10 portal-shell-bg" />
+
+      {/* Soft vignette to increase separation (prevents “white on white”) */}
+      <div className="pointer-events-none fixed inset-0 -z-10 bg-[radial-gradient(1200px_600px_at_50%_-120px,rgba(79,70,229,0.10),transparent_60%),radial-gradient(900px_500px_at_12%_10%,rgba(198,169,109,0.14),transparent_55%),radial-gradient(900px_500px_at_88%_18%,rgba(11,15,25,0.08),transparent_62%)]" />
+
       <PortalHeader
         role={props.role}
         title={props.title}
@@ -52,7 +57,8 @@ export function PortalShell(props: {
         }}
       />
 
-      <div className="border-b border-line/50 bg-surface/80 px-4 py-3 lg:hidden">
+      {/* Mobile top nav */}
+      <div className="px-4 py-3 lg:hidden">
         <div className="no-scrollbar mx-auto flex max-w-[1400px] gap-2 overflow-x-auto">
           {navItems.map((item) => {
             const active = isActive(pathname, item.href);
@@ -61,13 +67,19 @@ export function PortalShell(props: {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "inline-flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold transition",
+                  "inline-flex shrink-0 items-center gap-2 rounded-2xl px-3 py-2 text-xs font-semibold",
+                  "shadow-[0_12px_28px_rgba(11,15,25,0.10)] transition",
                   active
-                    ? "bg-brand text-accent-text shadow-sm ring-1 ring-brand/50"
-                    : "bg-surface text-primary ring-1 ring-line/70 hover:bg-bg-2",
+                    ? "bg-[linear-gradient(135deg,rgba(198,169,109,0.30),rgba(198,169,109,0.18))] text-[#1d2a73] ring-1 ring-[rgba(198,169,109,0.45)]"
+                    : "bg-white/72 text-primary ring-1 ring-black/5 hover:bg-white"
                 )}
               >
-                <span className="flex h-5 w-5 items-center justify-center rounded-md bg-black/10">
+                <span
+                  className={cn(
+                    "flex h-5 w-5 items-center justify-center rounded-md",
+                    active ? "bg-[rgba(198,169,109,0.22)]" : "bg-black/10"
+                  )}
+                >
                   {item.icon}
                 </span>
                 {item.label}
@@ -77,7 +89,8 @@ export function PortalShell(props: {
         </div>
       </div>
 
-      <div className="mx-auto flex max-w-[1400px] gap-4 px-3 pb-10 pt-4 sm:px-5 sm:pt-5 lg:gap-6 lg:px-8 lg:pb-16 lg:pt-6">
+      {/* Layout */}
+      <div className="mx-auto grid max-w-[1400px] gap-4 px-3 pb-10 pt-4 sm:px-5 sm:pt-5 lg:grid-cols-[300px_1fr] lg:gap-6 lg:px-8 lg:pb-16 lg:pt-6">
         <PortalSidebar
           title={props.title}
           subtitle={props.subtitle}
@@ -85,15 +98,29 @@ export function PortalShell(props: {
           userEmail={user?.email ?? null}
         />
 
-        <main className="min-w-0 flex-1">
-          <div className="premium-card rounded-3xl">
-            <div className="border-b border-line/50 bg-bg-2/82 px-5 py-5 sm:px-6">
+        <main className="min-w-0">
+          {/* Main shell card */}
+          <div className="premium-card rounded-3xl overflow-hidden">
+            {/* Header band: increase contrast so it reads clearly on ivory */}
+            <div className="relative bg-[linear-gradient(135deg,rgba(255,255,255,0.70),rgba(243,238,229,0.70))] px-5 py-5 sm:px-6 shadow-[0_18px_48px_rgba(11,15,25,0.08)]">
+              {/* Top accent line */}
+              <div className="pointer-events-none absolute inset-x-6 top-0 h-[2px] rounded-full bg-[linear-gradient(90deg,rgba(198,169,109,0.70),rgba(79,70,229,0.35),transparent_82%)]" />
+              {/* Soft border glow */}
+              <div className="pointer-events-none absolute inset-0 ring-1 ring-black/5" />
+
               <div className="text-xs font-semibold text-muted">{roleLabel(props.role)}</div>
               <h1 className="mt-1 text-xl font-semibold text-primary sm:text-2xl">{props.title}</h1>
-              {props.subtitle ? <div className="mt-1 text-sm text-secondary">{props.subtitle}</div> : null}
+              {props.subtitle ? (
+                <div className="mt-1 text-sm text-secondary">{props.subtitle}</div>
+              ) : null}
+
+              <div className="mt-4 h-px w-full bg-[linear-gradient(90deg,rgba(198,169,109,0.40),rgba(11,15,25,0.10),transparent_82%)]" />
             </div>
 
-            <div className="px-4 py-5 sm:px-6 sm:py-6">{props.children}</div>
+            {/* Content area: add subtle tint so pages like Calendar don’t look “flat” */}
+            <div className="bg-[linear-gradient(180deg,rgba(255,255,255,0.55),rgba(255,255,255,0.35))] px-4 py-5 sm:px-6 sm:py-6">
+              {props.children}
+            </div>
           </div>
         </main>
       </div>
