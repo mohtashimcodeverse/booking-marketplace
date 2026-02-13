@@ -1,9 +1,15 @@
-import { ForbiddenException, Injectable } from '@nestjs/common';
+import {
+  BadRequestException,
+  ForbiddenException,
+  Injectable,
+} from '@nestjs/common';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import {
+  BlockRequestStatus,
   BookingStatus,
   CalendarDayStatus,
   HoldStatus,
+  NotificationType,
   OpsTaskStatus,
   PaymentStatus,
   PropertyStatus,
@@ -19,6 +25,7 @@ import type {
 } from '../common/portal.types';
 import { formatLabel } from '../common/portal.utils';
 import type { VendorPropertyListItemDto } from './dto/vendor-property-list-item.dto';
+import { NotificationsService } from '../../modules/notifications/notifications.service';
 
 type VendorOverview = {
   kpis: {
@@ -53,10 +60,29 @@ type VendorOverview = {
 
 @Injectable()
 export class VendorPortalService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private assertVendor(role: UserRole) {
     if (role !== UserRole.VENDOR) throw new ForbiddenException('Not allowed.');
+  }
+
+  private parseIsoDay(value: string, fieldName: string): Date {
+    const raw = (value ?? '').trim();
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) {
+      throw new BadRequestException(`${fieldName} must be YYYY-MM-DD.`);
+    }
+    const parsed = new Date(`${raw}T00:00:00.000Z`);
+    if (Number.isNaN(parsed.getTime())) {
+      throw new BadRequestException(`${fieldName} is invalid.`);
+    }
+    return parsed;
+  }
+
+  private toIsoDay(value: Date): string {
+    return value.toISOString().slice(0, 10);
   }
 
   private async getVendorPropertyIds(vendorUserId: string): Promise<string[]> {
@@ -343,10 +369,13 @@ export class VendorPortalService {
         select: {
           id: true,
           title: true,
+          slug: true,
           city: true,
+          area: true,
           status: true,
           basePrice: true,
           createdAt: true,
+          updatedAt: true,
           _count: { select: { bookings: true } },
         },
       }),
@@ -359,11 +388,14 @@ export class VendorPortalService {
       items: rows.map((p) => ({
         id: p.id,
         title: p.title,
+        slug: p.slug,
         city: p.city ?? null,
+        area: p.area ?? null,
         status: p.status,
         priceFrom: p.basePrice,
         bookingsCount: p._count.bookings,
         createdAt: p.createdAt.toISOString(),
+        updatedAt: p.updatedAt.toISOString(),
       })),
     };
   }
@@ -385,39 +417,105 @@ export class VendorPortalService {
           ? 'week'
           : 'month';
 
-    const payments = await this.prisma.$queryRaw<
-      Array<{ bucket: Date; amount: number }>
-    >`
-      SELECT date_trunc(${bucketExpr}, p."createdAt") AS bucket,
-             COALESCE(SUM(p.amount), 0)::int AS amount
-      FROM "Payment" p
-      JOIN "Booking" b ON b.id = p."bookingId"
-      WHERE p.status = 'CAPTURED'
-        AND b."propertyId" = ANY(${propertyIds})
-        AND p."createdAt" >= ${params.from}
-        AND p."createdAt" < ${params.to}
-      GROUP BY 1
-      ORDER BY 1 ASC
-    `;
-
-    const confirmedBookings = await this.prisma.$queryRaw<
-      Array<{ bucket: Date; count: number }>
-    >`
-      SELECT date_trunc(${bucketExpr}, b."createdAt") AS bucket,
-             COUNT(*)::int AS count
-      FROM "Booking" b
-      WHERE b."propertyId" = ANY(${propertyIds})
-        AND b.status = 'CONFIRMED'
-        AND b."createdAt" >= ${params.from}
-        AND b."createdAt" < ${params.to}
-      GROUP BY 1
-      ORDER BY 1 ASC
-    `;
+    const [
+      payments,
+      confirmedBookings,
+      allBookings,
+      upcomingStays,
+      opsTasks,
+      occupancyNights,
+      bookingStatusRows,
+      opsStatusRows,
+    ] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ bucket: Date; amount: number }>>`
+        SELECT date_trunc(${bucketExpr}, p."createdAt") AS bucket,
+               COALESCE(SUM(p.amount), 0)::int AS amount
+        FROM "Payment" p
+        JOIN "Booking" b ON b.id = p."bookingId"
+        WHERE p.status = 'CAPTURED'
+          AND b."propertyId" = ANY(${propertyIds})
+          AND p."createdAt" >= ${params.from}
+          AND p."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; count: number }>>`
+        SELECT date_trunc(${bucketExpr}, b."createdAt") AS bucket,
+               COUNT(*)::int AS count
+        FROM "Booking" b
+        WHERE b."propertyId" = ANY(${propertyIds})
+          AND b.status = 'CONFIRMED'
+          AND b."createdAt" >= ${params.from}
+          AND b."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; count: number }>>`
+        SELECT date_trunc(${bucketExpr}, b."createdAt") AS bucket,
+               COUNT(*)::int AS count
+        FROM "Booking" b
+        WHERE b."propertyId" = ANY(${propertyIds})
+          AND b."createdAt" >= ${params.from}
+          AND b."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; count: number }>>`
+        SELECT date_trunc(${bucketExpr}, b."checkIn") AS bucket,
+               COUNT(*)::int AS count
+        FROM "Booking" b
+        WHERE b."propertyId" = ANY(${propertyIds})
+          AND b.status = 'CONFIRMED'
+          AND b."checkIn" >= ${params.from}
+          AND b."checkIn" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; count: number }>>`
+        SELECT date_trunc(${bucketExpr}, o."createdAt") AS bucket,
+               COUNT(*)::int AS count
+        FROM "OpsTask" o
+        WHERE o."propertyId" = ANY(${propertyIds})
+          AND o."createdAt" >= ${params.from}
+          AND o."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; nights: number }>>`
+        SELECT date_trunc(${bucketExpr}, b."checkIn") AS bucket,
+               COALESCE(SUM(EXTRACT(EPOCH FROM (b."checkOut" - b."checkIn")) / 86400), 0)::int AS nights
+        FROM "Booking" b
+        WHERE b."propertyId" = ANY(${propertyIds})
+          AND b.status = 'CONFIRMED'
+          AND b."checkIn" >= ${params.from}
+          AND b."checkIn" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.booking.groupBy({
+        by: ['status'],
+        where: { propertyId: { in: propertyIds } },
+        _count: { _all: true },
+      }),
+      this.prisma.opsTask.groupBy({
+        by: ['status'],
+        where: { propertyId: { in: propertyIds } },
+        _count: { _all: true },
+      }),
+    ]);
 
     const labelsMap = new Map<string, Date>();
     for (const r of payments)
       labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
+    for (const r of allBookings)
+      labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
     for (const r of confirmedBookings)
+      labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
+    for (const r of upcomingStays)
+      labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
+    for (const r of opsTasks)
+      labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
+    for (const r of occupancyNights)
       labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
 
     const labels = Array.from(labelsMap.entries())
@@ -430,11 +528,42 @@ export class VendorPortalService {
         Number(r.amount),
       ]),
     );
+    const allBookingMap = new Map(
+      allBookings.map((r) => [
+        formatLabel(r.bucket, params.bucket),
+        Number(r.count),
+      ]),
+    );
     const confMap = new Map(
       confirmedBookings.map((r) => [
         formatLabel(r.bucket, params.bucket),
         Number(r.count),
       ]),
+    );
+    const upcomingMap = new Map(
+      upcomingStays.map((r) => [
+        formatLabel(r.bucket, params.bucket),
+        Number(r.count),
+      ]),
+    );
+    const opsMap = new Map(
+      opsTasks.map((r) => [
+        formatLabel(r.bucket, params.bucket),
+        Number(r.count),
+      ]),
+    );
+    const occupancyMap = new Map(
+      occupancyNights.map((r) => [
+        formatLabel(r.bucket, params.bucket),
+        Number(r.nights),
+      ]),
+    );
+
+    const bookingStatus = Object.fromEntries(
+      bookingStatusRows.map((row) => [row.status, row._count._all]),
+    );
+    const opsTaskStatus = Object.fromEntries(
+      opsStatusRows.map((row) => [row.status, row._count._all]),
     );
 
     return {
@@ -442,16 +571,98 @@ export class VendorPortalService {
       to: params.to.toISOString(),
       bucket: params.bucket,
       labels,
+      kpis: {
+        revenueCaptured: labels.reduce(
+          (sum, l) => sum + (payMap.get(l) ?? 0),
+          0,
+        ),
+        bookingsTotal: labels.reduce(
+          (sum, l) => sum + (allBookingMap.get(l) ?? 0),
+          0,
+        ),
+        bookingsConfirmed: labels.reduce(
+          (sum, l) => sum + (confMap.get(l) ?? 0),
+          0,
+        ),
+        upcomingStays: labels.reduce(
+          (sum, l) => sum + (upcomingMap.get(l) ?? 0),
+          0,
+        ),
+        opsTasks: labels.reduce((sum, l) => sum + (opsMap.get(l) ?? 0), 0),
+        occupancyNights: labels.reduce(
+          (sum, l) => sum + (occupancyMap.get(l) ?? 0),
+          0,
+        ),
+      },
       series: [
         {
           key: 'revenueCaptured',
           points: labels.map((l) => payMap.get(l) ?? 0),
         },
         {
+          key: 'bookingsTotal',
+          points: labels.map((l) => allBookingMap.get(l) ?? 0),
+        },
+        {
           key: 'bookingsConfirmed',
           points: labels.map((l) => confMap.get(l) ?? 0),
         },
+        {
+          key: 'upcomingStays',
+          points: labels.map((l) => upcomingMap.get(l) ?? 0),
+        },
+        {
+          key: 'opsTasks',
+          points: labels.map((l) => opsMap.get(l) ?? 0),
+        },
+        {
+          key: 'occupancyNights',
+          points: labels.map((l) => occupancyMap.get(l) ?? 0),
+        },
       ],
+      charts: {
+        revenuePerPeriod: {
+          labels,
+          series: [
+            {
+              key: 'revenueCaptured',
+              points: labels.map((l) => payMap.get(l) ?? 0),
+            },
+          ],
+        },
+        bookingsPerPeriod: {
+          labels,
+          series: [
+            {
+              key: 'bookingsTotal',
+              points: labels.map((l) => allBookingMap.get(l) ?? 0),
+            },
+          ],
+        },
+        opsAndUpcoming: {
+          labels,
+          series: [
+            {
+              key: 'upcomingStays',
+              points: labels.map((l) => upcomingMap.get(l) ?? 0),
+            },
+            { key: 'opsTasks', points: labels.map((l) => opsMap.get(l) ?? 0) },
+          ],
+        },
+        occupancyTrend: {
+          labels,
+          series: [
+            {
+              key: 'occupancyNights',
+              points: labels.map((l) => occupancyMap.get(l) ?? 0),
+            },
+          ],
+        },
+      },
+      breakdowns: {
+        bookingStatus,
+        opsTaskStatus,
+      },
     };
   }
 
@@ -630,6 +841,184 @@ export class VendorPortalService {
       selectedPropertyId,
       properties,
       events,
+    };
+  }
+
+  async listBlockRequests(params: {
+    userId: string;
+    role: UserRole;
+    propertyId?: string;
+    status?: BlockRequestStatus;
+    page: number;
+    pageSize: number;
+  }) {
+    this.assertVendor(params.role);
+
+    if (params.propertyId) {
+      const ownedProperty = await this.prisma.property.findFirst({
+        where: { id: params.propertyId, vendorId: params.userId },
+        select: { id: true },
+      });
+      if (!ownedProperty) {
+        throw new ForbiddenException('Property is not owned by this vendor.');
+      }
+    }
+
+    const where = {
+      vendorId: params.userId,
+      ...(params.propertyId ? { propertyId: params.propertyId } : {}),
+      ...(params.status ? { status: params.status } : {}),
+    } as const;
+
+    const [total, rows] = await Promise.all([
+      this.prisma.blockRequest.count({ where }),
+      this.prisma.blockRequest.findMany({
+        where,
+        orderBy: { createdAt: 'desc' },
+        skip: (params.page - 1) * params.pageSize,
+        take: params.pageSize,
+        select: {
+          id: true,
+          propertyId: true,
+          startDate: true,
+          endDate: true,
+          reason: true,
+          status: true,
+          reviewNotes: true,
+          reviewedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          property: {
+            select: {
+              id: true,
+              title: true,
+              city: true,
+              area: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      page: params.page,
+      pageSize: params.pageSize,
+      total,
+      items: rows.map((row) => ({
+        id: row.id,
+        propertyId: row.propertyId,
+        property: row.property,
+        startDate: this.toIsoDay(row.startDate),
+        endDate: this.toIsoDay(row.endDate),
+        reason: row.reason,
+        status: row.status,
+        reviewNotes: row.reviewNotes,
+        reviewedAt: row.reviewedAt?.toISOString() ?? null,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+    };
+  }
+
+  async createBlockRequest(params: {
+    userId: string;
+    role: UserRole;
+    propertyId: string;
+    startDate: string;
+    endDate: string;
+    reason?: string;
+  }) {
+    this.assertVendor(params.role);
+
+    const property = await this.prisma.property.findFirst({
+      where: { id: params.propertyId, vendorId: params.userId },
+      select: { id: true, title: true },
+    });
+    if (!property) {
+      throw new ForbiddenException('Property is not owned by this vendor.');
+    }
+
+    const startDate = this.parseIsoDay(params.startDate, 'startDate');
+    const endDate = this.parseIsoDay(params.endDate, 'endDate');
+    if (startDate.getTime() >= endDate.getTime()) {
+      throw new BadRequestException('endDate must be after startDate.');
+    }
+
+    const overlappingBooking = await this.prisma.booking.findFirst({
+      where: {
+        propertyId: params.propertyId,
+        status: {
+          in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED],
+        },
+        checkIn: { lt: endDate },
+        checkOut: { gt: startDate },
+      },
+      select: { id: true },
+    });
+    if (overlappingBooking) {
+      throw new BadRequestException(
+        'Cannot request blocked dates that overlap booked dates.',
+      );
+    }
+
+    const created = await this.prisma.blockRequest.create({
+      data: {
+        propertyId: params.propertyId,
+        vendorId: params.userId,
+        startDate,
+        endDate,
+        reason: params.reason?.trim() || null,
+        status: BlockRequestStatus.PENDING,
+      },
+      select: {
+        id: true,
+        propertyId: true,
+        vendorId: true,
+        startDate: true,
+        endDate: true,
+        reason: true,
+        status: true,
+        createdAt: true,
+      },
+    });
+
+    const admins = await this.prisma.user.findMany({
+      where: { role: UserRole.ADMIN },
+      select: { id: true },
+    });
+    await Promise.all(
+      admins.map((admin) =>
+        this.notifications
+          .emit({
+            type: NotificationType.MAINTENANCE_REQUEST_CREATED,
+            entityType: 'BLOCK_REQUEST',
+            entityId: created.id,
+            recipientUserId: admin.id,
+            payload: {
+              title: 'Vendor block request submitted',
+              blockRequest: {
+                id: created.id,
+                propertyId: created.propertyId,
+                propertyTitle: property.title,
+                startDate: this.toIsoDay(created.startDate),
+                endDate: this.toIsoDay(created.endDate),
+                reason: created.reason,
+              },
+            },
+          })
+          .catch(() => null),
+      ),
+    );
+
+    return {
+      id: created.id,
+      propertyId: created.propertyId,
+      vendorId: created.vendorId,
+      startDate: this.toIsoDay(created.startDate),
+      endDate: this.toIsoDay(created.endDate),
+      reason: created.reason,
+      status: created.status,
+      createdAt: created.createdAt.toISOString(),
     };
   }
 }

@@ -13,6 +13,23 @@ export type UserPortalOverviewResponse = {
     bookingsTotal: number;
     refundsTotal: number;
   };
+  documentCompliance: {
+    requiredTypes: CustomerDocumentType[];
+    missingTypes: CustomerDocumentType[];
+    hasVerifiedRequiredDocuments: boolean;
+    requiresUpload: boolean;
+    urgent: boolean;
+    nextBooking: {
+      id: string;
+      checkIn: string;
+      checkOut: string;
+      property: {
+        id: string;
+        title: string;
+        slug: string;
+      };
+    } | null;
+  };
   upcoming: Array<{
     // backend returned [] in your example; keep future-proof and typed
     id?: string;
@@ -44,6 +61,110 @@ export type UserPortalBookingsResponse = {
   total: number;
 };
 
+export type UserBookingDetailResponse = {
+  id: string;
+  status: string;
+  checkIn: string;
+  checkOut: string;
+  adults: number;
+  children: number;
+  nights: number;
+  totalAmount: number;
+  currency: string;
+  createdAt: string;
+  updatedAt: string;
+  expiresAt: string | null;
+  cancelledAt: string | null;
+  timeline: Array<{
+    key: string;
+    label: string;
+    at: string;
+  }>;
+  property: {
+    id: string;
+    title: string;
+    slug: string;
+    description: string | null;
+    city: string;
+    area: string | null;
+    address: string | null;
+    maxGuests: number;
+    bedrooms: number;
+    bathrooms: number;
+    basePrice: number;
+    cleaningFee: number;
+    minNights: number;
+    maxNights: number | null;
+    checkInFromMin: number | null;
+    checkInToMax: number | null;
+    checkOutMin: number | null;
+    isInstantBook: boolean;
+    coverUrl: string | null;
+    media: Array<{
+      id: string;
+      url: string;
+      alt: string | null;
+      sortOrder: number;
+      category: string;
+    }>;
+    cancellationPolicy: {
+      version: string;
+      isActive: boolean;
+      freeCancelBeforeHours: number;
+      partialRefundBeforeHours: number;
+      noRefundWithinHours: number;
+      penaltyType: string;
+      penaltyValue: number;
+      defaultMode: string;
+      chargeFirstNightOnLateCancel: boolean;
+    } | null;
+  };
+  payment: {
+    id: string;
+    status: string;
+    provider: string;
+    amount: number;
+    currency: string;
+    providerRef: string | null;
+    createdAt: string;
+    updatedAt: string;
+    events: Array<{
+      id: string;
+      type: string;
+      label: string;
+      providerRef: string | null;
+      createdAt: string;
+    }>;
+  } | null;
+  documents: {
+    requiredTypes: BookingDocumentType[];
+    uploadedTypes: BookingDocumentType[];
+    missingTypes: BookingDocumentType[];
+    items: Array<{
+      id: string;
+      bookingId: string;
+      uploadedByUserId: string;
+      type: BookingDocumentType;
+      originalName: string | null;
+      mimeType: string | null;
+      notes: string | null;
+      createdAt: string;
+      downloadUrl: string;
+    }>;
+  };
+  messages: {
+    threads: Array<{
+      id: string;
+      subject: string | null;
+      topic: string;
+      admin: { id: string; email: string; fullName: string | null };
+      lastMessageAt: string | null;
+      lastMessagePreview: string | null;
+      unreadCount: number;
+    }>;
+  };
+};
+
 export type UserPortalRefundsResponse = {
   items: Array<{
     id: string;
@@ -65,15 +186,24 @@ export type BookingDocumentType =
   | "ARRIVAL_FORM"
   | "OTHER";
 
+export type CustomerDocumentType =
+  | "PASSPORT"
+  | "EMIRATES_ID"
+  | "VISA"
+  | "SELFIE"
+  | "OTHER";
+
+export type CustomerDocumentStatus = "PENDING" | "VERIFIED" | "REJECTED";
+
 export type UserBookingDocument = {
   id: string;
   bookingId: string;
   uploadedByUserId: string;
   type: BookingDocumentType;
   notes: string | null;
-  originalName: string;
+  originalName: string | null;
   mimeType: string | null;
-  sizeBytes: number;
+  sizeBytes?: number;
   createdAt: string;
 };
 
@@ -82,6 +212,10 @@ export type UserReview = {
   bookingId: string;
   propertyId: string;
   rating: number;
+  cleanlinessRating: number;
+  locationRating: number;
+  communicationRating: number;
+  valueRating: number;
   title: string | null;
   comment: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
@@ -92,6 +226,45 @@ export type UserReview = {
     slug: string;
     city: string;
   };
+};
+
+export type UserCustomerDocument = {
+  id: string;
+  userId: string;
+  type: CustomerDocumentType;
+  status: CustomerDocumentStatus;
+  originalName: string | null;
+  mimeType: string | null;
+  notes: string | null;
+  reviewNotes: string | null;
+  reviewedAt: string | null;
+  verifiedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  downloadUrl: string;
+  reviewedByAdmin?: {
+    id: string;
+    email: string;
+    fullName: string | null;
+  } | null;
+};
+
+export type UserCustomerDocumentRequirement = {
+  requiredTypes: CustomerDocumentType[];
+  missingTypes: CustomerDocumentType[];
+  hasVerifiedRequiredDocuments: boolean;
+  requiresUpload: boolean;
+  urgent: boolean;
+  nextBooking: {
+    id: string;
+    checkIn: string;
+    checkOut: string;
+    property: {
+      id: string;
+      title: string;
+      slug: string;
+    };
+  } | null;
 };
 
 export async function getUserOverview(): Promise<UserPortalOverviewResponse> {
@@ -116,6 +289,20 @@ export async function getUserBookings(params?: {
       pageSize: params?.pageSize ?? 10,
     },
   });
+  return unwrap(res);
+}
+
+export async function getUserBookingDetail(
+  bookingId: string
+): Promise<UserBookingDetailResponse> {
+  const res = await apiFetch<UserBookingDetailResponse>(
+    `/portal/user/bookings/${encodeURIComponent(bookingId)}`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
   return unwrap(res);
 }
 
@@ -181,7 +368,9 @@ export async function uploadUserBookingDocument(
 export async function listUserBookingDocuments(
   bookingId: string
 ): Promise<UserBookingDocument[]> {
-  const res = await apiFetch<UserBookingDocument[]>(
+  const res = await apiFetch<
+    UserBookingDocument[] | { items?: UserBookingDocument[] }
+  >(
     `/portal/user/bookings/${encodeURIComponent(bookingId)}/documents`,
     {
       method: "GET",
@@ -189,7 +378,12 @@ export async function listUserBookingDocuments(
       cache: "no-store",
     }
   );
-  return unwrap(res);
+  const data = unwrap(res);
+  const items = Array.isArray(data) ? data : Array.isArray(data?.items) ? data.items : [];
+  return items.map((item) => ({
+    ...item,
+    sizeBytes: typeof item.sizeBytes === "number" ? item.sizeBytes : 0,
+  }));
 }
 
 export async function downloadUserBookingDocument(
@@ -211,9 +405,63 @@ export async function downloadUserBookingDocument(
   return unwrap(res);
 }
 
+export async function getUserCustomerDocuments(): Promise<{
+  requirement: UserCustomerDocumentRequirement;
+  items: UserCustomerDocument[];
+}> {
+  const res = await apiFetch<{
+    requirement: UserCustomerDocumentRequirement;
+    items: UserCustomerDocument[];
+  }>("/portal/user/documents", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+  return unwrap(res);
+}
+
+export async function uploadUserCustomerDocument(input: {
+  file: File;
+  type?: CustomerDocumentType;
+  notes?: string;
+}): Promise<UserCustomerDocument> {
+  const form = new FormData();
+  form.append("file", input.file);
+  if (input.type) form.append("type", input.type);
+  if (input.notes?.trim()) form.append("notes", input.notes.trim());
+
+  const res = await apiFetch<UserCustomerDocument>("/portal/user/documents", {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    body: form,
+  });
+  return unwrap(res);
+}
+
+export async function downloadUserCustomerDocument(documentId: string): Promise<Blob> {
+  const res = await apiFetch<Blob>(
+    `/portal/user/documents/${encodeURIComponent(documentId)}/download`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      responseType: "blob",
+      headers: {
+        Accept: "application/octet-stream",
+      },
+    }
+  );
+  return unwrap(res);
+}
+
 export async function createUserReview(input: {
   bookingId: string;
-  rating: number;
+  rating?: number;
+  cleanlinessRating?: number;
+  locationRating?: number;
+  communicationRating?: number;
+  valueRating?: number;
   title?: string;
   comment?: string;
 }): Promise<UserReview> {
@@ -224,6 +472,10 @@ export async function createUserReview(input: {
     body: {
       bookingId: input.bookingId,
       rating: input.rating,
+      cleanlinessRating: input.cleanlinessRating,
+      locationRating: input.locationRating,
+      communicationRating: input.communicationRating,
+      valueRating: input.valueRating,
       title: input.title?.trim() || undefined,
       comment: input.comment?.trim() || undefined,
     },

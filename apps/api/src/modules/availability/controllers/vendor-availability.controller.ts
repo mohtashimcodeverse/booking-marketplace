@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Param, Post, Put, Query } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  Post,
+  Put,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { AvailabilityService } from '../availability.service';
 import { UpdateAvailabilitySettingsDto } from '../dto/settings.dto';
 import { UpsertCalendarDaysDto, BlockRangeDto } from '../dto/calendar.dto';
@@ -6,10 +15,13 @@ import { UpsertCalendarDaysDto, BlockRangeDto } from '../dto/calendar.dto';
 // ✅ FIXED PATHS (auth is at src/auth, not src/modules/auth)
 import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
 import { Roles } from '../../../auth/decorators/roles.decorator';
+import { JwtAccessGuard } from '../../../auth/guards/jwt-access.guard';
+import { RolesGuard } from '../../../auth/guards/roles.guard';
 
 import { UserRole } from '@prisma/client';
 
 @Controller('vendor/properties/:propertyId/availability')
+@UseGuards(JwtAccessGuard, RolesGuard)
 @Roles(UserRole.VENDOR)
 export class VendorAvailabilityController {
   constructor(private readonly availability: AvailabilityService) {}

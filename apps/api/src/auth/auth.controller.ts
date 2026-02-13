@@ -99,6 +99,7 @@ export class AuthController {
       dto.email,
       dto.password,
       dto.fullName,
+      dto.role,
     )) as RegisterResult;
 
     const userId = result.user.id;

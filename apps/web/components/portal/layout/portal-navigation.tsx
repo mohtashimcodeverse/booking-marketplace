@@ -31,34 +31,38 @@ export function roleLabel(role?: PortalRole): string {
 export function getRoleNav(role?: PortalRole): PortalNavItem[] {
   if (role === "vendor") {
     return [
-      { href: "/vendor", label: "Overview", icon: <LayoutDashboard className="h-4 w-4" />, group: "Workspace" },
-      { href: "/vendor/analytics", label: "Analytics", icon: <LayoutDashboard className="h-4 w-4" />, group: "Workspace" },
+      { href: "/vendor", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" />, group: "Workspace" },
       { href: "/vendor/properties", label: "Properties", icon: <Building2 className="h-4 w-4" />, group: "Workspace" },
       { href: "/vendor/bookings", label: "Bookings", icon: <ClipboardCheck className="h-4 w-4" />, group: "Operations" },
       { href: "/vendor/calendar", label: "Calendar", icon: <CalendarDays className="h-4 w-4" />, group: "Operations" },
+      { href: "/vendor/block-requests", label: "Block Requests", icon: <CalendarDays className="h-4 w-4" />, group: "Operations" },
       { href: "/vendor/messages", label: "Messages", icon: <MessageSquare className="h-4 w-4" />, group: "Operations" },
       { href: "/vendor/ops-tasks", label: "Ops Tasks", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
+      { href: "/vendor/maintenance", label: "Maintenance", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
+      { href: "/vendor/work-orders", label: "Work Orders", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
       { href: "/vendor/statements", label: "Statements", icon: <CreditCard className="h-4 w-4" />, group: "Finance" },
     ];
   }
 
   if (role === "admin") {
     return [
-      { href: "/admin", label: "Overview", icon: <LayoutDashboard className="h-4 w-4" />, group: "Workspace" },
-      { href: "/admin/analytics", label: "Analytics", icon: <LayoutDashboard className="h-4 w-4" />, group: "Workspace" },
+      { href: "/admin", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" />, group: "Workspace" },
       { href: "/admin/review-queue", label: "Review Queue", icon: <ShieldCheck className="h-4 w-4" />, group: "Workspace" },
       { href: "/admin/reviews", label: "Guest Reviews", icon: <ShieldCheck className="h-4 w-4" />, group: "Workspace" },
       { href: "/admin/vendors", label: "Vendors", icon: <Users className="h-4 w-4" />, group: "Workspace" },
       { href: "/admin/properties", label: "Properties", icon: <Building2 className="h-4 w-4" />, group: "Workspace" },
       { href: "/admin/properties/new", label: "Create Property", icon: <Settings2 className="h-4 w-4" />, group: "Workspace" },
+      { href: "/admin/contact-submissions", label: "Contact Submissions", icon: <MessageSquare className="h-4 w-4" />, group: "Workspace" },
       { href: "/admin/bookings", label: "Bookings", icon: <ClipboardCheck className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/calendar", label: "Calendar", icon: <CalendarDays className="h-4 w-4" />, group: "Operations" },
+      { href: "/admin/block-requests", label: "Block Requests", icon: <CalendarDays className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/messages", label: "Messages", icon: <MessageSquare className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/ops-tasks", label: "Ops Tasks", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/properties/deletion-requests", label: "Deletion Requests", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/properties/unpublish-requests", label: "Unpublish Requests", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/payments", label: "Payments", icon: <CreditCard className="h-4 w-4" />, group: "Finance" },
       { href: "/admin/refunds", label: "Refunds", icon: <CreditCard className="h-4 w-4" />, group: "Finance" },
+      { href: "/admin/customer-documents", label: "Guest Documents", icon: <ShieldCheck className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/statements", label: "Statements", icon: <CreditCard className="h-4 w-4" />, group: "Finance" },
       { href: "/admin/payouts", label: "Payouts", icon: <CreditCard className="h-4 w-4" />, group: "Finance" },
     ];
@@ -66,8 +70,9 @@ export function getRoleNav(role?: PortalRole): PortalNavItem[] {
 
   if (role === "customer") {
     return [
-      { href: "/account", label: "Overview", icon: <LayoutDashboard className="h-4 w-4" />, group: "Account" },
+      { href: "/account", label: "Dashboard", icon: <LayoutDashboard className="h-4 w-4" />, group: "Account" },
       { href: "/account/bookings", label: "Bookings", icon: <ClipboardCheck className="h-4 w-4" />, group: "Account" },
+      { href: "/account/documents", label: "Documents", icon: <ShieldCheck className="h-4 w-4" />, group: "Account" },
       { href: "/account/calendar", label: "Calendar", icon: <CalendarDays className="h-4 w-4" />, group: "Account" },
       { href: "/account/messages", label: "Messages", icon: <MessageSquare className="h-4 w-4" />, group: "Account" },
       { href: "/account/refunds", label: "Refunds", icon: <CreditCard className="h-4 w-4" />, group: "Account" },

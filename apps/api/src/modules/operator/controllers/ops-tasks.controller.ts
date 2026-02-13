@@ -19,6 +19,8 @@ import { UpdateOpsTaskDto } from '../dto/update-ops-task.dto';
 import { JwtAccessGuard } from '../../../auth/guards/jwt-access.guard';
 import { RolesGuard } from '../../../auth/guards/roles.guard';
 import { Roles } from '../../../auth/decorators/roles.decorator';
+import { CurrentUser } from '../../../auth/decorators/current-user.decorator';
+import { type User } from '@prisma/client';
 
 @ApiTags('Operator - Ops Tasks')
 @ApiBearerAuth()
@@ -38,6 +40,7 @@ export class OpsTasksController {
   @ApiQuery({ name: 'page', required: false })
   @ApiQuery({ name: 'limit', required: false })
   list(
+    @CurrentUser() user: User,
     @Query('propertyId') propertyId?: string,
     @Query('bookingId') bookingId?: string,
     @Query('status') status?: string,
@@ -47,6 +50,7 @@ export class OpsTasksController {
     @Query('limit') limit?: string,
   ) {
     return this.tasks.list({
+      actor: { id: user.id, role: user.role },
       propertyId,
       bookingId,
       status,
@@ -60,14 +64,18 @@ export class OpsTasksController {
   @Roles('ADMIN', 'VENDOR')
   @Get(':id')
   @ApiOperation({ summary: 'Get ops task by id' })
-  get(@Param('id') id: string) {
-    return this.tasks.getById(id);
+  get(@CurrentUser() user: User, @Param('id') id: string) {
+    return this.tasks.getById(id, { id: user.id, role: user.role });
   }
 
   @Roles('ADMIN')
   @Patch(':id')
   @ApiOperation({ summary: 'Admin: update ops task (assign/status/notes)' })
-  update(@Param('id') id: string, @Body() dto: UpdateOpsTaskDto) {
-    return this.tasks.update(id, dto);
+  update(
+    @CurrentUser() user: User,
+    @Param('id') id: string,
+    @Body() dto: UpdateOpsTaskDto,
+  ) {
+    return this.tasks.update(id, dto, { id: user.id, role: user.role });
   }
 }

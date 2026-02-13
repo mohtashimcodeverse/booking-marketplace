@@ -1,9 +1,10 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { OpsTaskStatus, OpsTaskType, Prisma } from '@prisma/client';
+import { OpsTaskStatus, OpsTaskType, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { UpdateOpsTaskDto } from '../dto/update-ops-task.dto';
 
@@ -19,7 +20,13 @@ function isOpsTaskType(value: string): value is OpsTaskType {
 export class OpsTasksService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private buildVendorScope(actor: { id: string; role: UserRole }) {
+    if (actor.role !== UserRole.VENDOR) return {};
+    return { property: { vendorId: actor.id } };
+  }
+
   async list(params: {
+    actor: { id: string; role: UserRole };
     propertyId?: string;
     bookingId?: string;
     status?: string;
@@ -32,7 +39,9 @@ export class OpsTasksService {
     const page = Math.max(params.page ?? 1, 1);
     const skip = (page - 1) * limit;
 
-    const where: Prisma.OpsTaskWhereInput = {};
+    const where: Prisma.OpsTaskWhereInput = {
+      ...this.buildVendorScope(params.actor),
+    };
     if (params.propertyId) where.propertyId = params.propertyId;
     if (params.bookingId) where.bookingId = params.bookingId;
     if (params.status) {
@@ -63,14 +72,26 @@ export class OpsTasksService {
     return { items, total, page, limit };
   }
 
-  async getById(id: string) {
-    const item = await this.prisma.opsTask.findUnique({ where: { id } });
-    if (!item) throw new NotFoundException('Ops task not found');
+  async getById(id: string, actor: { id: string; role: UserRole }) {
+    const item = await this.prisma.opsTask.findFirst({
+      where: {
+        id,
+        ...this.buildVendorScope(actor),
+      },
+    });
+    if (!item) throw new NotFoundException('Ops task not found.');
     return item;
   }
 
-  async update(id: string, dto: UpdateOpsTaskDto) {
-    const existing = await this.getById(id);
+  async update(
+    id: string,
+    dto: UpdateOpsTaskDto,
+    actor: { id: string; role: UserRole },
+  ) {
+    if (actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only admin can update ops tasks.');
+    }
+    const existing = await this.getById(id, actor);
 
     const allowed: Record<string, string[]> = {
       PENDING: ['ASSIGNED', 'CANCELLED'],

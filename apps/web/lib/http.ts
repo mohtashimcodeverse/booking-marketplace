@@ -64,7 +64,6 @@ export async function apiFetch<T>(
   }
 
   if (debugLog) {
-    // eslint-disable-next-line no-console
     console.info(`[apiFetch] ${method} ${url.toString()}`);
   }
 
@@ -117,7 +116,6 @@ export async function apiFetch<T>(
     });
   } catch (err) {
     if (debugLog) {
-      // eslint-disable-next-line no-console
       console.error(
         `[apiFetch] ${method} ${url.toString()} -> network error`,
         err,
@@ -129,7 +127,6 @@ export async function apiFetch<T>(
 
   const status = res.status;
   if (debugLog) {
-    // eslint-disable-next-line no-console
     console.info(`[apiFetch] ${method} ${url.toString()} -> ${status}`);
   }
 

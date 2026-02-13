@@ -24,6 +24,8 @@ type QuoteApiResponse = {
 
 type ReserveApiResponse = {
   ok: true;
+  canReserve: boolean;
+  reasons?: string[];
   hold: {
     id: string;
     propertyId: string;
@@ -95,6 +97,12 @@ export async function reserveHold(propertyId: string, input: QuoteInput): Promis
   if (!res.ok) throw new Error(res.message);
 
   const d = res.data;
+  if (!d.canReserve) {
+    const reasons = Array.isArray(d.reasons) ? d.reasons.filter((x) => typeof x === "string") : [];
+    const reasonText = reasons.length > 0 ? reasons.join(" ") : "Selected dates are unavailable.";
+    throw new Error(reasonText);
+  }
+
   const holdId = d.hold?.id;
   if (!holdId) throw new Error("Invalid reserve: hold.id missing");
 

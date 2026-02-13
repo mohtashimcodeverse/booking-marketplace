@@ -83,6 +83,58 @@ export function DataTable<Row extends { id?: string }>(props: {
         </div>
       ) : (
         <>
+          <div className="bg-surface p-4 md:hidden">
+            <div className="space-y-3">
+              {props.rows.map((row, idx) => {
+                const key = row.id ?? `mrow_${idx}`;
+                return (
+                  <div
+                    key={key}
+                    role={clickable ? "button" : undefined}
+                    tabIndex={clickable ? 0 : undefined}
+                    onClick={() => props.onRowClick?.(row)}
+                    onKeyDown={(e) => {
+                      if (!clickable) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        props.onRowClick?.(row);
+                      }
+                    }}
+                    className={cn(
+                      "rounded-2xl border border-line/60 bg-surface p-4 shadow-sm",
+                      clickable ? "cursor-pointer hover:bg-brand-soft-2/70" : "cursor-default",
+                      "outline-none focus-visible:ring-4 focus-visible:ring-brand/20"
+                    )}
+                  >
+                    <div className="space-y-2">
+                      {props.columns.map((c) => (
+                        <div key={c.key} className="grid grid-cols-[110px_1fr] gap-2 text-sm">
+                          <div className="text-xs font-semibold tracking-wide text-muted">{c.header}</div>
+                          <div className="min-w-0 text-primary">{c.render(row)}</div>
+                        </div>
+                      ))}
+                    </div>
+
+                    <div className="mt-3 flex items-center justify-end gap-2">
+                      {props.rowActions ? (
+                        <div
+                          className="flex items-center gap-2"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          {props.rowActions(row)}
+                        </div>
+                      ) : (
+                        <ChevronRight className="h-4 w-4 text-muted" />
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="hidden md:block">
           {/* Header row */}
           {props.hideHeaderRow ? null : (
             <div className="grid grid-cols-12 gap-3 border-b border-line/50 bg-bg-2 px-5 py-3 text-[12px] font-semibold tracking-wide text-muted">
@@ -195,6 +247,7 @@ export function DataTable<Row extends { id?: string }>(props: {
               </div>
             </div>
           )}
+          </div>
         </>
       )}
     </div>

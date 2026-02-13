@@ -4,7 +4,11 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MessageCounterpartyRole, UserRole } from '@prisma/client';
+import {
+  MessageCounterpartyRole,
+  MessageTopic,
+  UserRole,
+} from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 
 type ThreadActor = {
@@ -18,6 +22,7 @@ type ThreadListInput = {
   page: number;
   pageSize: number;
   unreadOnly?: boolean;
+  topic?: MessageTopic;
 };
 
 type CreateAdminThreadInput = {
@@ -25,6 +30,7 @@ type CreateAdminThreadInput = {
   counterpartyUserId: string;
   counterpartyRole: MessageCounterpartyRole;
   subject?: string;
+  topic?: MessageTopic;
   body: string;
 };
 
@@ -32,6 +38,7 @@ type CreateCounterpartyThreadInput = {
   userId: string;
   role: Exclude<UserRole, 'ADMIN'>;
   subject?: string;
+  topic?: MessageTopic;
   body: string;
 };
 
@@ -49,6 +56,10 @@ export class MessagingService {
     if (role === UserRole.VENDOR) return MessageCounterpartyRole.VENDOR;
     if (role === UserRole.CUSTOMER) return MessageCounterpartyRole.CUSTOMER;
     throw new BadRequestException('Invalid message counterparty role.');
+  }
+
+  private normalizeTopic(topic?: MessageTopic): MessageTopic {
+    return topic ?? MessageTopic.OTHER;
   }
 
   private async resolveDefaultAdminId(): Promise<string> {
@@ -120,10 +131,14 @@ export class MessagingService {
 
     const where =
       input.role === UserRole.ADMIN
-        ? { adminId: input.userId }
+        ? {
+            adminId: input.userId,
+            ...(input.topic ? { topic: input.topic } : {}),
+          }
         : {
             counterpartyUserId: input.userId,
             counterpartyRole: this.roleToCounterparty(input.role),
+            ...(input.topic ? { topic: input.topic } : {}),
           };
 
     const [total, rows] = await this.prisma.$transaction([
@@ -160,6 +175,7 @@ export class MessagingService {
         return {
           id: thread.id,
           subject: thread.subject,
+          topic: thread.topic,
           admin: thread.admin,
           counterpartyUser: thread.counterpartyUser,
           counterpartyRole: thread.counterpartyRole,
@@ -211,6 +227,7 @@ export class MessagingService {
     return {
       id: thread.id,
       subject: thread.subject,
+      topic: thread.topic,
       admin: thread.admin,
       counterpartyUser: thread.counterpartyUser,
       counterpartyRole: thread.counterpartyRole,
@@ -289,6 +306,7 @@ export class MessagingService {
 
     const body = this.normalizeText(input.body);
     const subject = input.subject?.trim() || null;
+    const topic = this.normalizeTopic(input.topic);
 
     const thread = await this.prisma.messageThread.upsert({
       where: {
@@ -300,12 +318,14 @@ export class MessagingService {
       update: {
         counterpartyRole: input.counterpartyRole,
         subject: subject ?? undefined,
+        topic,
       },
       create: {
         adminId: input.adminId,
         counterpartyUserId: input.counterpartyUserId,
         counterpartyRole: input.counterpartyRole,
         subject,
+        topic,
       },
     });
 
@@ -323,10 +343,14 @@ export class MessagingService {
 
   async createThreadByCounterparty(input: CreateCounterpartyThreadInput) {
     const adminId = await this.resolveDefaultAdminId();
+    if (input.role === UserRole.CUSTOMER && !input.topic) {
+      throw new BadRequestException('Message topic is required.');
+    }
 
     const role = this.roleToCounterparty(input.role);
     const body = this.normalizeText(input.body);
     const subject = input.subject?.trim() || null;
+    const topic = this.normalizeTopic(input.topic);
 
     const thread = await this.prisma.messageThread.upsert({
       where: {
@@ -338,12 +362,14 @@ export class MessagingService {
       update: {
         counterpartyRole: role,
         subject: subject ?? undefined,
+        topic,
       },
       create: {
         adminId,
         counterpartyUserId: input.userId,
         counterpartyRole: role,
         subject,
+        topic,
       },
     });
 

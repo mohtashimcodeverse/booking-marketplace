@@ -3,6 +3,7 @@ import {
   BookingStatus,
   CalendarDayStatus,
   GuestReviewStatus,
+  HoldStatus,
   Prisma,
   PropertyStatus,
 } from '@prisma/client';
@@ -131,6 +132,7 @@ export class PropertiesService {
             : null,
         ratingCount: p.guestReviews.length,
         ...p,
+        priceFrom: p.basePrice,
         cover: p.media[0] ?? null,
       })),
     };
@@ -244,6 +246,7 @@ export class PropertiesService {
 
     return {
       ...property,
+      priceFrom: property.basePrice,
       ratingAvg:
         property.guestReviews.length > 0
           ? property.guestReviews.reduce((sum, row) => sum + row.rating, 0) /
@@ -283,7 +286,7 @@ export class PropertiesService {
       );
     }
 
-    const [bookings, blockedDays] = await this.prisma.$transaction([
+    const [bookings, blockedDays, holds] = await this.prisma.$transaction([
       this.prisma.booking.findMany({
         where: {
           propertyId: property.id,
@@ -302,6 +305,16 @@ export class PropertiesService {
           date: { gte: from, lt: to },
         },
         select: { date: true },
+      }),
+      this.prisma.propertyHold.findMany({
+        where: {
+          propertyId: property.id,
+          status: HoldStatus.ACTIVE,
+          expiresAt: { gt: new Date() },
+          checkIn: { lt: to },
+          checkOut: { gt: from },
+        },
+        select: { checkIn: true, checkOut: true },
       }),
     ]);
 
@@ -325,18 +338,35 @@ export class PropertiesService {
       }
     }
 
+    const heldSet = new Set<string>();
+    for (const hold of holds) {
+      const start =
+        hold.checkIn.getTime() > from.getTime() ? hold.checkIn : from;
+      const end = hold.checkOut.getTime() < to.getTime() ? hold.checkOut : to;
+
+      for (
+        let t = start.getTime();
+        t < end.getTime();
+        t += 24 * 60 * 60 * 1000
+      ) {
+        heldSet.add(this.toIsoDay(new Date(t)));
+      }
+    }
+
     const days: Array<{
       date: string;
-      status: 'AVAILABLE' | 'BOOKED' | 'BLOCKED';
+      status: 'AVAILABLE' | 'BOOKED' | 'HOLD' | 'BLOCKED';
     }> = [];
 
     for (let t = from.getTime(); t < to.getTime(); t += 24 * 60 * 60 * 1000) {
       const iso = this.toIsoDay(new Date(t));
-      const status = blockedSet.has(iso)
-        ? 'BLOCKED'
-        : bookedSet.has(iso)
-          ? 'BOOKED'
-          : 'AVAILABLE';
+      const status = bookedSet.has(iso)
+        ? 'BOOKED'
+        : blockedSet.has(iso)
+          ? 'BLOCKED'
+          : heldSet.has(iso)
+            ? 'HOLD'
+            : 'AVAILABLE';
       days.push({ date: iso, status });
     }
 

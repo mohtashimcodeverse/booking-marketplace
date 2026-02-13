@@ -12,6 +12,10 @@ import {
 const SORTS = ['recommended', 'price_asc', 'price_desc', 'newest'] as const;
 
 export class SearchPropertiesQuery {
+  @IsOptional()
+  @IsString()
+  q?: string;
+
   // Location (portal-driven: allow either city/area or lat/lng-based)
   @IsOptional()
   @IsString()
@@ -106,4 +110,15 @@ export class SearchPropertiesQuery {
   @Min(1)
   @Max(50)
   limit?: number;
+
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt()
+  @Min(1)
+  @Max(50)
+  pageSize?: number;
+
+  @IsOptional()
+  @IsString()
+  amenities?: string;
 }

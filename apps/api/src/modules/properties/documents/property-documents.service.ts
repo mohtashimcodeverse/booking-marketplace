@@ -95,19 +95,6 @@ export class PropertyDocumentsService {
     userId: string,
     propertyId: string,
   ): Promise<void> {
-    // Strict: property must exist and must belong to the vendorProfile of this user.
-    // Your project uses VendorProfile lifecycle; Prisma delegate is vendorProfile (not vendor).
-    const vendorProfile = await this.prisma.vendorProfile.findUnique({
-      where: { userId },
-      select: { id: true },
-    });
-
-    if (!vendorProfile) {
-      throw new ForbiddenException('Vendor profile not found.');
-    }
-
-    // We only rely on property.vendorProfileId (common pattern in your codebase).
-    // If your field name differs, we’ll adjust once you paste your Property model.
     const property = await this.prisma.property.findUnique({
       where: { id: propertyId },
       select: {
@@ -118,7 +105,7 @@ export class PropertyDocumentsService {
 
     if (!property) throw new NotFoundException('Property not found.');
 
-    if (property.vendorId !== vendorProfile.id) {
+    if (property.vendorId !== userId) {
       throw new ForbiddenException('You do not own this property.');
     }
   }

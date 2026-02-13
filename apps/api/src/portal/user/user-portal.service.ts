@@ -9,15 +9,21 @@ import {
   BookingDocumentType,
   BookingStatus,
   CalendarDayStatus,
+  CustomerDocumentStatus,
+  CustomerDocumentType,
   GuestReviewStatus,
   HoldStatus,
+  MessageCounterpartyRole,
   PropertyStatus,
   RefundStatus,
   UserRole,
 } from '@prisma/client';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { BOOKING_DOCUMENTS_DIR } from '../../common/upload/storage-paths';
+import {
+  BOOKING_DOCUMENTS_DIR,
+  CUSTOMER_DOCUMENTS_DIR,
+} from '../../common/upload/storage-paths';
 import type {
   Paginated,
   PortalCalendarEvent,
@@ -30,6 +36,23 @@ type UserOverview = {
     bookingsUpcoming: number;
     bookingsTotal: number;
     refundsTotal: number;
+  };
+  documentCompliance: {
+    requiredTypes: CustomerDocumentType[];
+    missingTypes: CustomerDocumentType[];
+    hasVerifiedRequiredDocuments: boolean;
+    requiresUpload: boolean;
+    urgent: boolean;
+    nextBooking: {
+      id: string;
+      checkIn: string;
+      checkOut: string;
+      property: {
+        id: string;
+        title: string;
+        slug: string;
+      };
+    } | null;
   };
   upcoming: Array<{
     id: string;
@@ -46,9 +69,107 @@ type UserOverview = {
 export class UserPortalService {
   constructor(private readonly prisma: PrismaService) {}
 
+  private readonly requiredCustomerDocumentTypes: CustomerDocumentType[] = [
+    CustomerDocumentType.PASSPORT,
+    CustomerDocumentType.EMIRATES_ID,
+  ];
+
   private assertCustomer(role: UserRole) {
     if (role !== UserRole.CUSTOMER)
       throw new ForbiddenException('Not allowed.');
+  }
+
+  private labelFromEnum(value: string): string {
+    return value
+      .toLowerCase()
+      .replaceAll('_', ' ')
+      .replace(/\b\w/g, (token) => token.toUpperCase());
+  }
+
+  private assertRatingValue(value: number, field: string) {
+    if (!Number.isInteger(value) || value < 1 || value > 5) {
+      throw new BadRequestException(
+        `${field} must be an integer between 1 and 5.`,
+      );
+    }
+  }
+
+  private async getCustomerDocumentRequirementSummary(userId: string) {
+    const now = new Date();
+
+    const [requiredDocs, nextBooking] = await Promise.all([
+      this.prisma.customerDocument.findMany({
+        where: {
+          userId,
+          type: { in: this.requiredCustomerDocumentTypes },
+        },
+        select: {
+          id: true,
+          type: true,
+          status: true,
+          verifiedAt: true,
+          reviewedAt: true,
+          reviewNotes: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      }),
+      this.prisma.booking.findFirst({
+        where: {
+          customerId: userId,
+          status: BookingStatus.CONFIRMED,
+          checkOut: { gt: now },
+        },
+        orderBy: { checkIn: 'asc' },
+        select: {
+          id: true,
+          checkIn: true,
+          checkOut: true,
+          property: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const verifiedTypes = new Set(
+      requiredDocs
+        .filter((doc) => doc.status === CustomerDocumentStatus.VERIFIED)
+        .map((doc) => doc.type),
+    );
+    const missingTypes = this.requiredCustomerDocumentTypes.filter(
+      (type) => !verifiedTypes.has(type),
+    );
+
+    const hasUpcomingConfirmedBooking = Boolean(nextBooking);
+    const requiresUpload =
+      hasUpcomingConfirmedBooking && missingTypes.length > 0;
+
+    const hoursToCheckIn = nextBooking
+      ? (nextBooking.checkIn.getTime() - now.getTime()) / (60 * 60 * 1000)
+      : null;
+    const urgent =
+      requiresUpload && hoursToCheckIn !== null && hoursToCheckIn <= 48;
+
+    return {
+      requiredTypes: this.requiredCustomerDocumentTypes,
+      missingTypes,
+      hasVerifiedRequiredDocuments: missingTypes.length === 0,
+      requiresUpload,
+      urgent,
+      nextBooking: nextBooking
+        ? {
+            id: nextBooking.id,
+            checkIn: nextBooking.checkIn.toISOString(),
+            checkOut: nextBooking.checkOut.toISOString(),
+            property: nextBooking.property,
+          }
+        : null,
+    };
   }
 
   async getOverview(params: {
@@ -92,8 +213,13 @@ export class UserPortalService {
         }),
       ]);
 
+    const documentCompliance = await this.getCustomerDocumentRequirementSummary(
+      params.userId,
+    );
+
     return {
       kpis: { bookingsUpcoming, bookingsTotal, refundsTotal },
+      documentCompliance,
       upcoming: upcoming.map((b) => ({
         id: b.id,
         propertyTitle: b.property.title,
@@ -165,6 +291,302 @@ export class UserPortalService {
         propertyTitle: b.property.title,
         createdAt: b.createdAt.toISOString(),
       })),
+    };
+  }
+
+  async getBookingDetail(params: {
+    userId: string;
+    role: UserRole;
+    bookingId: string;
+  }) {
+    this.assertCustomer(params.role);
+
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: params.bookingId },
+      select: {
+        id: true,
+        customerId: true,
+        status: true,
+        checkIn: true,
+        checkOut: true,
+        adults: true,
+        children: true,
+        totalAmount: true,
+        currency: true,
+        createdAt: true,
+        updatedAt: true,
+        expiresAt: true,
+        cancelledAt: true,
+        property: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            description: true,
+            city: true,
+            area: true,
+            address: true,
+            maxGuests: true,
+            bedrooms: true,
+            bathrooms: true,
+            basePrice: true,
+            cleaningFee: true,
+            minNights: true,
+            maxNights: true,
+            checkInFromMin: true,
+            checkInToMax: true,
+            checkOutMin: true,
+            isInstantBook: true,
+            media: {
+              orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+              take: 30,
+              select: {
+                id: true,
+                url: true,
+                alt: true,
+                sortOrder: true,
+                category: true,
+              },
+            },
+            cancellationPolicyConfig: {
+              select: {
+                version: true,
+                isActive: true,
+                freeCancelBeforeHours: true,
+                partialRefundBeforeHours: true,
+                noRefundWithinHours: true,
+                penaltyType: true,
+                penaltyValue: true,
+                defaultMode: true,
+                chargeFirstNightOnLateCancel: true,
+              },
+            },
+          },
+        },
+        payment: {
+          select: {
+            id: true,
+            status: true,
+            provider: true,
+            amount: true,
+            currency: true,
+            providerRef: true,
+            createdAt: true,
+            updatedAt: true,
+            events: {
+              orderBy: { createdAt: 'asc' },
+              select: {
+                id: true,
+                type: true,
+                providerRef: true,
+                createdAt: true,
+              },
+            },
+          },
+        },
+        documents: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            bookingId: true,
+            uploadedByUserId: true,
+            type: true,
+            originalName: true,
+            mimeType: true,
+            notes: true,
+            createdAt: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Booking not found.');
+    if (booking.customerId !== params.userId) {
+      throw new ForbiddenException('Not allowed to access this booking.');
+    }
+
+    const requiredDocumentTypes: BookingDocumentType[] = [
+      BookingDocumentType.PASSPORT,
+    ];
+    const uploadedTypes = new Set(booking.documents.map((doc) => doc.type));
+    const missingTypes = requiredDocumentTypes.filter(
+      (docType) => !uploadedTypes.has(docType),
+    );
+
+    const timeline: Array<{
+      key: string;
+      label: string;
+      at: string;
+    }> = [
+      {
+        key: 'BOOKING_CREATED',
+        label: 'Booking created',
+        at: booking.createdAt.toISOString(),
+      },
+    ];
+
+    if (booking.expiresAt) {
+      timeline.push({
+        key: 'PAYMENT_DEADLINE',
+        label: 'Payment deadline',
+        at: booking.expiresAt.toISOString(),
+      });
+    }
+
+    if (
+      booking.status === BookingStatus.CONFIRMED ||
+      booking.status === BookingStatus.COMPLETED
+    ) {
+      timeline.push({
+        key: 'BOOKING_CONFIRMED',
+        label: 'Booking confirmed',
+        at: booking.updatedAt.toISOString(),
+      });
+    }
+
+    if (booking.cancelledAt) {
+      timeline.push({
+        key: 'BOOKING_CANCELLED',
+        label: 'Booking cancelled',
+        at: booking.cancelledAt.toISOString(),
+      });
+    }
+
+    for (const event of booking.payment?.events ?? []) {
+      timeline.push({
+        key: `PAYMENT_${event.type}`,
+        label: `Payment ${this.labelFromEnum(event.type)}`,
+        at: event.createdAt.toISOString(),
+      });
+    }
+
+    timeline.sort(
+      (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
+    );
+
+    const threads = await this.prisma.messageThread.findMany({
+      where: {
+        counterpartyUserId: params.userId,
+        counterpartyRole: MessageCounterpartyRole.CUSTOMER,
+      },
+      orderBy: [{ lastMessageAt: 'desc' }, { updatedAt: 'desc' }],
+      take: 5,
+      select: {
+        id: true,
+        subject: true,
+        topic: true,
+        lastMessageAt: true,
+        lastMessagePreview: true,
+        counterpartyLastReadAt: true,
+        admin: { select: { id: true, email: true, fullName: true } },
+      },
+    });
+
+    const messageThreads = await Promise.all(
+      threads.map(async (thread) => {
+        const unreadCount = await this.prisma.message.count({
+          where: {
+            threadId: thread.id,
+            senderId: { not: params.userId },
+            ...(thread.counterpartyLastReadAt
+              ? { createdAt: { gt: thread.counterpartyLastReadAt } }
+              : {}),
+          },
+        });
+
+        return {
+          id: thread.id,
+          subject: thread.subject,
+          topic: thread.topic,
+          admin: thread.admin,
+          lastMessageAt: thread.lastMessageAt?.toISOString() ?? null,
+          lastMessagePreview: thread.lastMessagePreview,
+          unreadCount,
+        };
+      }),
+    );
+
+    const nightMs = 24 * 60 * 60 * 1000;
+    const nights = Math.max(
+      1,
+      Math.ceil(
+        (booking.checkOut.getTime() - booking.checkIn.getTime()) / nightMs,
+      ),
+    );
+
+    return {
+      id: booking.id,
+      status: booking.status,
+      checkIn: booking.checkIn.toISOString(),
+      checkOut: booking.checkOut.toISOString(),
+      adults: booking.adults,
+      children: booking.children,
+      nights,
+      totalAmount: booking.totalAmount,
+      currency: booking.currency,
+      createdAt: booking.createdAt.toISOString(),
+      updatedAt: booking.updatedAt.toISOString(),
+      expiresAt: booking.expiresAt?.toISOString() ?? null,
+      cancelledAt: booking.cancelledAt?.toISOString() ?? null,
+      timeline,
+      property: {
+        id: booking.property.id,
+        title: booking.property.title,
+        slug: booking.property.slug,
+        description: booking.property.description,
+        city: booking.property.city,
+        area: booking.property.area,
+        address: booking.property.address,
+        maxGuests: booking.property.maxGuests,
+        bedrooms: booking.property.bedrooms,
+        bathrooms: booking.property.bathrooms,
+        basePrice: booking.property.basePrice,
+        cleaningFee: booking.property.cleaningFee,
+        minNights: booking.property.minNights,
+        maxNights: booking.property.maxNights,
+        checkInFromMin: booking.property.checkInFromMin,
+        checkInToMax: booking.property.checkInToMax,
+        checkOutMin: booking.property.checkOutMin,
+        isInstantBook: booking.property.isInstantBook,
+        media: booking.property.media,
+        coverUrl: booking.property.media[0]?.url ?? null,
+        cancellationPolicy: booking.property.cancellationPolicyConfig?.isActive
+          ? booking.property.cancellationPolicyConfig
+          : null,
+      },
+      payment: booking.payment
+        ? {
+            ...booking.payment,
+            createdAt: booking.payment.createdAt.toISOString(),
+            updatedAt: booking.payment.updatedAt.toISOString(),
+            events: booking.payment.events.map((event) => ({
+              id: event.id,
+              type: event.type,
+              label: this.labelFromEnum(event.type),
+              providerRef: event.providerRef,
+              createdAt: event.createdAt.toISOString(),
+            })),
+          }
+        : null,
+      documents: {
+        requiredTypes: requiredDocumentTypes,
+        uploadedTypes: Array.from(uploadedTypes.values()),
+        missingTypes,
+        items: booking.documents.map((doc) => ({
+          id: doc.id,
+          bookingId: doc.bookingId,
+          uploadedByUserId: doc.uploadedByUserId,
+          type: doc.type,
+          originalName: doc.originalName,
+          mimeType: doc.mimeType,
+          notes: doc.notes,
+          createdAt: doc.createdAt.toISOString(),
+          downloadUrl: `/api/portal/user/bookings/${booking.id}/documents/${doc.id}/download`,
+        })),
+      },
+      messages: {
+        threads: messageThreads,
+      },
     };
   }
 
@@ -565,19 +987,203 @@ export class UserPortalService {
     };
   }
 
+  async listCustomerDocuments(params: { userId: string; role: UserRole }) {
+    this.assertCustomer(params.role);
+
+    const [requirement, docs] = await Promise.all([
+      this.getCustomerDocumentRequirementSummary(params.userId),
+      this.prisma.customerDocument.findMany({
+        where: { userId: params.userId },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        select: {
+          id: true,
+          userId: true,
+          type: true,
+          status: true,
+          fileKey: true,
+          originalName: true,
+          mimeType: true,
+          notes: true,
+          reviewNotes: true,
+          reviewedAt: true,
+          verifiedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          reviewedByAdmin: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      requirement,
+      items: docs.map((doc) => ({
+        ...doc,
+        reviewedAt: doc.reviewedAt?.toISOString() ?? null,
+        verifiedAt: doc.verifiedAt?.toISOString() ?? null,
+        createdAt: doc.createdAt.toISOString(),
+        updatedAt: doc.updatedAt.toISOString(),
+        downloadUrl: `/api/portal/user/documents/${doc.id}/download`,
+      })),
+    };
+  }
+
+  async uploadCustomerDocument(params: {
+    userId: string;
+    role: UserRole;
+    type: CustomerDocumentType;
+    notes?: string;
+    file?: Express.Multer.File;
+  }) {
+    this.assertCustomer(params.role);
+    const file = params.file;
+    if (!file) throw new BadRequestException('File upload failed.');
+
+    const doc = await this.prisma.customerDocument.upsert({
+      where: {
+        userId_type: {
+          userId: params.userId,
+          type: params.type,
+        },
+      },
+      update: {
+        status: CustomerDocumentStatus.PENDING,
+        fileKey: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        notes: params.notes?.trim() || null,
+        reviewNotes: null,
+        reviewedAt: null,
+        reviewedByAdminId: null,
+        verifiedAt: null,
+      },
+      create: {
+        userId: params.userId,
+        type: params.type,
+        status: CustomerDocumentStatus.PENDING,
+        fileKey: file.filename,
+        originalName: file.originalname,
+        mimeType: file.mimetype,
+        notes: params.notes?.trim() || null,
+      },
+      select: {
+        id: true,
+        userId: true,
+        type: true,
+        status: true,
+        fileKey: true,
+        originalName: true,
+        mimeType: true,
+        notes: true,
+        reviewNotes: true,
+        reviewedAt: true,
+        verifiedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    return {
+      ...doc,
+      reviewedAt: doc.reviewedAt?.toISOString() ?? null,
+      verifiedAt: doc.verifiedAt?.toISOString() ?? null,
+      createdAt: doc.createdAt.toISOString(),
+      updatedAt: doc.updatedAt.toISOString(),
+      downloadUrl: `/api/portal/user/documents/${doc.id}/download`,
+    };
+  }
+
+  async getCustomerDocumentDownload(params: {
+    userId: string;
+    role: UserRole;
+    documentId: string;
+  }) {
+    if (params.role !== UserRole.CUSTOMER) {
+      throw new ForbiddenException('Not allowed to access this document.');
+    }
+
+    const doc = await this.prisma.customerDocument.findUnique({
+      where: { id: params.documentId },
+      select: {
+        id: true,
+        userId: true,
+        fileKey: true,
+        originalName: true,
+        mimeType: true,
+      },
+    });
+
+    if (!doc) throw new NotFoundException('Document not found.');
+    if (doc.userId !== params.userId) {
+      throw new ForbiddenException('Not allowed to access this document.');
+    }
+
+    const absolutePath = join(CUSTOMER_DOCUMENTS_DIR, doc.fileKey);
+    if (!existsSync(absolutePath)) {
+      throw new NotFoundException('Document file not found on disk.');
+    }
+
+    return {
+      absolutePath,
+      mimeType: doc.mimeType ?? 'application/octet-stream',
+      downloadName: doc.originalName ?? doc.fileKey,
+    };
+  }
+
   async createReview(params: {
     userId: string;
     role: UserRole;
     bookingId: string;
-    rating: number;
+    rating?: number;
+    cleanlinessRating?: number;
+    locationRating?: number;
+    communicationRating?: number;
+    valueRating?: number;
     title?: string;
     comment?: string;
   }) {
     this.assertCustomer(params.role);
-
-    if (params.rating < 1 || params.rating > 5) {
-      throw new BadRequestException('rating must be between 1 and 5.');
+    const categoryValues = [
+      params.cleanlinessRating,
+      params.locationRating,
+      params.communicationRating,
+      params.valueRating,
+    ];
+    const hasCategories = categoryValues.every(
+      (value) => typeof value === 'number',
+    );
+    if (!hasCategories && typeof params.rating !== 'number') {
+      throw new BadRequestException(
+        'Provide rating or category ratings for the review.',
+      );
     }
+
+    const cleanlinessRating = params.cleanlinessRating ?? params.rating ?? 5;
+    const locationRating = params.locationRating ?? params.rating ?? 5;
+    const communicationRating =
+      params.communicationRating ?? params.rating ?? 5;
+    const valueRating = params.valueRating ?? params.rating ?? 5;
+
+    this.assertRatingValue(cleanlinessRating, 'cleanlinessRating');
+    this.assertRatingValue(locationRating, 'locationRating');
+    this.assertRatingValue(communicationRating, 'communicationRating');
+    this.assertRatingValue(valueRating, 'valueRating');
+
+    const rating =
+      params.rating ??
+      Math.round(
+        (cleanlinessRating +
+          locationRating +
+          communicationRating +
+          valueRating) /
+          4,
+      );
+    this.assertRatingValue(rating, 'rating');
 
     const booking = await this.prisma.booking.findUnique({
       where: { id: params.bookingId },
@@ -623,7 +1229,11 @@ export class UserPortalService {
         propertyId: booking.propertyId,
         bookingId: booking.id,
         customerId: params.userId,
-        rating: params.rating,
+        rating,
+        cleanlinessRating,
+        locationRating,
+        communicationRating,
+        valueRating,
         title: params.title?.trim() || null,
         comment: params.comment?.trim() || null,
         status: GuestReviewStatus.PENDING,

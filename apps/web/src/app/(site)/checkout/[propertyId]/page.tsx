@@ -34,7 +34,7 @@ export default async function CheckoutPage(props: PageProps) {
             <h1 className="text-3xl font-semibold tracking-tight text-primary">Checkout</h1>
             <p className="mt-2 text-sm text-secondary">
               Convert your hold into a booking. Booking becomes <span className="font-semibold">CONFIRMED</span> only
-              after verified payment webhooks (later).
+              after verified payment events.
             </p>
           </div>
 

@@ -43,7 +43,20 @@ function nightsBetween(checkIn: Date, checkOut: Date): number {
   return nights;
 }
 
+function parseAmenityKeys(raw?: string): string[] {
+  if (!raw) return [];
+  return Array.from(
+    new Set(
+      raw
+        .split(',')
+        .map((x) => x.trim())
+        .filter(Boolean),
+    ),
+  );
+}
+
 type SearchQueryLike = {
+  q?: string;
   city?: string;
   area?: string;
   lat?: number;
@@ -61,6 +74,7 @@ type SearchQueryLike = {
   maxGuests?: number;
   checkIn?: string;
   checkOut?: string;
+  amenities?: string;
 };
 
 type SearchCard = {
@@ -112,7 +126,11 @@ type SearchPoint = {
 
 type SearchPropertiesResult = {
   ok: true;
-  query: SearchPropertiesQuery & { page: number; limit: number };
+  query: SearchPropertiesQuery & {
+    page: number;
+    limit: number;
+    pageSize: number;
+  };
   items: SearchCard[];
   meta: {
     page: number;
@@ -285,6 +303,14 @@ export class SearchService {
 
     if (q.city) where.city = q.city;
     if (q.area) where.area = q.area;
+    if (query.q?.trim()) {
+      const term = query.q.trim();
+      where.OR = [
+        { title: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { city: { contains: term, mode: Prisma.QueryMode.insensitive } },
+        { area: { contains: term, mode: Prisma.QueryMode.insensitive } },
+      ];
+    }
 
     // Guests filtering: require property.maxGuests >= requested
     const guests = query.guests;
@@ -313,6 +339,19 @@ export class SearchService {
 
     const and: Prisma.PropertyWhereInput[] = [];
     if (geo) and.push(geo);
+
+    const amenityKeys = parseAmenityKeys(query.amenities);
+    for (const key of amenityKeys) {
+      and.push({
+        amenities: {
+          some: {
+            amenity: {
+              key: { equals: key, mode: Prisma.QueryMode.insensitive },
+            },
+          },
+        },
+      });
+    }
 
     // Dates availability
     const checkInStr = query.checkIn;
@@ -391,7 +430,7 @@ export class SearchService {
     q: SearchPropertiesQuery,
   ): Promise<SearchPropertiesResult> {
     const page = q.page ?? 1;
-    const limit = q.limit ?? 20;
+    const limit = q.limit ?? q.pageSize ?? 20;
     const skip = (page - 1) * limit;
 
     // Cache policy:
@@ -404,6 +443,7 @@ export class SearchService {
       ...q,
       page,
       limit,
+      pageSize: limit,
     })}`;
     const cached = cacheGet<SearchPropertiesResult>(cacheKey);
     if (cached) return cached;
@@ -509,6 +549,7 @@ export class SearchService {
         ...q,
         page,
         limit,
+        pageSize: limit,
       },
       items,
       meta: {

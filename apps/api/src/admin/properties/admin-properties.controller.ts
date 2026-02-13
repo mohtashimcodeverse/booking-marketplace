@@ -283,10 +283,19 @@ export class AdminPropertiesController {
   @Get('review-queue')
   async reviewQueue(
     @Req() req: { user: JwtUser },
-    @Query('status') status?: string,
+    @Query()
+    query?: {
+      status?: string;
+      page?: string;
+      pageSize?: string;
+    },
   ) {
     this.assertAdmin(req.user);
-    return this.service.reviewQueue(status);
+    return this.service.reviewQueue({
+      status: query?.status,
+      page: query?.page ? Number(query.page) : 1,
+      pageSize: query?.pageSize ? Number(query.pageSize) : 20,
+    });
   }
 
   @Post(':id/approve')

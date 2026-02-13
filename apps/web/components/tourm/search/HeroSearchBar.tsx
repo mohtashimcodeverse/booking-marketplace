@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { CalendarDays, MapPin, Search, Users } from "lucide-react";
+import DateRangePicker, { type DateRangeValue } from "@/components/booking/DateRangePicker";
 
 type Draft = {
   location: string;
@@ -63,6 +64,20 @@ export default function HeroSearchBar() {
     return draft.guests >= 1 && draft.guests <= 16 && draft.checkIn.length > 0;
   }, [draft.guests, draft.checkIn]);
 
+  const dateRangeValue = useMemo<DateRangeValue>(
+    () => ({
+      from: draft.checkIn || null,
+      to: draft.checkOut || null,
+    }),
+    [draft.checkIn, draft.checkOut],
+  );
+
+  const dateLabel = useMemo(() => {
+    if (!draft.checkIn && !draft.checkOut) return "Select dates";
+    if (draft.checkIn && draft.checkOut) return `${draft.checkIn} → ${draft.checkOut}`;
+    return `${draft.checkIn || draft.checkOut} → Add checkout`;
+  }, [draft.checkIn, draft.checkOut]);
+
   function go() {
     const p = new URLSearchParams();
 
@@ -92,38 +107,41 @@ export default function HeroSearchBar() {
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.08 }}
     >
       <div className="premium-card premium-card-tinted rounded-[2.25rem] p-3 sm:p-4">
-        <div className="grid gap-3 lg:grid-cols-[1.35fr_0.9fr_0.9fr_0.7fr_0.6fr] lg:items-center">
+        <div className="grid gap-3 lg:grid-cols-[1.35fr_1.2fr_0.7fr_0.6fr] lg:items-center">
           <div className="premium-input flex items-center gap-3 rounded-3xl px-4 py-3">
             <MapPin className="h-4 w-4 text-secondary" />
             <input
               value={draft.location}
               onChange={(e) => setDraft((s) => ({ ...s, location: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") go();
+              }}
               placeholder="Dubai Marina, Downtown, JBR, Al Barsha…"
               className="w-full bg-transparent text-sm font-medium text-primary outline-none placeholder:text-muted"
               aria-label="Location"
             />
           </div>
 
-          <div className="premium-input flex items-center gap-3 rounded-3xl px-4 py-3">
-            <CalendarDays className="h-4 w-4 text-secondary" />
-            <input
-              type="date"
-              value={draft.checkIn}
-              onChange={(e) => setDraft((s) => ({ ...s, checkIn: e.target.value }))}
-              className="w-full bg-transparent text-sm font-medium text-primary outline-none"
-              aria-label="Check-in date"
-            />
-          </div>
-
-          <div className="premium-input flex items-center gap-3 rounded-3xl px-4 py-3">
-            <CalendarDays className="h-4 w-4 text-secondary" />
-            <input
-              type="date"
-              value={draft.checkOut}
-              onChange={(e) => setDraft((s) => ({ ...s, checkOut: e.target.value }))}
-              className="w-full bg-transparent text-sm font-medium text-primary outline-none"
-              aria-label="Check-out date"
-            />
+          <div className="relative">
+            <details className="group">
+              <summary className="premium-input flex h-[48px] cursor-pointer list-none items-center gap-3 rounded-3xl px-4 py-3 text-sm font-medium text-primary">
+                <CalendarDays className="h-4 w-4 text-secondary" />
+                <span className="truncate">{dateLabel}</span>
+              </summary>
+              <div className="absolute left-0 z-20 mt-2 w-[min(700px,95vw)] rounded-2xl border border-line/80 bg-surface p-2 shadow-[0_22px_52px_rgba(11,15,25,0.20)]">
+                <DateRangePicker
+                  value={dateRangeValue}
+                  onChange={(next) =>
+                    setDraft((s) => ({
+                      ...s,
+                      checkIn: next.from ?? "",
+                      checkOut: next.to ?? "",
+                    }))
+                  }
+                  minDate={new Date()}
+                />
+              </div>
+            </details>
           </div>
 
           <div className="premium-input flex items-center gap-3 rounded-3xl px-4 py-3">
@@ -134,6 +152,9 @@ export default function HeroSearchBar() {
               max={16}
               value={draft.guests}
               onChange={(e) => setDraft((s) => ({ ...s, guests: Number(e.target.value) }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") go();
+              }}
               className="w-full bg-transparent text-sm font-medium text-primary outline-none"
               aria-label="Guests"
             />

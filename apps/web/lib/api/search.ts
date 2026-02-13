@@ -80,6 +80,7 @@ export async function searchProperties(params: SearchParams) {
 
       page: params.page ?? 1,
       pageSize: params.pageSize ?? 12,
+      limit: params.pageSize ?? 12,
       sort: normalizeSort(params.sort),
     },
     cache: "no-store",

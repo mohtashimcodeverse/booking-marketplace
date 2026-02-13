@@ -3,8 +3,10 @@ import type { AuthUser } from '../types/auth-user.type';
 import type { AuthRequest } from '../types/auth-request.type';
 
 export const CurrentUser = createParamDecorator(
-  (_data: unknown, ctx: ExecutionContext): AuthUser => {
+  (data: unknown, ctx: ExecutionContext): unknown => {
     const req = ctx.switchToHttp().getRequest<AuthRequest>();
-    return req.user;
+    const user: AuthUser | undefined = req.user;
+    if (!data || typeof data !== 'string') return user;
+    return (user as Record<string, unknown> | undefined)?.[data];
   },
 );

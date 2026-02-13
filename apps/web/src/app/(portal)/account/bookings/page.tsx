@@ -128,6 +128,14 @@ function AccountBookingsContent() {
             </span>
           </div>
         ),
+        actions: (
+          <Link
+            href={`/account/bookings/${booking.id}`}
+            className="rounded-xl border border-line/80 bg-surface px-3 py-1.5 text-xs font-semibold text-primary hover:bg-warm-alt"
+          >
+            Open page
+          </Link>
+        ),
         onClick: () => setSelectedId(booking.id),
       };
     });
@@ -230,7 +238,10 @@ function BookingDetailPanel({ booking }: { booking: BookingRecord }) {
   const [uploadNotes, setUploadNotes] = useState("");
   const [uploadFile, setUploadFile] = useState<File | null>(null);
   const [reviewBusy, setReviewBusy] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
+  const [cleanlinessRating, setCleanlinessRating] = useState(5);
+  const [locationRating, setLocationRating] = useState(5);
+  const [communicationRating, setCommunicationRating] = useState(5);
+  const [valueRating, setValueRating] = useState(5);
   const [reviewTitle, setReviewTitle] = useState("");
   const [reviewComment, setReviewComment] = useState("");
   const [message, setMessage] = useState<string | null>(null);
@@ -308,13 +319,20 @@ function BookingDetailPanel({ booking }: { booking: BookingRecord }) {
     try {
       await createUserReview({
         bookingId: booking.id,
-        rating: reviewRating,
+        cleanlinessRating,
+        locationRating,
+        communicationRating,
+        valueRating,
         title: reviewTitle,
         comment: reviewComment,
       });
       setMessage("Review submitted. It will be visible after moderation.");
       setReviewTitle("");
       setReviewComment("");
+      setCleanlinessRating(5);
+      setLocationRating(5);
+      setCommunicationRating(5);
+      setValueRating(5);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Review submission failed");
     } finally {
@@ -425,7 +443,7 @@ function BookingDetailPanel({ booking }: { booking: BookingRecord }) {
                 <div className="min-w-0">
                   <div className="truncate text-sm font-semibold text-primary">{doc.originalName}</div>
                   <div className="mt-1 text-xs text-secondary">
-                    {doc.type} • {Math.max(1, Math.round(doc.sizeBytes / 1024))} KB
+                    {doc.type} • {Math.max(1, Math.round((doc.sizeBytes ?? 0) / 1024))} KB
                   </div>
                 </div>
                 <button
@@ -450,10 +468,10 @@ function BookingDetailPanel({ booking }: { booking: BookingRecord }) {
 
           <div className="mt-3 grid gap-3 sm:grid-cols-2">
             <label className="grid gap-1">
-              <span className="text-xs font-semibold text-muted">Rating</span>
+              <span className="text-xs font-semibold text-muted">Cleanliness</span>
               <select
-                value={String(reviewRating)}
-                onChange={(event) => setReviewRating(Number(event.target.value))}
+                value={String(cleanlinessRating)}
+                onChange={(event) => setCleanlinessRating(Number(event.target.value))}
                 className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm font-semibold text-primary"
               >
                 {[5, 4, 3, 2, 1].map((value) => (
@@ -464,6 +482,48 @@ function BookingDetailPanel({ booking }: { booking: BookingRecord }) {
               </select>
             </label>
             <label className="grid gap-1">
+              <span className="text-xs font-semibold text-muted">Location</span>
+              <select
+                value={String(locationRating)}
+                onChange={(event) => setLocationRating(Number(event.target.value))}
+                className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm font-semibold text-primary"
+              >
+                {[5, 4, 3, 2, 1].map((value) => (
+                  <option key={value} value={value}>
+                    {value} / 5
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold text-muted">Communication</span>
+              <select
+                value={String(communicationRating)}
+                onChange={(event) => setCommunicationRating(Number(event.target.value))}
+                className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm font-semibold text-primary"
+              >
+                {[5, 4, 3, 2, 1].map((value) => (
+                  <option key={value} value={value}>
+                    {value} / 5
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1">
+              <span className="text-xs font-semibold text-muted">Value</span>
+              <select
+                value={String(valueRating)}
+                onChange={(event) => setValueRating(Number(event.target.value))}
+                className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm font-semibold text-primary"
+              >
+                {[5, 4, 3, 2, 1].map((value) => (
+                  <option key={value} value={value}>
+                    {value} / 5
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label className="grid gap-1 sm:col-span-2">
               <span className="text-xs font-semibold text-muted">Title (optional)</span>
               <input
                 value={reviewTitle}

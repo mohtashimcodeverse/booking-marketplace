@@ -3,8 +3,10 @@ import type { HttpResult } from "@/lib/http";
 import type {
   AuthMeResponse,
   AuthResponse,
+  AuthUser,
   RequestPasswordResetPayload,
   ResetPasswordPayload,
+  UserRole,
 } from "@/lib/auth/auth.types";
 import { setAccessToken, clearAccessToken } from "@/lib/auth/tokenStore";
 
@@ -16,7 +18,13 @@ export interface LoginPayload {
 export interface SignupPayload {
   email: string;
   password: string;
+  fullName?: string;
+  role?: Extract<UserRole, "CUSTOMER" | "VENDOR">;
 }
+
+type RegisterResponse = {
+  user: AuthUser;
+};
 
 function unwrap<T>(res: HttpResult<T>): T {
   if (!res.ok) throw new Error(res.message);
@@ -35,16 +43,14 @@ export async function login(payload: LoginPayload): Promise<AuthResponse> {
   return data;
 }
 
-export async function signup(payload: SignupPayload): Promise<AuthResponse> {
-  const res = await apiFetch<AuthResponse>("/auth/register", {
+export async function signup(payload: SignupPayload): Promise<RegisterResponse> {
+  const res = await apiFetch<RegisterResponse>("/auth/register", {
     method: "POST",
     body: payload,
     credentials: "include",
     auth: "none",
   });
   const data = unwrap(res);
-  // many backends also return accessToken on register; store if present
-  setAccessToken(data.accessToken);
   return data;
 }
 

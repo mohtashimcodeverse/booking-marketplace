@@ -68,6 +68,7 @@ export class AuthService {
     emailRaw: string,
     password: string,
     fullName?: string,
+    role?: UserRole,
   ): Promise<{
     user: {
       id: string;
@@ -84,12 +85,22 @@ export class AuthService {
 
     const passwordHash = await hashPassword(password);
 
+    const requestedRole = role ?? UserRole.CUSTOMER;
+    if (
+      requestedRole !== UserRole.CUSTOMER &&
+      requestedRole !== UserRole.VENDOR
+    ) {
+      throw new BadRequestException('Invalid role for self-registration');
+    }
+
+    const normalizedFullName = fullName?.trim() || null;
+
     const user = await this.prisma.user.create({
       data: {
         email,
         passwordHash,
-        fullName: fullName?.trim() || null,
-        role: UserRole.CUSTOMER,
+        fullName: normalizedFullName,
+        role: requestedRole,
         isEmailVerified: false,
       },
       select: {
@@ -100,6 +111,19 @@ export class AuthService {
         fullName: true,
       },
     });
+
+    if (requestedRole === UserRole.VENDOR) {
+      const emailLocal = email.split('@')[0]?.trim() || 'Vendor';
+      const displayName = normalizedFullName || emailLocal;
+
+      await this.prisma.vendorProfile.create({
+        data: {
+          userId: user.id,
+          displayName,
+          status: 'PENDING',
+        },
+      });
+    }
 
     return { user };
   }

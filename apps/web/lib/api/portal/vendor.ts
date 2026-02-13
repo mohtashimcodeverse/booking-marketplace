@@ -26,6 +26,14 @@ export type VendorAnalyticsResponse = {
   labels?: string[];
   kpis?: Record<string, number>;
   series?: Array<{ key: string; points: number[] }>;
+  breakdowns?: Record<string, Record<string, number>>;
+  charts?: Record<
+    string,
+    {
+      labels: string[];
+      series: Array<{ key: string; points: number[] }>;
+    }
+  >;
 };
 
 export type VendorBookingsResponse = {
@@ -69,6 +77,8 @@ export type VendorPropertyListItem = {
   status: VendorPropertyStatus;
   city: string;
   area: string | null;
+  priceFrom: number;
+  bookingsCount: number;
   createdAt: string;
   updatedAt: string;
 };
@@ -78,6 +88,53 @@ export type VendorPropertiesResponse = {
   page: number;
   pageSize: number;
   total: number;
+};
+
+export type VendorBlockRequest = {
+  id: string;
+  propertyId: string;
+  startDate: string;
+  endDate: string;
+  reason: string | null;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reviewNotes: string | null;
+  reviewedAt: string | null;
+  createdAt: string;
+  updatedAt: string;
+  property: {
+    id: string;
+    title: string;
+    city: string;
+    area: string | null;
+  };
+};
+
+export type VendorMaintenanceRequest = {
+  id: string;
+  propertyId: string;
+  bookingId: string | null;
+  title: string;
+  description: string | null;
+  priority: "LOW" | "MEDIUM" | "HIGH" | "URGENT";
+  status: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CANCELLED";
+  createdAt: string;
+  updatedAt: string;
+  resolvedAt: string | null;
+  workOrders: Array<{
+    id: string;
+    maintenanceRequestId: string;
+    status: "DRAFT" | "APPROVED" | "IN_PROGRESS" | "COMPLETED" | "CANCELLED";
+    assignedToUserId: string | null;
+    costEstimate: number | null;
+    actualCost: number | null;
+    currency: string;
+    notes: string | null;
+    startedAt: string | null;
+    completedAt: string | null;
+    cancelledAt: string | null;
+    createdAt: string;
+    updatedAt: string;
+  }>;
 };
 
 export type VendorPropertyMedia = {
@@ -258,11 +315,20 @@ export async function getVendorOverview(): Promise<VendorOverviewResponse> {
 }
 
 export async function getVendorAnalytics(params?: { range?: string }): Promise<VendorAnalyticsResponse> {
+  const range = params?.range ?? "30d";
+  const days = range === "7d" ? 7 : range === "90d" ? 90 : range === "180d" ? 180 : range === "365d" ? 365 : 30;
+  const to = new Date();
+  const from = new Date(to.getTime() - days * 24 * 60 * 60 * 1000);
+
   const res = await apiFetch<VendorAnalyticsResponse>("/portal/vendor/analytics", {
     method: "GET",
     credentials: "include",
     cache: "no-store",
-    query: { range: params?.range ?? "30d" },
+    query: {
+      from: from.toISOString(),
+      to: to.toISOString(),
+      bucket: days > 120 ? "month" : "week",
+    },
   });
   return unwrap(res);
 }
@@ -360,6 +426,86 @@ export async function getVendorProperties(params?: {
     credentials: "include",
     cache: "no-store",
     query: { page: params?.page ?? 1, pageSize: params?.pageSize ?? 10 },
+  });
+  return unwrap(res);
+}
+
+export async function getVendorBlockRequests(params?: {
+  page?: number;
+  pageSize?: number;
+  propertyId?: string;
+  status?: "PENDING" | "APPROVED" | "REJECTED" | "ALL";
+}): Promise<{
+  page: number;
+  pageSize: number;
+  total: number;
+  items: VendorBlockRequest[];
+}> {
+  const res = await apiFetch<{
+    page: number;
+    pageSize: number;
+    total: number;
+    items: VendorBlockRequest[];
+  }>("/portal/vendor/block-requests", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    query: {
+      page: params?.page ?? 1,
+      pageSize: params?.pageSize ?? 20,
+      propertyId: params?.propertyId ?? "",
+      status: params?.status && params.status !== "ALL" ? params.status : "",
+    },
+  });
+  return unwrap(res);
+}
+
+export async function createVendorBlockRequest(input: {
+  propertyId: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}): Promise<VendorBlockRequest> {
+  const res = await apiFetch<VendorBlockRequest>("/portal/vendor/block-requests", {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    body: {
+      propertyId: input.propertyId,
+      startDate: input.startDate,
+      endDate: input.endDate,
+      reason: input.reason?.trim() || undefined,
+    },
+  });
+  return unwrap(res);
+}
+
+export async function getVendorMaintenanceRequests(params?: {
+  page?: number;
+  pageSize?: number;
+  propertyId?: string;
+  status?: "OPEN" | "IN_PROGRESS" | "RESOLVED" | "CANCELLED" | "ALL";
+}): Promise<{
+  page: number;
+  limit: number;
+  total: number;
+  items: VendorMaintenanceRequest[];
+}> {
+  const res = await apiFetch<{
+    page: number;
+    limit: number;
+    total: number;
+    items: VendorMaintenanceRequest[];
+  }>("/operator/maintenance/requests", {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+    query: {
+      page: params?.page ?? 1,
+      limit: params?.pageSize ?? 20,
+      propertyId: params?.propertyId ?? "",
+      status: params?.status && params.status !== "ALL" ? params.status : "",
+    },
   });
   return unwrap(res);
 }

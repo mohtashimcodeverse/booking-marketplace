@@ -77,7 +77,7 @@ export default function Footer() {
         <div className="border-b border-white/20 pb-12">
           <div className="mx-auto max-w-3xl text-center">
             <Link href="/" className="inline-flex flex-col items-center">
-              <div className="relative h-24 w-[380px] max-w-[94vw] overflow-hidden rounded-2xl border border-white/28 bg-white/14 p-2 backdrop-blur">
+              <div className="relative h-24 w-[380px] max-w-[94vw] overflow-hidden rounded-2xl border border-white/55 bg-white p-2 shadow-[0_16px_38px_rgba(11,15,25,0.22)]">
                 <Image
                   src="/brand/logo.svg"
                   alt="Laugh & Lodge"

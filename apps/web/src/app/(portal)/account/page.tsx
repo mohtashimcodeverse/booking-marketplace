@@ -59,6 +59,7 @@ export default function AccountOverviewPage() {
     }
 
     const { kpis } = state.data;
+    const compliance = state.data.documentCompliance;
 
     return (
       <div className="space-y-6">
@@ -74,6 +75,24 @@ export default function AccountOverviewPage() {
             </span>
           </div>
         </div>
+
+        {compliance?.requiresUpload ? (
+          <div className="rounded-2xl border border-warning/35 bg-warning/12 p-4">
+            <div className="text-sm font-semibold text-primary">
+              Guest documents required
+            </div>
+            <div className="mt-1 text-sm text-secondary">
+              Missing: {compliance.missingTypes.join(", ")}
+              {compliance.urgent ? " (Urgent: check-in within 48 hours)" : ""}
+            </div>
+            <Link
+              href="/account/documents"
+              className="mt-3 inline-flex items-center justify-center rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
+            >
+              Upload now
+            </Link>
+          </div>
+        ) : null}
 
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
           <StatCard label="Bookings Upcoming" value={kpis.bookingsUpcoming} variant="dark" />

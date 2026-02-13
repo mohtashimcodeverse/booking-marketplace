@@ -1,0 +1,11 @@
+{{brand.name}}
+
+Verify your email address
+
+Your one-time verification code is: {{otp}}
+This code expires in {{ttlMinutes}} minutes.
+
+If you did not request this, you can ignore this message.
+
+Support: {{brand.supportEmail}}
+Booking: {{brand.bookingEmail}}

@@ -2,6 +2,7 @@
 
 import Image from "next/image";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import {
   Building2,
@@ -600,7 +601,7 @@ function CreatePropertyDrawer(props: { open: boolean; onClose: () => void; onCre
   );
 }
 
-function PropertyDetailDrawer(props: {
+export function PropertyDetailDrawer(props: {
   open: boolean;
   row: AdminPropertyRow;
   onClose: () => void;
@@ -1222,7 +1223,7 @@ function PropertyDetailDrawer(props: {
             ) : (
               documents.map((doc) => {
                 const fallback = apiUrl(
-                  `/vendor/properties/${encodeURIComponent(id)}/documents/${encodeURIComponent(doc.id)}/download`
+                  `/admin/properties/${encodeURIComponent(id)}/documents/${encodeURIComponent(doc.id)}/download`
                 );
                 const href = doc.url?.trim().length ? doc.url : fallback;
                 return (
@@ -1327,6 +1328,7 @@ function PropertyDetailDrawer(props: {
 }
 
 export default function AdminPropertiesPage() {
+  const router = useRouter();
   const [state, setState] = useState<ViewState>({ kind: "loading" });
 
   const [page, setPage] = useState<number>(1);
@@ -1340,7 +1342,6 @@ export default function AdminPropertiesPage() {
   });
 
   const [createOpen, setCreateOpen] = useState<boolean>(false);
-  const [selected, setSelected] = useState<AdminPropertyRow | null>(null);
 
   async function reload(targetPage?: number) {
     const p = targetPage ?? page;
@@ -1536,10 +1537,6 @@ export default function AdminPropertiesPage() {
 
     try {
       await deleteAdminOwnedProperty(id);
-      setSelected((current) => {
-        if (!current) return current;
-        return safeId(current) === id ? null : current;
-      });
       await reload(page);
     } catch (e) {
       alert(e instanceof Error ? e.message : "Delete failed");
@@ -1644,12 +1641,16 @@ export default function AdminPropertiesPage() {
 
             <DataTable<AdminPropertyRow>
               title="Properties"
-              subtitle={<span>Click any row to open the right-side drawer.</span>}
+              subtitle={<span>Click any row to open the full detail page.</span>}
               columns={columns}
               rows={derived.filtered}
               count={derived.total}
               headerRight={null}
-              onRowClick={(row) => setSelected(row)}
+              onRowClick={(row) => {
+                const id = safeId(row);
+                if (!id) return;
+                router.push(`/admin/properties/${encodeURIComponent(id)}`);
+              }}
               rowActions={(row) => {
                 const status = safeStatus(row);
                 const id = safeId(row);
@@ -1659,7 +1660,10 @@ export default function AdminPropertiesPage() {
                   <>
                     <button
                       type="button"
-                      onClick={() => setSelected(row)}
+                      onClick={() => {
+                        if (!id) return;
+                        router.push(`/admin/properties/${encodeURIComponent(id)}`);
+                      }}
                       className="inline-flex h-9 items-center justify-center rounded-xl border border-line/80 bg-surface px-3 text-xs font-semibold text-primary shadow-sm hover:bg-warm-alt"
                     >
                       Details
@@ -1668,7 +1672,10 @@ export default function AdminPropertiesPage() {
                     {adminOwned ? (
                       <button
                         type="button"
-                        onClick={() => setSelected(row)}
+                        onClick={() => {
+                          if (!id) return;
+                          router.push(`/admin/properties/${encodeURIComponent(id)}`);
+                        }}
                         className="inline-flex h-9 items-center justify-center rounded-xl border border-line/80 bg-surface px-3 text-xs font-semibold text-primary shadow-sm hover:bg-warm-alt"
                       >
                         Media
@@ -1733,40 +1740,10 @@ export default function AdminPropertiesPage() {
           open={createOpen}
           onClose={() => setCreateOpen(false)}
           onCreated={() => {
-            setSelected(null);
             setPage(1);
             void reload(1);
           }}
         />
-
-        {selected ? (
-          <PropertyDetailDrawer
-            open={true}
-            row={selected}
-            onClose={() => setSelected(null)}
-            onRowPatched={(patch) => {
-              const id = safeId(selected);
-              if (!id) return;
-
-              setSelected((prev) => {
-                if (!prev) return prev;
-                const rid = safeId(prev);
-                if (rid !== id) return prev;
-                return { ...(asRecord(prev) ?? {}), ...(patch as Record<string, unknown>) } as AdminPropertyRow;
-              });
-
-              setState((prev) => {
-                if (prev.kind !== "ready") return prev;
-                const items = prev.data.items.map((r) => {
-                  const rid = safeId(r);
-                  if (rid !== id) return r;
-                  return { ...(asRecord(r) ?? {}), ...(patch as Record<string, unknown>) };
-                });
-                return { kind: "ready", data: { ...prev.data, items } };
-              });
-            }}
-          />
-        ) : null}
       </div>
     </PortalShell>
   );

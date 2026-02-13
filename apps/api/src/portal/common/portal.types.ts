@@ -11,6 +11,15 @@ export type ChartResponse = {
   bucket: TimeBucket;
   labels: string[];
   series: ChartSeries[];
+  kpis?: Record<string, number>;
+  breakdowns?: Record<string, Record<string, number>>;
+  charts?: Record<
+    string,
+    {
+      labels: string[];
+      series: ChartSeries[];
+    }
+  >;
 };
 
 export type PageParams = {

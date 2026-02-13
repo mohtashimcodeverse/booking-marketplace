@@ -5,6 +5,7 @@ import { NotificationsModule } from '../notifications/notifications.module';
 
 import { PaymentsController } from './payments.controller';
 import { PaymentsWebhooksController } from './payments.webhooks.controller';
+import { PaymentsReturnsController } from './payments-returns.controller';
 import { PaymentsService } from './payments.service';
 
 import { ManualPaymentsProvider } from './providers/manual.provider';
@@ -12,7 +13,11 @@ import { TelrPaymentsProvider } from './providers/telr.provider';
 
 @Module({
   imports: [PrismaModule, NotificationsModule],
-  controllers: [PaymentsController, PaymentsWebhooksController],
+  controllers: [
+    PaymentsController,
+    PaymentsWebhooksController,
+    PaymentsReturnsController,
+  ],
   providers: [PaymentsService, ManualPaymentsProvider, TelrPaymentsProvider],
   exports: [PaymentsService],
 })

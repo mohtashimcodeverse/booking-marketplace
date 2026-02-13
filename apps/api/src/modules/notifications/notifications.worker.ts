@@ -226,6 +226,11 @@ export class NotificationsWorker implements OnModuleInit {
       input.type,
       input.payload,
     );
+    const text = this.renderTextTemplate(
+      NotificationChannel.EMAIL,
+      input.type,
+      input.payload,
+    );
 
     const smtp = this.smtpConfig();
     if (!smtp.configured) {
@@ -241,6 +246,7 @@ export class NotificationsWorker implements OnModuleInit {
       replyTo: smtp.replyTo,
       subject,
       html,
+      text,
     };
 
     const startedAt = Date.now();
@@ -574,8 +580,12 @@ export class NotificationsWorker implements OnModuleInit {
         return 'Booking cancelled';
       case 'PAYMENT_FAILED':
         return 'Payment failed for your booking';
-      case 'SMTP_TEST':
-        return 'SMTP Test — Success';
+      case 'PAYMENT_PENDING':
+        return 'Payment pending for your booking';
+      case 'REFUND_PROCESSED':
+        return 'Refund processed';
+      case 'DOCUMENT_UPLOAD_REQUEST':
+        return 'Action required: upload guest documents';
       case 'OPS_TASKS_CREATED':
         return 'Your stay services are scheduled';
       default: {
@@ -596,7 +606,8 @@ export class NotificationsWorker implements OnModuleInit {
       return JSON.stringify({ type, payload });
     }
 
-    const fileName = this.mapTemplate(type);
+    const templateBase = this.mapTemplateBase(type);
+    const fileName = `${templateBase}.html`;
     const templatePath = this.resolveTemplatePath(fileName);
 
     if (!templatePath) {
@@ -616,6 +627,38 @@ export class NotificationsWorker implements OnModuleInit {
     };
 
     return this.simpleInterpolate(html, merged);
+  }
+
+  private renderTextTemplate(
+    channel: NotificationChannel,
+    type: string,
+    payload: JsonObject,
+  ): string {
+    if (channel !== NotificationChannel.EMAIL) {
+      return JSON.stringify({ type, payload });
+    }
+
+    const templateBase = this.mapTemplateBase(type);
+    const txtPath = this.resolveTemplatePath(`${templateBase}.txt`);
+
+    const payloadBrand = this.getNested(payload, 'brand');
+    const brandOverrides = this.isObject(payloadBrand) ? payloadBrand : {};
+
+    const merged: JsonObject = {
+      ...payload,
+      brand: {
+        ...this.defaultBrand(),
+        ...brandOverrides,
+      },
+    };
+
+    if (txtPath) {
+      const txt = fs.readFileSync(txtPath, 'utf8');
+      return this.simpleInterpolate(txt, merged);
+    }
+
+    const html = this.renderTemplate(channel, type, payload);
+    return this.stripHtml(html);
   }
 
   private defaultBrand() {
@@ -670,23 +713,27 @@ export class NotificationsWorker implements OnModuleInit {
     return null;
   }
 
-  private mapTemplate(type: string) {
+  private mapTemplateBase(type: string) {
     switch (type) {
       case 'EMAIL_VERIFICATION_OTP':
-        return 'email-verification-otp.html';
+        return 'email-verification-otp';
       case 'BOOKING_CONFIRMED':
-        return 'booking-confirmed.html';
+        return 'booking-confirmed';
       case 'BOOKING_CANCELLED':
       case 'BOOKING_CANCELLED_BY_GUEST':
-        return 'booking-cancelled.html';
+        return 'booking-cancelled';
+      case 'PAYMENT_PENDING':
+        return 'payment-pending';
       case 'PAYMENT_FAILED':
-        return 'payment-failed.html';
-      case 'SMTP_TEST':
-        return 'smtp-test.html';
+        return 'payment-failed';
+      case 'REFUND_PROCESSED':
+        return 'refund-processed';
+      case 'DOCUMENT_UPLOAD_REQUEST':
+        return 'document-upload-request';
       case 'OPS_TASKS_CREATED':
-        return 'ops-tasks-created.html';
+        return 'ops-tasks-created';
       default:
-        return 'booking-confirmed.html';
+        return 'booking-confirmed';
     }
   }
 
@@ -727,6 +774,23 @@ export class NotificationsWorker implements OnModuleInit {
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;')
       .replace(/'/g, '&#39;');
+  }
+
+  private stripHtml(input: string): string {
+    return input
+      .replace(/<style[\s\S]*?<\/style>/gi, ' ')
+      .replace(/<script[\s\S]*?<\/script>/gi, ' ')
+      .replace(/<\/?(p|div|tr|table|h1|h2|h3|li|br)\b[^>]*>/gi, '\n')
+      .replace(/<[^>]+>/g, ' ')
+      .replace(/&nbsp;/g, ' ')
+      .replace(/&amp;/g, '&')
+      .replace(/&lt;/g, '<')
+      .replace(/&gt;/g, '>')
+      .replace(/&quot;/g, '"')
+      .replace(/&#39;/g, "'")
+      .replace(/[ \t]+\n/g, '\n')
+      .replace(/\n{3,}/g, '\n\n')
+      .trim();
   }
 
   private getNested(obj: JsonObject, key: string): unknown {

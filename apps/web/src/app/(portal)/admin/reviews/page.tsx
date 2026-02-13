@@ -68,6 +68,9 @@ export default function AdminGuestReviewsPage() {
       meta: (
         <div className="space-y-2 text-xs">
           <div className="font-semibold text-secondary">Rating: {review.rating.toFixed(1)} / 5</div>
+          <div className="text-secondary">
+            Cleanliness {review.cleanlinessRating}/5 · Location {review.locationRating}/5 · Comms {review.communicationRating}/5 · Value {review.valueRating}/5
+          </div>
           {review.comment ? <div className="text-secondary">{review.comment}</div> : null}
           <div className="text-muted">Created: {fmtDate(review.createdAt)}</div>
           {review.adminNotes ? <div className="text-secondary">Admin note: {review.adminNotes}</div> : null}

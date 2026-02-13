@@ -1,8 +1,10 @@
 import {
+  Body,
   Controller,
   Get,
   Param,
   ParseUUIDPipe,
+  Post,
   Query,
   Res,
   StreamableFile,
@@ -17,6 +19,8 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
 import {
   BookingStatus,
+  BlockRequestStatus,
+  CustomerDocumentStatus,
   OpsTaskStatus,
   PaymentStatus,
   PropertyStatus,
@@ -76,6 +80,18 @@ export class AdminPortalController {
     });
   }
 
+  @Get('vendors/:vendorId')
+  vendorDetail(
+    @CurrentUser() user: User,
+    @Param('vendorId', new ParseUUIDPipe()) vendorId: string,
+  ) {
+    return this.service.getVendorDetail({
+      userId: user.id,
+      role: user.role,
+      vendorId,
+    });
+  }
+
   @Get('properties')
   properties(
     @CurrentUser() user: User,
@@ -92,6 +108,18 @@ export class AdminPortalController {
     });
   }
 
+  @Get('properties/:propertyId')
+  propertyDetail(
+    @CurrentUser() user: User,
+    @Param('propertyId', new ParseUUIDPipe()) propertyId: string,
+  ) {
+    return this.service.getPropertyDetail({
+      userId: user.id,
+      role: user.role,
+      propertyId,
+    });
+  }
+
   @Get('bookings')
   bookings(
     @CurrentUser() user: User,
@@ -105,6 +133,18 @@ export class AdminPortalController {
       status: query.status,
       page,
       pageSize,
+    });
+  }
+
+  @Get('bookings/:bookingId')
+  bookingDetail(
+    @CurrentUser() user: User,
+    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
+  ) {
+    return this.service.getBookingDetail({
+      userId: user.id,
+      role: user.role,
+      bookingId,
     });
   }
 
@@ -173,6 +213,18 @@ export class AdminPortalController {
     });
   }
 
+  @Get('payments/:paymentId')
+  paymentDetail(
+    @CurrentUser() user: User,
+    @Param('paymentId', new ParseUUIDPipe()) paymentId: string,
+  ) {
+    return this.service.getPaymentDetail({
+      userId: user.id,
+      role: user.role,
+      paymentId,
+    });
+  }
+
   @Get('refunds')
   refunds(
     @CurrentUser() user: User,
@@ -185,6 +237,142 @@ export class AdminPortalController {
       status: query.status,
       page,
       pageSize,
+    });
+  }
+
+  @Get('refunds/:refundId')
+  refundDetail(
+    @CurrentUser() user: User,
+    @Param('refundId', new ParseUUIDPipe()) refundId: string,
+  ) {
+    return this.service.getRefundDetail({
+      userId: user.id,
+      role: user.role,
+      refundId,
+    });
+  }
+
+  @Get('customer-documents')
+  customerDocuments(
+    @CurrentUser() user: User,
+    @Query()
+    query: {
+      status?: CustomerDocumentStatus;
+      type?: string;
+      userId?: string;
+      page?: string;
+      pageSize?: string;
+    },
+  ) {
+    const { page, pageSize } = parsePageParams(query);
+    return this.service.listCustomerDocuments({
+      userId: user.id,
+      role: user.role,
+      status: query.status,
+      type: query.type,
+      customerId: query.userId,
+      page,
+      pageSize,
+    });
+  }
+
+  @Get('customer-documents/:documentId/download')
+  async downloadCustomerDocument(
+    @CurrentUser() user: User,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.service.getCustomerDocumentDownload({
+      userId: user.id,
+      role: user.role,
+      documentId,
+    });
+
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(file.downloadName)}"`,
+    );
+    return new StreamableFile(createReadStream(file.absolutePath));
+  }
+
+  @Post('customer-documents/:documentId/approve')
+  approveCustomerDocument(
+    @CurrentUser() user: User,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Body() body?: { notes?: string },
+  ) {
+    return this.service.approveCustomerDocument({
+      userId: user.id,
+      role: user.role,
+      documentId,
+      notes: body?.notes,
+    });
+  }
+
+  @Post('customer-documents/:documentId/reject')
+  rejectCustomerDocument(
+    @CurrentUser() user: User,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Body() body?: { notes?: string },
+  ) {
+    return this.service.rejectCustomerDocument({
+      userId: user.id,
+      role: user.role,
+      documentId,
+      notes: body?.notes,
+    });
+  }
+
+  @Get('block-requests')
+  blockRequests(
+    @CurrentUser() user: User,
+    @Query()
+    query: {
+      status?: BlockRequestStatus;
+      propertyId?: string;
+      vendorId?: string;
+      page?: string;
+      pageSize?: string;
+    },
+  ) {
+    const { page, pageSize } = parsePageParams(query);
+    return this.service.listBlockRequests({
+      userId: user.id,
+      role: user.role,
+      status: query.status,
+      propertyId: query.propertyId,
+      vendorId: query.vendorId,
+      page,
+      pageSize,
+    });
+  }
+
+  @Post('block-requests/:blockRequestId/approve')
+  approveBlockRequest(
+    @CurrentUser() user: User,
+    @Param('blockRequestId', new ParseUUIDPipe()) blockRequestId: string,
+    @Body() body?: { notes?: string },
+  ) {
+    return this.service.approveBlockRequest({
+      userId: user.id,
+      role: user.role,
+      blockRequestId,
+      notes: body?.notes,
+    });
+  }
+
+  @Post('block-requests/:blockRequestId/reject')
+  rejectBlockRequest(
+    @CurrentUser() user: User,
+    @Param('blockRequestId', new ParseUUIDPipe()) blockRequestId: string,
+    @Body() body?: { notes?: string },
+  ) {
+    return this.service.rejectBlockRequest({
+      userId: user.id,
+      role: user.role,
+      blockRequestId,
+      notes: body?.notes,
     });
   }
 

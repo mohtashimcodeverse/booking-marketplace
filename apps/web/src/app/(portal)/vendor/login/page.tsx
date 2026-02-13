@@ -15,10 +15,31 @@ type LoginResponse = {
 };
 
 type MeResponse = {
+  user?: {
+    id: string;
+    email: string;
+    role: "CUSTOMER" | "VENDOR" | "ADMIN";
+  };
+  id?: string;
+  email?: string;
+  role?: "CUSTOMER" | "VENDOR" | "ADMIN";
+};
+
+function extractMeUser(data: MeResponse): {
   id: string;
   email: string;
   role: "CUSTOMER" | "VENDOR" | "ADMIN";
-};
+} {
+  if (data.user) return data.user;
+  if (!data.id || !data.email || !data.role) {
+    throw new Error("Invalid /auth/me response shape.");
+  }
+  return {
+    id: data.id,
+    email: data.email,
+    role: data.role,
+  };
+}
 
 function safePath(v: string | null): string {
   if (!v) return "/vendor";
@@ -94,9 +115,10 @@ function VendorLoginContent() {
         throw new Error(meRes.message);
       }
 
-      if (meRes.data.role !== "VENDOR") {
+      const meUser = extractMeUser(meRes.data);
+      if (meUser.role !== "VENDOR") {
         clearAccessToken();
-        throw new Error(`This account is "${meRes.data.role}". Vendor portal requires role "VENDOR".`);
+        throw new Error(`This account is "${meUser.role}". Vendor portal requires role "VENDOR".`);
       }
 
       router.replace(nextPath);

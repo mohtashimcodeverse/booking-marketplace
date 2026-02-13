@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import { Search, Users, CalendarDays, MapPin } from "lucide-react";
+import DateRangePicker, { type DateRangeValue } from "@/components/booking/DateRangePicker";
 
 type SearchDraft = {
   location: string; // user-facing "location"
@@ -61,6 +62,20 @@ export default function FloatingSearchBar(props: { defaultQ?: string }) {
     return draft.guests >= 1 && draft.guests <= 16;
   }, [draft.checkIn, draft.guests]);
 
+  const dateRangeValue = useMemo<DateRangeValue>(
+    () => ({
+      from: draft.checkIn || null,
+      to: draft.checkOut || null,
+    }),
+    [draft.checkIn, draft.checkOut],
+  );
+
+  const dateLabel = useMemo(() => {
+    if (!draft.checkIn && !draft.checkOut) return "Select dates";
+    if (draft.checkIn && draft.checkOut) return `${draft.checkIn} → ${draft.checkOut}`;
+    return `${draft.checkIn || draft.checkOut} → Add checkout`;
+  }, [draft.checkIn, draft.checkOut]);
+
   function pushSearch() {
     const p = new URLSearchParams();
 
@@ -95,38 +110,41 @@ export default function FloatingSearchBar(props: { defaultQ?: string }) {
       transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1], delay: 0.05 }}
     >
       <div className="premium-card premium-card-tinted rounded-2xl p-3">
-        <div className="grid gap-2 md:grid-cols-[1.4fr_0.9fr_0.9fr_0.7fr_0.6fr] md:items-center">
+        <div className="grid gap-2 md:grid-cols-[1.4fr_1.2fr_0.7fr_0.6fr] md:items-center">
           <div className="premium-input flex items-center gap-2 rounded-xl px-3 py-2">
             <MapPin className="h-4 w-4 text-muted" />
             <input
               value={draft.location}
               onChange={(e) => setDraft((s) => ({ ...s, location: e.target.value }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") pushSearch();
+              }}
               placeholder="Dubai Marina, Downtown, JBR, Al Barsha…"
               className="w-full bg-transparent text-sm outline-none placeholder:text-muted"
               aria-label="Location"
             />
           </div>
 
-          <div className="premium-input flex items-center gap-2 rounded-xl px-3 py-2">
-            <CalendarDays className="h-4 w-4 text-muted" />
-            <input
-              type="date"
-              value={draft.checkIn}
-              onChange={(e) => setDraft((s) => ({ ...s, checkIn: e.target.value }))}
-              className="w-full bg-transparent text-sm outline-none"
-              aria-label="Check-in date"
-            />
-          </div>
-
-          <div className="premium-input flex items-center gap-2 rounded-xl px-3 py-2">
-            <CalendarDays className="h-4 w-4 text-muted" />
-            <input
-              type="date"
-              value={draft.checkOut}
-              onChange={(e) => setDraft((s) => ({ ...s, checkOut: e.target.value }))}
-              className="w-full bg-transparent text-sm outline-none"
-              aria-label="Check-out date"
-            />
+          <div className="relative">
+            <details className="group">
+              <summary className="premium-input flex h-[42px] cursor-pointer list-none items-center gap-2 rounded-xl px-3 py-2 text-sm text-primary">
+                <CalendarDays className="h-4 w-4 text-muted" />
+                <span className="truncate">{dateLabel}</span>
+              </summary>
+              <div className="absolute left-0 z-20 mt-2 w-[min(680px,94vw)] rounded-2xl border border-line/80 bg-surface p-2 shadow-[0_20px_48px_rgba(11,15,25,0.18)]">
+                <DateRangePicker
+                  value={dateRangeValue}
+                  onChange={(next) =>
+                    setDraft((s) => ({
+                      ...s,
+                      checkIn: next.from ?? "",
+                      checkOut: next.to ?? "",
+                    }))
+                  }
+                  minDate={new Date()}
+                />
+              </div>
+            </details>
           </div>
 
           <div className="premium-input flex items-center gap-2 rounded-xl px-3 py-2">
@@ -137,6 +155,9 @@ export default function FloatingSearchBar(props: { defaultQ?: string }) {
               max={16}
               value={draft.guests}
               onChange={(e) => setDraft((s) => ({ ...s, guests: Number(e.target.value) }))}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") pushSearch();
+              }}
               className="w-full bg-transparent text-sm outline-none"
               aria-label="Guests"
             />

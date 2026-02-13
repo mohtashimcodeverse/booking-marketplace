@@ -18,7 +18,7 @@ export default function ContactMapEmbed() {
                 share your area and unit details — we’ll confirm coverage and program fit.
               </p>
 
-              <div className="premium-card premium-card-tinted rounded-2xl p-6">
+              <div className="premium-card premium-card-dark rounded-2xl p-6">
                 <p className="text-sm font-extrabold text-primary">Fast contact</p>
                 <div className="mt-4 space-y-3">
                   <div>
@@ -49,25 +49,18 @@ export default function ContactMapEmbed() {
               </div>
             </div>
 
-            <div className="relative min-h-[340px] bg-[radial-gradient(ellipse_at_top,rgba(198,169,109,0.16),transparent_60%)]">
-              <div className="absolute inset-0 grid place-items-center p-10 text-center">
-                <div className="max-w-md">
-                  <p className="text-sm font-extrabold text-primary">Map integration (next)</p>
-                  <p className="mt-2 text-sm text-secondary/75">
-                    We’ll wire a real interactive map later using our backend map endpoints for discovery.
-                    This section is here for layout and trust parity with Tourm.
-                  </p>
-                  <div className="premium-card premium-card-tinted mt-6 rounded-2xl p-5">
-                    <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-secondary/60">
-                      Planned
-                    </p>
-                    <p className="mt-2 text-sm font-semibold text-primary">
-                      Interactive map + coverage areas + pins
-                    </p>
-                  </div>
-                </div>
+            <div className="relative min-h-[340px] overflow-hidden">
+              <iframe
+                title="RentPropertyUAE coverage map"
+                src="https://www.google.com/maps?q=Dubai%20United%20Arab%20Emirates&output=embed"
+                className="absolute inset-0 h-full w-full border-0"
+                loading="lazy"
+                referrerPolicy="no-referrer-when-downgrade"
+              />
+              <div className="absolute left-4 top-4 rounded-2xl border border-line/70 bg-surface/92 px-4 py-3 text-xs font-semibold text-primary shadow-sm backdrop-blur">
+                Dubai-focused operations with UAE-wide owner onboarding support.
               </div>
-              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-surface/20 via-transparent to-surface/10" />
+              <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-dark-1/25 via-transparent to-transparent" />
             </div>
           </div>
         </div>

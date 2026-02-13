@@ -1,31 +1,24 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { Strategy, type StrategyOptions } from 'passport-jwt';
 import type { Request } from 'express';
-import type { UserRole } from '@prisma/client';
+import type { JwtRefreshPayload } from '../types/auth.types';
 
-export type JwtRefreshPayload = {
-  sub: string;
-  email: string;
-  role: UserRole;
-};
-
-export type AuthUser = {
+export type RefreshAuthUser = {
   id: string;
-  email: string;
-  role: UserRole;
+  refreshToken: string;
 };
 
-function extractRefreshToken(req: Request): string | null {
+function cookieName(): string {
+  return process.env.AUTH_COOKIE_NAME || 'rentpropertyuae_rt';
+}
+
+function extractRefreshTokenFromCookie(req: Request): string | null {
   const cookies =
     (req as unknown as { cookies?: Record<string, string> }).cookies ?? {};
-  const cookieToken = cookies['refresh_token'];
+  const cookieToken = cookies[cookieName()];
   if (typeof cookieToken === 'string' && cookieToken.trim())
     return cookieToken.trim();
-
-  const headerToken = req.headers['x-refresh-token'];
-  if (typeof headerToken === 'string' && headerToken.trim())
-    return headerToken.trim();
 
   return null;
 }
@@ -37,14 +30,19 @@ export class JwtRefreshStrategy extends PassportStrategy(
 ) {
   constructor() {
     const options: StrategyOptions = {
-      jwtFromRequest: (req: Request) => extractRefreshToken(req),
+      jwtFromRequest: (req: Request) => extractRefreshTokenFromCookie(req),
       secretOrKey: process.env.JWT_REFRESH_SECRET ?? 'dev_refresh_secret',
-      passReqToCallback: false,
+      passReqToCallback: true,
     };
     super(options);
   }
 
-  validate(payload: JwtRefreshPayload): AuthUser {
-    return { id: payload.sub, email: payload.email, role: payload.role };
+  validate(req: Request, payload: JwtRefreshPayload): RefreshAuthUser {
+    const refreshToken = extractRefreshTokenFromCookie(req);
+    if (!refreshToken) {
+      throw new UnauthorizedException('Refresh token cookie is missing.');
+    }
+
+    return { id: payload.sub, refreshToken };
   }
 }

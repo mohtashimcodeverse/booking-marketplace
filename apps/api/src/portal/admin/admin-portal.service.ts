@@ -1,14 +1,19 @@
 // src/portal/admin/admin-portal.service.ts
 import {
+  BadRequestException,
   ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
 import { PrismaService } from '../../modules/prisma/prisma.service';
 import {
+  BlockRequestStatus,
   BookingStatus,
   CalendarDayStatus,
+  CustomerDocumentStatus,
+  CustomerDocumentType,
   HoldStatus,
+  NotificationType,
   OpsTaskStatus,
   PaymentStatus,
   PropertyStatus,
@@ -27,7 +32,11 @@ import type {
 import { formatLabel } from '../common/portal.utils';
 import { existsSync } from 'fs';
 import { join } from 'path';
-import { BOOKING_DOCUMENTS_DIR } from '../../common/upload/storage-paths';
+import {
+  BOOKING_DOCUMENTS_DIR,
+  CUSTOMER_DOCUMENTS_DIR,
+} from '../../common/upload/storage-paths';
+import { NotificationsService } from '../../modules/notifications/notifications.service';
 
 type AdminOverview = {
   kpis: {
@@ -49,10 +58,24 @@ type AdminOverview = {
 
 @Injectable()
 export class AdminPortalService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   private assertAdmin(role: UserRole) {
     if (role !== UserRole.ADMIN) throw new ForbiddenException('Not allowed.');
+  }
+
+  private labelFromEnum(value: string): string {
+    return value
+      .toLowerCase()
+      .replaceAll('_', ' ')
+      .replace(/\b\w/g, (token) => token.toUpperCase());
+  }
+
+  private toIsoDay(value: Date): string {
+    return value.toISOString().slice(0, 10);
   }
 
   async getOverview(params: {
@@ -140,51 +163,107 @@ export class AdminPortalService {
           ? 'week'
           : 'month';
 
-    const revenue = await this.prisma.$queryRaw<
-      Array<{ bucket: Date; amount: number }>
-    >`
-      SELECT date_trunc(${bucketExpr}, p."createdAt") AS bucket,
-             COALESCE(SUM(p.amount), 0)::int AS amount
-      FROM "Payment" p
-      WHERE p.status = 'CAPTURED'
-        AND p."createdAt" >= ${params.from}
-        AND p."createdAt" < ${params.to}
-      GROUP BY 1
-      ORDER BY 1 ASC
-    `;
-
-    const confirmedBookings = await this.prisma.$queryRaw<
-      Array<{ bucket: Date; count: number }>
-    >`
-      SELECT date_trunc(${bucketExpr}, b."createdAt") AS bucket,
-             COUNT(*)::int AS count
-      FROM "Booking" b
-      WHERE b.status = 'CONFIRMED'
-        AND b."createdAt" >= ${params.from}
-        AND b."createdAt" < ${params.to}
-      GROUP BY 1
-      ORDER BY 1 ASC
-    `;
-
-    const cancellations = await this.prisma.$queryRaw<
-      Array<{ bucket: Date; count: number }>
-    >`
-      SELECT date_trunc(${bucketExpr}, b."createdAt") AS bucket,
-             COUNT(*)::int AS count
-      FROM "Booking" b
-      WHERE b.status = 'CANCELLED'
-        AND b."createdAt" >= ${params.from}
-        AND b."createdAt" < ${params.to}
-      GROUP BY 1
-      ORDER BY 1 ASC
-    `;
+    const [
+      revenue,
+      bookingsTotal,
+      confirmedBookings,
+      cancellations,
+      paymentCaptures,
+      refundsSucceeded,
+      bookingStatusRows,
+      opsStatusRows,
+      paymentStatusRows,
+      refundStatusRows,
+    ] = await Promise.all([
+      this.prisma.$queryRaw<Array<{ bucket: Date; amount: number }>>`
+        SELECT date_trunc(${bucketExpr}, p."createdAt") AS bucket,
+               COALESCE(SUM(p.amount), 0)::int AS amount
+        FROM "Payment" p
+        WHERE p.status = 'CAPTURED'
+          AND p."createdAt" >= ${params.from}
+          AND p."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; count: number }>>`
+        SELECT date_trunc(${bucketExpr}, b."createdAt") AS bucket,
+               COUNT(*)::int AS count
+        FROM "Booking" b
+        WHERE b."createdAt" >= ${params.from}
+          AND b."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; count: number }>>`
+        SELECT date_trunc(${bucketExpr}, b."createdAt") AS bucket,
+               COUNT(*)::int AS count
+        FROM "Booking" b
+        WHERE b.status = 'CONFIRMED'
+          AND b."createdAt" >= ${params.from}
+          AND b."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; count: number }>>`
+        SELECT date_trunc(${bucketExpr}, b."createdAt") AS bucket,
+               COUNT(*)::int AS count
+        FROM "Booking" b
+        WHERE b.status = 'CANCELLED'
+          AND b."createdAt" >= ${params.from}
+          AND b."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; count: number }>>`
+        SELECT date_trunc(${bucketExpr}, p."createdAt") AS bucket,
+               COUNT(*)::int AS count
+        FROM "Payment" p
+        WHERE p.status = 'CAPTURED'
+          AND p."createdAt" >= ${params.from}
+          AND p."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.$queryRaw<Array<{ bucket: Date; count: number }>>`
+        SELECT date_trunc(${bucketExpr}, r."createdAt") AS bucket,
+               COUNT(*)::int AS count
+        FROM "Refund" r
+        WHERE r.status = 'SUCCEEDED'
+          AND r."createdAt" >= ${params.from}
+          AND r."createdAt" < ${params.to}
+        GROUP BY 1
+        ORDER BY 1 ASC
+      `,
+      this.prisma.booking.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      this.prisma.opsTask.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      this.prisma.payment.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+      this.prisma.refund.groupBy({
+        by: ['status'],
+        _count: { _all: true },
+      }),
+    ]);
 
     const labelsMap = new Map<string, Date>();
     for (const r of revenue)
       labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
+    for (const r of bookingsTotal)
+      labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
     for (const r of confirmedBookings)
       labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
     for (const r of cancellations)
+      labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
+    for (const r of paymentCaptures)
+      labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
+    for (const r of refundsSucceeded)
       labelsMap.set(formatLabel(r.bucket, params.bucket), r.bucket);
 
     const labels = Array.from(labelsMap.entries())
@@ -195,6 +274,12 @@ export class AdminPortalService {
       revenue.map((r) => [
         formatLabel(r.bucket, params.bucket),
         Number(r.amount),
+      ]),
+    );
+    const bookingsMap = new Map(
+      bookingsTotal.map((r) => [
+        formatLabel(r.bucket, params.bucket),
+        Number(r.count),
       ]),
     );
     const confMap = new Map(
@@ -209,13 +294,68 @@ export class AdminPortalService {
         Number(r.count),
       ]),
     );
+    const captureMap = new Map(
+      paymentCaptures.map((r) => [
+        formatLabel(r.bucket, params.bucket),
+        Number(r.count),
+      ]),
+    );
+    const refundMap = new Map(
+      refundsSucceeded.map((r) => [
+        formatLabel(r.bucket, params.bucket),
+        Number(r.count),
+      ]),
+    );
+
+    const bookingStatus = Object.fromEntries(
+      bookingStatusRows.map((row) => [row.status, row._count._all]),
+    );
+    const opsTaskStatus = Object.fromEntries(
+      opsStatusRows.map((row) => [row.status, row._count._all]),
+    );
+    const paymentStatus = Object.fromEntries(
+      paymentStatusRows.map((row) => [row.status, row._count._all]),
+    );
+    const refundStatus = Object.fromEntries(
+      refundStatusRows.map((row) => [row.status, row._count._all]),
+    );
 
     return {
       from: params.from.toISOString(),
       to: params.to.toISOString(),
       bucket: params.bucket,
       labels,
+      kpis: {
+        bookingsTotal: labels.reduce(
+          (sum, l) => sum + (bookingsMap.get(l) ?? 0),
+          0,
+        ),
+        bookingsConfirmed: labels.reduce(
+          (sum, l) => sum + (confMap.get(l) ?? 0),
+          0,
+        ),
+        bookingsCancelled: labels.reduce(
+          (sum, l) => sum + (cancMap.get(l) ?? 0),
+          0,
+        ),
+        revenueCaptured: labels.reduce(
+          (sum, l) => sum + (revMap.get(l) ?? 0),
+          0,
+        ),
+        paymentCaptures: labels.reduce(
+          (sum, l) => sum + (captureMap.get(l) ?? 0),
+          0,
+        ),
+        refundsSucceeded: labels.reduce(
+          (sum, l) => sum + (refundMap.get(l) ?? 0),
+          0,
+        ),
+      },
       series: [
+        {
+          key: 'bookingsTotal',
+          points: labels.map((l) => bookingsMap.get(l) ?? 0),
+        },
         {
           key: 'revenueCaptured',
           points: labels.map((l) => revMap.get(l) ?? 0),
@@ -228,7 +368,54 @@ export class AdminPortalService {
           key: 'bookingsCancelled',
           points: labels.map((l) => cancMap.get(l) ?? 0),
         },
+        {
+          key: 'paymentCaptures',
+          points: labels.map((l) => captureMap.get(l) ?? 0),
+        },
+        {
+          key: 'refundsSucceeded',
+          points: labels.map((l) => refundMap.get(l) ?? 0),
+        },
       ],
+      charts: {
+        bookingsPerPeriod: {
+          labels,
+          series: [
+            {
+              key: 'bookingsTotal',
+              points: labels.map((l) => bookingsMap.get(l) ?? 0),
+            },
+          ],
+        },
+        revenuePerPeriod: {
+          labels,
+          series: [
+            {
+              key: 'revenueCaptured',
+              points: labels.map((l) => revMap.get(l) ?? 0),
+            },
+          ],
+        },
+        paymentVsRefunds: {
+          labels,
+          series: [
+            {
+              key: 'paymentCaptures',
+              points: labels.map((l) => captureMap.get(l) ?? 0),
+            },
+            {
+              key: 'refundsSucceeded',
+              points: labels.map((l) => refundMap.get(l) ?? 0),
+            },
+          ],
+        },
+      },
+      breakdowns: {
+        bookingStatus,
+        opsTaskStatus,
+        paymentStatus,
+        refundStatus,
+      },
     };
   }
 
@@ -456,6 +643,150 @@ export class AdminPortalService {
     };
   }
 
+  async getVendorDetail(params: {
+    userId: string;
+    role: UserRole;
+    vendorId: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const vendor = await this.prisma.vendorProfile.findUnique({
+      where: { id: params.vendorId },
+      select: {
+        id: true,
+        userId: true,
+        displayName: true,
+        companyName: true,
+        phone: true,
+        status: true,
+        createdAt: true,
+        updatedAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            role: true,
+            createdAt: true,
+          },
+        },
+        serviceAgreements: {
+          orderBy: [{ startDate: 'desc' }, { createdAt: 'desc' }],
+          take: 20,
+          select: {
+            id: true,
+            status: true,
+            startDate: true,
+            endDate: true,
+            agreedManagementFeeBps: true,
+            notes: true,
+            approvedAt: true,
+            servicePlan: {
+              select: {
+                id: true,
+                code: true,
+                name: true,
+                type: true,
+                managementFeeBps: true,
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!vendor) {
+      throw new NotFoundException('Vendor not found.');
+    }
+
+    const [properties, bookingsTotal, opsTasksOpen] = await Promise.all([
+      this.prisma.property.findMany({
+        where: { vendorId: vendor.userId },
+        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
+        take: 100,
+        select: {
+          id: true,
+          title: true,
+          slug: true,
+          city: true,
+          area: true,
+          status: true,
+          basePrice: true,
+          currency: true,
+          createdAt: true,
+          updatedAt: true,
+          media: {
+            orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+            take: 1,
+            select: {
+              id: true,
+              url: true,
+              category: true,
+            },
+          },
+          _count: {
+            select: {
+              bookings: true,
+            },
+          },
+        },
+      }),
+      this.prisma.booking.count({
+        where: { property: { vendorId: vendor.userId } },
+      }),
+      this.prisma.opsTask.count({
+        where: {
+          property: { vendorId: vendor.userId },
+          status: {
+            in: [
+              OpsTaskStatus.PENDING,
+              OpsTaskStatus.ASSIGNED,
+              OpsTaskStatus.IN_PROGRESS,
+            ],
+          },
+        },
+      }),
+    ]);
+
+    return {
+      id: vendor.id,
+      userId: vendor.userId,
+      displayName: vendor.displayName,
+      companyName: vendor.companyName,
+      phone: vendor.phone,
+      status: vendor.status,
+      createdAt: vendor.createdAt.toISOString(),
+      updatedAt: vendor.updatedAt.toISOString(),
+      user: {
+        ...vendor.user,
+        createdAt: vendor.user.createdAt.toISOString(),
+      },
+      agreements: vendor.serviceAgreements.map((agreement) => ({
+        ...agreement,
+        startDate: agreement.startDate.toISOString(),
+        endDate: agreement.endDate?.toISOString() ?? null,
+        approvedAt: agreement.approvedAt?.toISOString() ?? null,
+      })),
+      propertyCount: properties.length,
+      bookingsTotal,
+      opsTasksOpen,
+      properties: properties.map((property) => ({
+        id: property.id,
+        title: property.title,
+        slug: property.slug,
+        city: property.city,
+        area: property.area,
+        status: property.status,
+        basePrice: property.basePrice,
+        currency: property.currency,
+        coverUrl: property.media[0]?.url ?? null,
+        bookingsCount: property._count.bookings,
+        createdAt: property.createdAt.toISOString(),
+        updatedAt: property.updatedAt.toISOString(),
+      })),
+    };
+  }
+
   async listProperties(params: {
     userId: string;
     role: UserRole;
@@ -511,6 +842,160 @@ export class AdminPortalService {
         vendorEmail: p.vendor.email,
         createdAt: p.createdAt.toISOString(),
         updatedAt: p.updatedAt.toISOString(), // ✅ FIX
+      })),
+    };
+  }
+
+  async getPropertyDetail(params: {
+    userId: string;
+    role: UserRole;
+    propertyId: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const property = await this.prisma.property.findUnique({
+      where: { id: params.propertyId },
+      select: {
+        id: true,
+        title: true,
+        slug: true,
+        description: true,
+        city: true,
+        area: true,
+        address: true,
+        lat: true,
+        lng: true,
+        status: true,
+        basePrice: true,
+        cleaningFee: true,
+        currency: true,
+        maxGuests: true,
+        bedrooms: true,
+        bathrooms: true,
+        minNights: true,
+        maxNights: true,
+        checkInFromMin: true,
+        checkInToMax: true,
+        checkOutMin: true,
+        isInstantBook: true,
+        vendorId: true,
+        createdByAdminId: true,
+        createdAt: true,
+        updatedAt: true,
+        vendor: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+          },
+        },
+        media: {
+          orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            url: true,
+            alt: true,
+            sortOrder: true,
+            category: true,
+          },
+        },
+        documents: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            type: true,
+            originalName: true,
+            mimeType: true,
+            createdAt: true,
+            updatedAt: true,
+            uploadedByUser: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+              },
+            },
+          },
+        },
+        amenities: {
+          orderBy: { amenity: { name: 'asc' } },
+          select: {
+            amenity: {
+              select: {
+                id: true,
+                key: true,
+                name: true,
+                group: {
+                  select: {
+                    id: true,
+                    key: true,
+                    name: true,
+                  },
+                },
+              },
+            },
+          },
+        },
+      },
+    });
+
+    if (!property) {
+      throw new NotFoundException('Property not found.');
+    }
+
+    const [bookingStats, upcomingBookings] = await Promise.all([
+      this.prisma.booking.groupBy({
+        by: ['status'],
+        where: { propertyId: property.id },
+        _count: { _all: true },
+      }),
+      this.prisma.booking.findMany({
+        where: {
+          propertyId: property.id,
+          status: {
+            in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED],
+          },
+          checkOut: { gt: new Date() },
+        },
+        orderBy: { checkIn: 'asc' },
+        take: 20,
+        select: {
+          id: true,
+          status: true,
+          checkIn: true,
+          checkOut: true,
+          totalAmount: true,
+          currency: true,
+          customer: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const statusBreakdown = Object.fromEntries(
+      bookingStats.map((item) => [item.status, item._count._all]),
+    );
+
+    return {
+      ...property,
+      createdAt: property.createdAt.toISOString(),
+      updatedAt: property.updatedAt.toISOString(),
+      documents: property.documents.map((doc) => ({
+        ...doc,
+        createdAt: doc.createdAt.toISOString(),
+        updatedAt: doc.updatedAt.toISOString(),
+        downloadUrl: `/api/admin/properties/${property.id}/documents/${doc.id}/download`,
+      })),
+      bookingStatusBreakdown: statusBreakdown,
+      upcomingBookings: upcomingBookings.map((booking) => ({
+        ...booking,
+        checkIn: booking.checkIn.toISOString(),
+        checkOut: booking.checkOut.toISOString(),
       })),
     };
   }
@@ -573,6 +1058,317 @@ export class AdminPortalService {
         propertyTitle: b.property.title,
         customerEmail: b.customer.email,
         createdAt: b.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async getBookingDetail(params: {
+    userId: string;
+    role: UserRole;
+    bookingId: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const booking = await this.prisma.booking.findUnique({
+      where: { id: params.bookingId },
+      select: {
+        id: true,
+        status: true,
+        checkIn: true,
+        checkOut: true,
+        adults: true,
+        children: true,
+        totalAmount: true,
+        currency: true,
+        createdAt: true,
+        updatedAt: true,
+        expiresAt: true,
+        cancelledAt: true,
+        cancelledBy: true,
+        cancellationReason: true,
+        customer: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+          },
+        },
+        property: {
+          select: {
+            id: true,
+            title: true,
+            slug: true,
+            city: true,
+            area: true,
+            address: true,
+            vendor: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+              },
+            },
+            media: {
+              orderBy: [{ sortOrder: 'asc' }, { createdAt: 'asc' }],
+              take: 20,
+              select: {
+                id: true,
+                url: true,
+                alt: true,
+                sortOrder: true,
+                category: true,
+              },
+            },
+          },
+        },
+        payment: {
+          select: {
+            id: true,
+            status: true,
+            provider: true,
+            amount: true,
+            currency: true,
+            providerRef: true,
+            createdAt: true,
+            updatedAt: true,
+            events: {
+              orderBy: { createdAt: 'asc' },
+              select: {
+                id: true,
+                type: true,
+                providerRef: true,
+                idempotencyKey: true,
+                createdAt: true,
+              },
+            },
+          },
+        },
+        cancellation: {
+          select: {
+            id: true,
+            actor: true,
+            reason: true,
+            mode: true,
+            notes: true,
+            policyVersion: true,
+            cancelledAt: true,
+            totalAmount: true,
+            managementFee: true,
+            penaltyAmount: true,
+            refundableAmount: true,
+            currency: true,
+            releasesInventory: true,
+            refundId: true,
+          },
+        },
+        refunds: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            reason: true,
+            amount: true,
+            currency: true,
+            provider: true,
+            providerRefundRef: true,
+            idempotencyKey: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+        documents: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            bookingId: true,
+            uploadedByUserId: true,
+            type: true,
+            originalName: true,
+            mimeType: true,
+            notes: true,
+            createdAt: true,
+            updatedAt: true,
+            uploadedByUser: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+              },
+            },
+          },
+        },
+        opsTasks: {
+          orderBy: [{ scheduledFor: 'asc' }, { createdAt: 'asc' }],
+          select: {
+            id: true,
+            type: true,
+            status: true,
+            scheduledFor: true,
+            createdAt: true,
+            cancelledAt: true,
+          },
+        },
+      },
+    });
+
+    if (!booking) throw new NotFoundException('Booking not found.');
+
+    const timeline: Array<{
+      key: string;
+      label: string;
+      at: string;
+      tone: 'neutral' | 'success' | 'warning' | 'danger';
+    }> = [
+      {
+        key: 'BOOKING_CREATED',
+        label: 'Booking created',
+        at: booking.createdAt.toISOString(),
+        tone: 'neutral',
+      },
+    ];
+
+    if (booking.expiresAt) {
+      timeline.push({
+        key: 'PAYMENT_DEADLINE',
+        label: 'Payment deadline',
+        at: booking.expiresAt.toISOString(),
+        tone: 'warning',
+      });
+    }
+
+    if (booking.status === BookingStatus.CONFIRMED) {
+      timeline.push({
+        key: 'BOOKING_CONFIRMED',
+        label: 'Booking confirmed',
+        at: booking.updatedAt.toISOString(),
+        tone: 'success',
+      });
+    }
+
+    if (booking.status === BookingStatus.COMPLETED) {
+      timeline.push({
+        key: 'BOOKING_COMPLETED',
+        label: 'Booking completed',
+        at: booking.updatedAt.toISOString(),
+        tone: 'success',
+      });
+    }
+
+    if (booking.status === BookingStatus.CANCELLED) {
+      timeline.push({
+        key: 'BOOKING_CANCELLED',
+        label: 'Booking cancelled',
+        at:
+          booking.cancelledAt?.toISOString() ?? booking.updatedAt.toISOString(),
+        tone: 'danger',
+      });
+    }
+
+    if (booking.cancellation) {
+      timeline.push({
+        key: `CANCELLATION_${booking.cancellation.reason}`,
+        label: `Cancellation reason: ${this.labelFromEnum(booking.cancellation.reason)}`,
+        at: booking.cancellation.cancelledAt.toISOString(),
+        tone: 'danger',
+      });
+    }
+
+    for (const event of booking.payment?.events ?? []) {
+      timeline.push({
+        key: `PAYMENT_${event.id}`,
+        label: `Payment ${this.labelFromEnum(event.type)}`,
+        at: event.createdAt.toISOString(),
+        tone:
+          event.type === 'CAPTURE'
+            ? 'success'
+            : event.type === 'REFUND'
+              ? 'danger'
+              : 'neutral',
+      });
+    }
+
+    for (const refund of booking.refunds) {
+      timeline.push({
+        key: `REFUND_${refund.id}`,
+        label: `Refund ${this.labelFromEnum(refund.status)}`,
+        at: refund.createdAt.toISOString(),
+        tone:
+          refund.status === RefundStatus.SUCCEEDED
+            ? 'success'
+            : refund.status === RefundStatus.FAILED ||
+                refund.status === RefundStatus.CANCELLED
+              ? 'danger'
+              : 'warning',
+      });
+    }
+
+    timeline.sort(
+      (a, b) => new Date(a.at).getTime() - new Date(b.at).getTime(),
+    );
+
+    const canForceCancel =
+      booking.status === BookingStatus.PENDING_PAYMENT ||
+      booking.status === BookingStatus.CONFIRMED;
+
+    return {
+      id: booking.id,
+      status: booking.status,
+      checkIn: booking.checkIn.toISOString(),
+      checkOut: booking.checkOut.toISOString(),
+      adults: booking.adults,
+      children: booking.children,
+      totalAmount: booking.totalAmount,
+      currency: booking.currency,
+      createdAt: booking.createdAt.toISOString(),
+      updatedAt: booking.updatedAt.toISOString(),
+      expiresAt: booking.expiresAt?.toISOString() ?? null,
+      cancelledAt: booking.cancelledAt?.toISOString() ?? null,
+      cancelledBy: booking.cancelledBy,
+      cancellationReason: booking.cancellationReason,
+      canForceCancel,
+      timeline,
+      customer: booking.customer,
+      property: {
+        ...booking.property,
+        coverUrl: booking.property.media[0]?.url ?? null,
+      },
+      payment: booking.payment
+        ? {
+            ...booking.payment,
+            createdAt: booking.payment.createdAt.toISOString(),
+            updatedAt: booking.payment.updatedAt.toISOString(),
+            events: booking.payment.events.map((event) => ({
+              ...event,
+              label: this.labelFromEnum(event.type),
+              createdAt: event.createdAt.toISOString(),
+            })),
+          }
+        : null,
+      cancellation: booking.cancellation
+        ? {
+            ...booking.cancellation,
+            cancelledAt: booking.cancellation.cancelledAt.toISOString(),
+          }
+        : null,
+      refunds: booking.refunds.map((refund) => ({
+        ...refund,
+        createdAt: refund.createdAt.toISOString(),
+        updatedAt: refund.updatedAt.toISOString(),
+      })),
+      documents: {
+        count: booking.documents.length,
+        items: booking.documents.map((doc) => ({
+          ...doc,
+          createdAt: doc.createdAt.toISOString(),
+          updatedAt: doc.updatedAt.toISOString(),
+          downloadUrl: `/api/portal/admin/bookings/${booking.id}/documents/${doc.id}/download`,
+        })),
+      },
+      opsTasks: booking.opsTasks.map((task) => ({
+        ...task,
+        scheduledFor: task.scheduledFor.toISOString(),
+        createdAt: task.createdAt.toISOString(),
+        cancelledAt: task.cancelledAt?.toISOString() ?? null,
       })),
     };
   }
@@ -648,6 +1444,313 @@ export class AdminPortalService {
     };
   }
 
+  async listCustomerDocuments(params: {
+    userId: string;
+    role: UserRole;
+    status?: CustomerDocumentStatus;
+    type?: string;
+    customerId?: string;
+    page: number;
+    pageSize: number;
+  }) {
+    this.assertAdmin(params.role);
+
+    const normalizedType = params.type?.trim()
+      ? (params.type.trim() as CustomerDocumentType)
+      : undefined;
+    if (
+      normalizedType &&
+      !Object.values(CustomerDocumentType).includes(normalizedType)
+    ) {
+      throw new BadRequestException('Invalid customer document type filter.');
+    }
+
+    const where = {
+      ...(params.status ? { status: params.status } : {}),
+      ...(normalizedType ? { type: normalizedType } : {}),
+      ...(params.customerId ? { userId: params.customerId } : {}),
+    };
+
+    const [total, rows] = await this.prisma.$transaction([
+      this.prisma.customerDocument.count({ where }),
+      this.prisma.customerDocument.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }],
+        skip: (params.page - 1) * params.pageSize,
+        take: params.pageSize,
+        select: {
+          id: true,
+          userId: true,
+          type: true,
+          status: true,
+          fileKey: true,
+          originalName: true,
+          mimeType: true,
+          notes: true,
+          reviewNotes: true,
+          reviewedAt: true,
+          verifiedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          user: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+              createdAt: true,
+            },
+          },
+          reviewedByAdmin: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const userIds = Array.from(new Set(rows.map((row) => row.userId)));
+    const requiredTypes: CustomerDocumentType[] = [
+      CustomerDocumentType.PASSPORT,
+      CustomerDocumentType.EMIRATES_ID,
+    ];
+    const now = new Date();
+
+    const [verifiedRequiredRows, upcomingBookings] = userIds.length
+      ? await Promise.all([
+          this.prisma.customerDocument.findMany({
+            where: {
+              userId: { in: userIds },
+              type: { in: requiredTypes },
+              status: CustomerDocumentStatus.VERIFIED,
+            },
+            select: {
+              userId: true,
+              type: true,
+            },
+          }),
+          this.prisma.booking.findMany({
+            where: {
+              customerId: { in: userIds },
+              status: BookingStatus.CONFIRMED,
+              checkOut: { gt: now },
+            },
+            orderBy: { checkIn: 'asc' },
+            select: {
+              id: true,
+              customerId: true,
+              checkIn: true,
+              checkOut: true,
+              property: {
+                select: {
+                  id: true,
+                  title: true,
+                  slug: true,
+                },
+              },
+            },
+          }),
+        ])
+      : [[], []];
+
+    const verifiedByUser = new Map<string, Set<CustomerDocumentType>>();
+    for (const row of verifiedRequiredRows) {
+      const set =
+        verifiedByUser.get(row.userId) ?? new Set<CustomerDocumentType>();
+      set.add(row.type);
+      verifiedByUser.set(row.userId, set);
+    }
+
+    const nextBookingByUser = new Map<
+      string,
+      {
+        id: string;
+        checkIn: Date;
+        checkOut: Date;
+        property: {
+          id: string;
+          title: string;
+          slug: string;
+        };
+      }
+    >();
+    for (const booking of upcomingBookings) {
+      if (!nextBookingByUser.has(booking.customerId)) {
+        nextBookingByUser.set(booking.customerId, booking);
+      }
+    }
+
+    return {
+      page: params.page,
+      pageSize: params.pageSize,
+      total,
+      items: rows.map((row) => {
+        const verifiedTypes = verifiedByUser.get(row.userId) ?? new Set();
+        const missingTypes = requiredTypes.filter(
+          (type) => !verifiedTypes.has(type),
+        );
+        const nextBooking = nextBookingByUser.get(row.userId) ?? null;
+        const requiresUpload = Boolean(nextBooking) && missingTypes.length > 0;
+        const hoursToCheckIn = nextBooking
+          ? (nextBooking.checkIn.getTime() - now.getTime()) / (60 * 60 * 1000)
+          : null;
+        const urgent =
+          requiresUpload && hoursToCheckIn !== null && hoursToCheckIn <= 48;
+
+        return {
+          ...row,
+          reviewedAt: row.reviewedAt?.toISOString() ?? null,
+          verifiedAt: row.verifiedAt?.toISOString() ?? null,
+          createdAt: row.createdAt.toISOString(),
+          updatedAt: row.updatedAt.toISOString(),
+          downloadUrl: `/api/portal/admin/customer-documents/${row.id}/download`,
+          requirement: {
+            requiredTypes,
+            missingTypes,
+            requiresUpload,
+            urgent,
+            nextBooking: nextBooking
+              ? {
+                  id: nextBooking.id,
+                  checkIn: nextBooking.checkIn.toISOString(),
+                  checkOut: nextBooking.checkOut.toISOString(),
+                  property: nextBooking.property,
+                }
+              : null,
+          },
+        };
+      }),
+    };
+  }
+
+  async getCustomerDocumentDownload(params: {
+    userId: string;
+    role: UserRole;
+    documentId: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const doc = await this.prisma.customerDocument.findUnique({
+      where: { id: params.documentId },
+      select: {
+        id: true,
+        fileKey: true,
+        originalName: true,
+        mimeType: true,
+      },
+    });
+
+    if (!doc) throw new NotFoundException('Customer document not found.');
+
+    const absolutePath = join(CUSTOMER_DOCUMENTS_DIR, doc.fileKey);
+    if (!existsSync(absolutePath)) {
+      throw new NotFoundException('Document file not found on disk.');
+    }
+
+    return {
+      absolutePath,
+      mimeType: doc.mimeType ?? 'application/octet-stream',
+      downloadName: doc.originalName ?? doc.fileKey,
+    };
+  }
+
+  async approveCustomerDocument(params: {
+    userId: string;
+    role: UserRole;
+    documentId: string;
+    notes?: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const existing = await this.prisma.customerDocument.findUnique({
+      where: { id: params.documentId },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException('Customer document not found.');
+
+    const now = new Date();
+    const updated = await this.prisma.customerDocument.update({
+      where: { id: params.documentId },
+      data: {
+        status: CustomerDocumentStatus.VERIFIED,
+        reviewedByAdminId: params.userId,
+        reviewedAt: now,
+        reviewNotes: params.notes?.trim() || null,
+        verifiedAt: now,
+      },
+      select: {
+        id: true,
+        userId: true,
+        type: true,
+        status: true,
+        notes: true,
+        reviewNotes: true,
+        reviewedAt: true,
+        verifiedAt: true,
+        updatedAt: true,
+        reviewedByAdmin: {
+          select: { id: true, email: true, fullName: true },
+        },
+      },
+    });
+
+    return {
+      ...updated,
+      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+      verifiedAt: updated.verifiedAt?.toISOString() ?? null,
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  }
+
+  async rejectCustomerDocument(params: {
+    userId: string;
+    role: UserRole;
+    documentId: string;
+    notes?: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const existing = await this.prisma.customerDocument.findUnique({
+      where: { id: params.documentId },
+      select: { id: true },
+    });
+    if (!existing) throw new NotFoundException('Customer document not found.');
+
+    const updated = await this.prisma.customerDocument.update({
+      where: { id: params.documentId },
+      data: {
+        status: CustomerDocumentStatus.REJECTED,
+        reviewedByAdminId: params.userId,
+        reviewedAt: new Date(),
+        reviewNotes: params.notes?.trim() || null,
+        verifiedAt: null,
+      },
+      select: {
+        id: true,
+        userId: true,
+        type: true,
+        status: true,
+        notes: true,
+        reviewNotes: true,
+        reviewedAt: true,
+        verifiedAt: true,
+        updatedAt: true,
+        reviewedByAdmin: {
+          select: { id: true, email: true, fullName: true },
+        },
+      },
+    });
+
+    return {
+      ...updated,
+      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+      verifiedAt: updated.verifiedAt?.toISOString() ?? null,
+      updatedAt: updated.updatedAt.toISOString(),
+    };
+  }
+
   async listPayments(params: {
     userId: string;
     role: UserRole;
@@ -700,6 +1803,103 @@ export class AdminPortalService {
         currency: p.currency,
         bookingId: p.bookingId,
         createdAt: p.createdAt.toISOString(),
+      })),
+    };
+  }
+
+  async getPaymentDetail(params: {
+    userId: string;
+    role: UserRole;
+    paymentId: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const payment = await this.prisma.payment.findUnique({
+      where: { id: params.paymentId },
+      select: {
+        id: true,
+        bookingId: true,
+        provider: true,
+        status: true,
+        amount: true,
+        currency: true,
+        providerRef: true,
+        createdAt: true,
+        updatedAt: true,
+        booking: {
+          select: {
+            id: true,
+            status: true,
+            checkIn: true,
+            checkOut: true,
+            totalAmount: true,
+            currency: true,
+            property: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+              },
+            },
+            customer: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+              },
+            },
+          },
+        },
+        events: {
+          orderBy: { createdAt: 'asc' },
+          select: {
+            id: true,
+            type: true,
+            providerRef: true,
+            idempotencyKey: true,
+            payloadJson: true,
+            createdAt: true,
+          },
+        },
+        refunds: {
+          orderBy: { createdAt: 'desc' },
+          select: {
+            id: true,
+            status: true,
+            reason: true,
+            amount: true,
+            currency: true,
+            provider: true,
+            providerRefundRef: true,
+            createdAt: true,
+            updatedAt: true,
+          },
+        },
+      },
+    });
+
+    if (!payment) {
+      throw new NotFoundException('Payment not found.');
+    }
+
+    return {
+      ...payment,
+      createdAt: payment.createdAt.toISOString(),
+      updatedAt: payment.updatedAt.toISOString(),
+      booking: {
+        ...payment.booking,
+        checkIn: payment.booking.checkIn.toISOString(),
+        checkOut: payment.booking.checkOut.toISOString(),
+      },
+      events: payment.events.map((event) => ({
+        ...event,
+        label: this.labelFromEnum(event.type),
+        createdAt: event.createdAt.toISOString(),
+      })),
+      refunds: payment.refunds.map((refund) => ({
+        ...refund,
+        createdAt: refund.createdAt.toISOString(),
+        updatedAt: refund.updatedAt.toISOString(),
       })),
     };
   }
@@ -757,6 +1957,401 @@ export class AdminPortalService {
         bookingId: r.bookingId,
         createdAt: r.createdAt.toISOString(),
       })),
+    };
+  }
+
+  async getRefundDetail(params: {
+    userId: string;
+    role: UserRole;
+    refundId: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const refund = await this.prisma.refund.findUnique({
+      where: { id: params.refundId },
+      select: {
+        id: true,
+        bookingId: true,
+        paymentId: true,
+        status: true,
+        reason: true,
+        amount: true,
+        currency: true,
+        provider: true,
+        providerRefundRef: true,
+        idempotencyKey: true,
+        createdAt: true,
+        updatedAt: true,
+        booking: {
+          select: {
+            id: true,
+            status: true,
+            checkIn: true,
+            checkOut: true,
+            totalAmount: true,
+            currency: true,
+            property: {
+              select: {
+                id: true,
+                title: true,
+                slug: true,
+              },
+            },
+            customer: {
+              select: {
+                id: true,
+                email: true,
+                fullName: true,
+              },
+            },
+          },
+        },
+        payment: {
+          select: {
+            id: true,
+            provider: true,
+            status: true,
+            amount: true,
+            currency: true,
+            providerRef: true,
+          },
+        },
+        bookingCancellation: {
+          select: {
+            id: true,
+            actor: true,
+            reason: true,
+            mode: true,
+            notes: true,
+            cancelledAt: true,
+            totalAmount: true,
+            penaltyAmount: true,
+            refundableAmount: true,
+            currency: true,
+          },
+        },
+      },
+    });
+
+    if (!refund) {
+      throw new NotFoundException('Refund not found.');
+    }
+
+    return {
+      ...refund,
+      createdAt: refund.createdAt.toISOString(),
+      updatedAt: refund.updatedAt.toISOString(),
+      booking: {
+        ...refund.booking,
+        checkIn: refund.booking.checkIn.toISOString(),
+        checkOut: refund.booking.checkOut.toISOString(),
+      },
+      bookingCancellation: refund.bookingCancellation
+        ? {
+            ...refund.bookingCancellation,
+            cancelledAt: refund.bookingCancellation.cancelledAt.toISOString(),
+          }
+        : null,
+    };
+  }
+
+  async listBlockRequests(params: {
+    userId: string;
+    role: UserRole;
+    status?: BlockRequestStatus;
+    propertyId?: string;
+    vendorId?: string;
+    page: number;
+    pageSize: number;
+  }) {
+    this.assertAdmin(params.role);
+
+    const where = {
+      ...(params.status ? { status: params.status } : {}),
+      ...(params.propertyId ? { propertyId: params.propertyId } : {}),
+      ...(params.vendorId ? { vendorId: params.vendorId } : {}),
+    };
+
+    const [total, rows] = await Promise.all([
+      this.prisma.blockRequest.count({ where }),
+      this.prisma.blockRequest.findMany({
+        where,
+        orderBy: [{ createdAt: 'desc' }],
+        skip: (params.page - 1) * params.pageSize,
+        take: params.pageSize,
+        select: {
+          id: true,
+          propertyId: true,
+          vendorId: true,
+          startDate: true,
+          endDate: true,
+          reason: true,
+          status: true,
+          reviewNotes: true,
+          reviewedAt: true,
+          createdAt: true,
+          updatedAt: true,
+          property: {
+            select: {
+              id: true,
+              title: true,
+              city: true,
+              area: true,
+            },
+          },
+          vendor: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+            },
+          },
+          reviewedByAdmin: {
+            select: {
+              id: true,
+              email: true,
+              fullName: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    return {
+      page: params.page,
+      pageSize: params.pageSize,
+      total,
+      items: rows.map((row) => ({
+        id: row.id,
+        propertyId: row.propertyId,
+        vendorId: row.vendorId,
+        property: row.property,
+        vendor: row.vendor,
+        startDate: this.toIsoDay(row.startDate),
+        endDate: this.toIsoDay(row.endDate),
+        reason: row.reason,
+        status: row.status,
+        reviewNotes: row.reviewNotes,
+        reviewedAt: row.reviewedAt?.toISOString() ?? null,
+        reviewedByAdmin: row.reviewedByAdmin,
+        createdAt: row.createdAt.toISOString(),
+        updatedAt: row.updatedAt.toISOString(),
+      })),
+    };
+  }
+
+  async approveBlockRequest(params: {
+    userId: string;
+    role: UserRole;
+    blockRequestId: string;
+    notes?: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const request = await this.prisma.blockRequest.findUnique({
+      where: { id: params.blockRequestId },
+      select: {
+        id: true,
+        propertyId: true,
+        vendorId: true,
+        startDate: true,
+        endDate: true,
+        reason: true,
+        status: true,
+        property: {
+          select: {
+            id: true,
+            title: true,
+          },
+        },
+      },
+    });
+
+    if (!request) throw new NotFoundException('Block request not found.');
+    if (request.status !== BlockRequestStatus.PENDING) {
+      throw new BadRequestException(
+        `Block request is already ${request.status.toLowerCase()}.`,
+      );
+    }
+
+    const overlappingBooking = await this.prisma.booking.findFirst({
+      where: {
+        propertyId: request.propertyId,
+        status: {
+          in: [BookingStatus.PENDING_PAYMENT, BookingStatus.CONFIRMED],
+        },
+        checkIn: { lt: request.endDate },
+        checkOut: { gt: request.startDate },
+      },
+      select: { id: true },
+    });
+    if (overlappingBooking) {
+      throw new BadRequestException(
+        'Cannot approve block request because it overlaps booked dates.',
+      );
+    }
+
+    const days: Date[] = [];
+    for (
+      let t = request.startDate.getTime();
+      t < request.endDate.getTime();
+      t += 24 * 60 * 60 * 1000
+    ) {
+      days.push(new Date(t));
+    }
+
+    const updated = await this.prisma.$transaction(async (tx) => {
+      for (const day of days) {
+        await tx.propertyCalendarDay.upsert({
+          where: {
+            propertyId_date: { propertyId: request.propertyId, date: day },
+          },
+          update: {
+            status: CalendarDayStatus.BLOCKED,
+            note: request.reason ?? 'Blocked by approved vendor request',
+          },
+          create: {
+            propertyId: request.propertyId,
+            date: day,
+            status: CalendarDayStatus.BLOCKED,
+            note: request.reason ?? 'Blocked by approved vendor request',
+          },
+        });
+      }
+
+      return tx.blockRequest.update({
+        where: { id: request.id },
+        data: {
+          status: BlockRequestStatus.APPROVED,
+          reviewedByAdminId: params.userId,
+          reviewedAt: new Date(),
+          reviewNotes: params.notes?.trim() || null,
+        },
+        select: {
+          id: true,
+          propertyId: true,
+          vendorId: true,
+          startDate: true,
+          endDate: true,
+          reason: true,
+          status: true,
+          reviewNotes: true,
+          reviewedAt: true,
+          createdAt: true,
+          updatedAt: true,
+        },
+      });
+    });
+
+    await this.notifications
+      .emit({
+        type: NotificationType.MAINTENANCE_REQUEST_CREATED,
+        entityType: 'BLOCK_REQUEST',
+        entityId: updated.id,
+        recipientUserId: updated.vendorId,
+        payload: {
+          title: 'Block request approved',
+          blockRequest: {
+            id: updated.id,
+            propertyId: updated.propertyId,
+            propertyTitle: request.property.title,
+            startDate: this.toIsoDay(updated.startDate),
+            endDate: this.toIsoDay(updated.endDate),
+            status: updated.status,
+            reviewNotes: updated.reviewNotes,
+          },
+        },
+      })
+      .catch(() => null);
+
+    return {
+      ...updated,
+      startDate: this.toIsoDay(updated.startDate),
+      endDate: this.toIsoDay(updated.endDate),
+      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
+      blockedDays: days.length,
+    };
+  }
+
+  async rejectBlockRequest(params: {
+    userId: string;
+    role: UserRole;
+    blockRequestId: string;
+    notes?: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const request = await this.prisma.blockRequest.findUnique({
+      where: { id: params.blockRequestId },
+      select: {
+        id: true,
+        vendorId: true,
+        propertyId: true,
+        startDate: true,
+        endDate: true,
+        status: true,
+      },
+    });
+
+    if (!request) throw new NotFoundException('Block request not found.');
+    if (request.status !== BlockRequestStatus.PENDING) {
+      throw new BadRequestException(
+        `Block request is already ${request.status.toLowerCase()}.`,
+      );
+    }
+
+    const updated = await this.prisma.blockRequest.update({
+      where: { id: request.id },
+      data: {
+        status: BlockRequestStatus.REJECTED,
+        reviewedByAdminId: params.userId,
+        reviewedAt: new Date(),
+        reviewNotes: params.notes?.trim() || null,
+      },
+      select: {
+        id: true,
+        propertyId: true,
+        vendorId: true,
+        startDate: true,
+        endDate: true,
+        reason: true,
+        status: true,
+        reviewNotes: true,
+        reviewedAt: true,
+        createdAt: true,
+        updatedAt: true,
+      },
+    });
+
+    await this.notifications
+      .emit({
+        type: NotificationType.MAINTENANCE_REQUEST_CREATED,
+        entityType: 'BLOCK_REQUEST',
+        entityId: updated.id,
+        recipientUserId: updated.vendorId,
+        payload: {
+          title: 'Block request rejected',
+          blockRequest: {
+            id: updated.id,
+            propertyId: updated.propertyId,
+            startDate: this.toIsoDay(updated.startDate),
+            endDate: this.toIsoDay(updated.endDate),
+            status: updated.status,
+            reviewNotes: updated.reviewNotes,
+          },
+        },
+      })
+      .catch(() => null);
+
+    return {
+      ...updated,
+      startDate: this.toIsoDay(updated.startDate),
+      endDate: this.toIsoDay(updated.endDate),
+      reviewedAt: updated.reviewedAt?.toISOString() ?? null,
+      createdAt: updated.createdAt.toISOString(),
+      updatedAt: updated.updatedAt.toISOString(),
     };
   }
 

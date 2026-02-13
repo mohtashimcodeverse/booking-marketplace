@@ -2,26 +2,28 @@
 
 import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+
 import { PortalShell } from "@/components/portal/PortalShell";
-import { CardList, type CardListItem } from "@/components/portal/ui/CardList";
-import { Modal } from "@/components/portal/ui/Modal";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
 import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
+
 import { getVendorProperties, type VendorPropertyListItem } from "@/lib/api/portal/vendor";
 
 type ViewState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; items: VendorPropertyListItem[]; page: number; pageSize: number; total: number };
+  | {
+      kind: "ready";
+      items: VendorPropertyListItem[];
+      page: number;
+      pageSize: number;
+      total: number;
+    };
 
 function formatDate(value: string): string {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleString();
-}
-
-function normalize(value: string | null | undefined): string {
-  return (value ?? "").trim().toLowerCase();
+  return date.toLocaleDateString();
 }
 
 export default function VendorPropertiesPage() {
@@ -29,7 +31,6 @@ export default function VendorPropertiesPage() {
   const [query, setQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [page, setPage] = useState(1);
-  const [selected, setSelected] = useState<VendorPropertyListItem | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -41,7 +42,7 @@ export default function VendorPropertiesPage() {
         if (!alive) return;
         setState({
           kind: "ready",
-          items: response.items ?? [],
+          items: response.items,
           page: response.page,
           pageSize: response.pageSize,
           total: response.total,
@@ -71,37 +72,15 @@ export default function VendorPropertiesPage() {
       .filter((item) => (statusFilter === "ALL" ? true : item.status === statusFilter))
       .filter((item) => {
         if (!q) return true;
-        return [normalize(item.title), normalize(item.slug), normalize(item.city), normalize(item.area)].join(" | ").includes(q);
+        return [item.title, item.slug, item.city, item.area ?? ""].join(" | ").toLowerCase().includes(q);
       });
 
     const totalPages = Math.max(1, Math.ceil(state.total / state.pageSize));
     return { filtered, statuses, totalPages };
-  }, [query, state, statusFilter]);
-
-  const listItems = useMemo<CardListItem[]>(() => {
-    if (!derived) return [];
-
-    return derived.filtered.map((property) => ({
-      id: property.id,
-      title: property.title || "Untitled property",
-      subtitle: `${property.city ?? "-"}${property.area ? ` - ${property.area}` : ""}`,
-      status: <StatusPill status={property.status}>{property.status}</StatusPill>,
-      meta: (
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="rounded-full bg-warm-alt px-3 py-1 font-semibold text-secondary">
-            Slug: {property.slug || "-"}
-          </span>
-          <span className="rounded-full bg-warm-alt px-3 py-1 font-semibold text-secondary">
-            Updated: {formatDate(property.updatedAt ?? property.createdAt)}
-          </span>
-        </div>
-      ),
-      onClick: () => setSelected(property),
-    }));
-  }, [derived]);
+  }, [state, query, statusFilter]);
 
   return (
-    <PortalShell role="vendor" title="Properties" subtitle="Draft, review, and publish your listings">
+    <PortalShell role="vendor" title="Properties" subtitle="Open each listing in its dedicated property hub page">
       {state.kind === "loading" ? (
         <div className="space-y-3">
           <SkeletonBlock className="h-24" />
@@ -130,9 +109,7 @@ export default function VendorPropertiesPage() {
               >
                 <option value="ALL">All statuses</option>
                 {(derived?.statuses ?? []).map((status) => (
-                  <option key={status} value={status}>
-                    {status}
-                  </option>
+                  <option key={status} value={status}>{status}</option>
                 ))}
               </select>
 
@@ -145,19 +122,42 @@ export default function VendorPropertiesPage() {
             </div>
           </div>
 
-          <CardList
-            title="My properties"
-            subtitle="Click any listing for centered details and edit actions"
-            items={listItems}
-            emptyTitle="No properties yet"
-            emptyDescription="Create your first listing to start the review and publishing workflow."
-          />
+          {derived?.filtered.length === 0 ? (
+            <div className="rounded-3xl border border-line/60 bg-surface p-6 text-sm text-secondary">
+              No properties match your filters.
+            </div>
+          ) : (
+            <div className="grid gap-3">
+              {derived?.filtered.map((property) => (
+                <Link
+                  key={property.id}
+                  href={`/vendor/properties/${encodeURIComponent(property.id)}`}
+                  className="rounded-3xl border border-line/60 bg-surface p-5 shadow-sm transition hover:bg-warm-alt/60"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-primary">{property.title}</div>
+                      <div className="mt-1 text-xs text-secondary">
+                        {[property.area, property.city].filter(Boolean).join(", ")} · {property.slug}
+                      </div>
+                      <div className="mt-1 text-xs text-muted">Updated: {formatDate(property.updatedAt || property.createdAt)}</div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className="rounded-full bg-warm-alt px-3 py-1 text-xs font-semibold text-secondary">
+                        AED {property.priceFrom}
+                      </span>
+                      <StatusPill status={property.status}>{property.status}</StatusPill>
+                    </div>
+                  </div>
+                </Link>
+              ))}
+            </div>
+          )}
 
           <div className="flex items-center justify-between">
             <div className="text-sm text-secondary">
               Page {state.page} of {derived?.totalPages ?? 1}
             </div>
-
             <div className="flex items-center gap-2">
               <button
                 type="button"
@@ -167,7 +167,6 @@ export default function VendorPropertiesPage() {
               >
                 Prev
               </button>
-
               <button
                 type="button"
                 disabled={state.page >= (derived?.totalPages ?? 1)}
@@ -178,61 +177,8 @@ export default function VendorPropertiesPage() {
               </button>
             </div>
           </div>
-
-          <Modal
-            open={selected !== null}
-            onClose={() => setSelected(null)}
-            title={selected?.title ?? "Property detail"}
-            subtitle={selected ? `Listing ${selected.slug}` : undefined}
-            size="lg"
-          >
-            {selected ? (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusPill status={selected.status}>{selected.status}</StatusPill>
-                  <span className="rounded-full bg-warm-alt px-3 py-1 text-xs font-semibold text-secondary">
-                    Updated: {formatDate(selected.updatedAt ?? selected.createdAt)}
-                  </span>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Info label="City" value={selected.city || "-"} />
-                  <Info label="Area" value={selected.area || "-"} />
-                  <Info label="Slug" value={selected.slug || "-"} mono />
-                  <Info label="Listing id" value={selected.id} mono />
-                </div>
-
-                <div className="flex flex-wrap items-center gap-2">
-                  <Link
-                    href={`/vendor/properties/${encodeURIComponent(selected.id)}/edit`}
-                    className="inline-flex rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:bg-brand-hover"
-                  >
-                    Open editor
-                  </Link>
-
-                  <Link
-                    href="/vendor/calendar"
-                    className="inline-flex rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
-                  >
-                    Open calendar
-                  </Link>
-                </div>
-              </div>
-            ) : null}
-          </Modal>
         </div>
       )}
     </PortalShell>
-  );
-}
-
-function Info(props: { label: string; value: string; mono?: boolean }) {
-  return (
-    <div className="rounded-2xl border border-line/80 bg-warm-base p-4">
-      <div className="text-xs font-semibold text-muted">{props.label}</div>
-      <div className={`mt-1 text-sm font-semibold text-primary ${props.mono ? "font-mono" : ""}`}>
-        {props.value}
-      </div>
-    </div>
   );
 }

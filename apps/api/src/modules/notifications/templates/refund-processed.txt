@@ -1,0 +1,11 @@
+{{brand.name}}
+
+Refund processed
+
+Refund ID: {{refund.id}}
+Booking ID: {{refund.bookingId}}
+Amount: {{refund.amount}} {{refund.currency}}
+Provider reference: {{refund.providerRefundRef}}
+
+If the amount is not visible yet, allow standard bank/card settlement time.
+Support: {{brand.supportEmail}}

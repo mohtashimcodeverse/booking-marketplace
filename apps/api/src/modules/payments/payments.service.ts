@@ -6,6 +6,8 @@ import {
 } from '@nestjs/common';
 import {
   BookingStatus,
+  CustomerDocumentStatus,
+  CustomerDocumentType,
   LedgerDirection,
   LedgerEntryType,
   OpsTaskStatus,
@@ -842,6 +844,53 @@ export class PaymentsService {
           },
         },
       });
+
+      const requiredDocumentTypes: CustomerDocumentType[] = [
+        CustomerDocumentType.PASSPORT,
+        CustomerDocumentType.EMIRATES_ID,
+      ];
+      const verifiedDocs = await this.prisma.customerDocument.findMany({
+        where: {
+          userId: booking.customerId,
+          type: { in: requiredDocumentTypes },
+          status: CustomerDocumentStatus.VERIFIED,
+        },
+        select: { type: true },
+      });
+      const verifiedTypes = new Set(verifiedDocs.map((doc) => doc.type));
+      const missingTypes = requiredDocumentTypes.filter(
+        (type) => !verifiedTypes.has(type),
+      );
+
+      if (missingTypes.length > 0) {
+        const hoursToCheckIn = Math.max(
+          0,
+          (booking.checkIn.getTime() - Date.now()) / (60 * 60 * 1000),
+        );
+
+        await this.notifications.emit({
+          type: NotificationType.DOCUMENT_UPLOAD_REQUEST,
+          entityType: 'BOOKING',
+          entityId: booking.id,
+          recipientUserId: booking.customerId,
+          payload: {
+            booking: {
+              id: booking.id,
+              propertyId: booking.propertyId,
+              checkIn: booking.checkIn,
+              checkOut: booking.checkOut,
+            },
+            documents: {
+              requiredTypes: requiredDocumentTypes,
+              missingTypes,
+              deadline: booking.checkIn,
+            },
+            urgent: hoursToCheckIn <= 48,
+            hoursToCheckIn: Math.round(hoursToCheckIn),
+            portalDocumentsUrl: '/portal/account/documents',
+          },
+        });
+      }
 
       if (vendorId) {
         await this.notifications.emit({

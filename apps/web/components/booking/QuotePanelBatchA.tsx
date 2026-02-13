@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { quoteProperty, reserveHold, type Quote } from "@/lib/booking/bookingFlow";
 import { useCurrency } from "@/lib/currency/CurrencyProvider";
+import DateRangePicker, { type DateRangeValue } from "@/components/booking/DateRangePicker";
 
 function isoToday(): string {
   const d = new Date();
@@ -42,6 +43,14 @@ export default function QuotePanelBatchA(props: {
   const canAct = useMemo(() => {
     return checkIn.trim().length === 10 && checkOut.trim().length === 10 && guests >= 1;
   }, [checkIn, checkOut, guests]);
+
+  const dateRangeValue = useMemo<DateRangeValue>(
+    () => ({
+      from: checkIn || null,
+      to: checkOut || null,
+    }),
+    [checkIn, checkOut],
+  );
 
   async function onGetQuote() {
     if (!canAct) return;
@@ -87,22 +96,14 @@ export default function QuotePanelBatchA(props: {
 
         <div className="mt-4 grid gap-3">
           <label className="grid gap-1">
-            <span className="text-xs font-semibold text-secondary">Check-in</span>
-            <input
-              type="date"
-              value={checkIn}
-              onChange={(e) => setCheckIn(e.target.value)}
-              className="premium-input h-10 rounded-xl px-3 text-sm text-primary"
-            />
-          </label>
-
-          <label className="grid gap-1">
-            <span className="text-xs font-semibold text-secondary">Check-out</span>
-            <input
-              type="date"
-              value={checkOut}
-              onChange={(e) => setCheckOut(e.target.value)}
-              className="premium-input h-10 rounded-xl px-3 text-sm text-primary"
+            <span className="text-xs font-semibold text-secondary">Dates</span>
+            <DateRangePicker
+              value={dateRangeValue}
+              onChange={(next) => {
+                setCheckIn(next.from ?? "");
+                setCheckOut(next.to ?? "");
+              }}
+              minDate={new Date()}
             />
           </label>
 
@@ -167,7 +168,7 @@ export default function QuotePanelBatchA(props: {
 
           <div className="text-xs text-secondary">
             Hold prevents double-booking. Booking becomes <span className="font-semibold">CONFIRMED</span> only after
-            verified payment webhooks (later).
+            verified payment events.
           </div>
         </div>
       </div>

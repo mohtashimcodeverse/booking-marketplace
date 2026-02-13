@@ -3,12 +3,55 @@ import {
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { GuestReviewStatus } from '@prisma/client';
+import { GuestReviewStatus, Prisma } from '@prisma/client';
 import { PrismaService } from '../../modules/prisma/prisma.service';
+
+type GuestReviewWithRelations = Prisma.GuestReviewGetPayload<{
+  include: {
+    property: {
+      select: { id: true; title: true; slug: true };
+    };
+    booking: {
+      select: { id: true; checkIn: true; checkOut: true };
+    };
+    customer: {
+      select: { id: true; email: true; fullName: true };
+    };
+    moderatedByAdmin: {
+      select: { id: true; email: true; fullName: true };
+    };
+  };
+}>;
 
 @Injectable()
 export class AdminReviewsService {
   constructor(private readonly prisma: PrismaService) {}
+
+  private serializeReview(review: GuestReviewWithRelations) {
+    return {
+      id: review.id,
+      rating: review.rating,
+      cleanlinessRating: review.cleanlinessRating,
+      locationRating: review.locationRating,
+      communicationRating: review.communicationRating,
+      valueRating: review.valueRating,
+      title: review.title,
+      comment: review.comment,
+      status: review.status,
+      adminNotes: review.moderationNotes,
+      moderationNotes: review.moderationNotes,
+      createdAt: review.createdAt.toISOString(),
+      reviewedAt: review.moderatedAt?.toISOString() ?? null,
+      property: review.property,
+      booking: {
+        ...review.booking,
+        checkIn: review.booking.checkIn.toISOString(),
+        checkOut: review.booking.checkOut.toISOString(),
+      },
+      customer: review.customer,
+      moderatedByAdmin: review.moderatedByAdmin,
+    };
+  }
 
   async list(params: {
     status?: GuestReviewStatus;
@@ -48,7 +91,7 @@ export class AdminReviewsService {
       page,
       pageSize,
       total,
-      items,
+      items: items.map((item) => this.serializeReview(item)),
     };
   }
 
@@ -79,7 +122,7 @@ export class AdminReviewsService {
       ? GuestReviewStatus.APPROVED
       : GuestReviewStatus.REJECTED;
 
-    return this.prisma.guestReview.update({
+    const updated = await this.prisma.guestReview.update({
       where: { id: params.reviewId },
       data: {
         status: nextStatus,
@@ -102,5 +145,7 @@ export class AdminReviewsService {
         },
       },
     });
+
+    return this.serializeReview(updated);
   }
 }

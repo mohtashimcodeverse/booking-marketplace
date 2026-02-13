@@ -14,5 +14,10 @@
   },
   "dependencies": {
     "@prisma/client": "6.19.2"
+  },
+  "pnpm": {
+    "overrides": {
+      "@isaacs/brace-expansion": "5.0.1"
+    }
   }
 }

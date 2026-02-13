@@ -27,7 +27,6 @@ type SignupDraft = {
   lastName?: string;
   phone?: string;
   vendorContactName?: string;
-  vendorBusinessName?: string;
   email: string;
 };
 
@@ -73,7 +72,6 @@ function SignupPageContent() {
 
   // vendor
   const [vendorContactName, setVendorContactName] = useState("");
-  const [vendorBusinessName, setVendorBusinessName] = useState("");
 
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -104,7 +102,6 @@ function SignupPageContent() {
       if (!phone.trim()) return "Phone number is required.";
     } else {
       if (!vendorContactName.trim()) return "Contact name is required.";
-      if (!vendorBusinessName.trim()) return "Business name is required.";
       if (!phone.trim()) return "Phone number is required.";
     }
     return null;
@@ -123,7 +120,6 @@ function SignupPageContent() {
         : {
             role,
             vendorContactName: vendorContactName.trim(),
-            vendorBusinessName: vendorBusinessName.trim(),
             phone: phone.trim(),
             email: email.trim(),
           };
@@ -148,7 +144,16 @@ function SignupPageContent() {
     setLoading(true);
     try {
       persistDraft();
-      await signup({ email: email.trim(), password });
+      const fullName =
+        role === "customer"
+          ? `${firstName.trim()} ${lastName.trim()}`.trim()
+          : vendorContactName.trim();
+      await signup({
+        email: email.trim(),
+        password,
+        fullName: fullName || undefined,
+        role: role === "vendor" ? "VENDOR" : "CUSTOMER",
+      });
       const qs = new URLSearchParams({ role, next: nextPath });
       router.push(`/login?${qs.toString()}`);
     } catch (err) {
@@ -205,12 +210,9 @@ function SignupPageContent() {
             </Field>
           </motion.div>
         ) : (
-          <motion.div variants={rowVariant} className="grid gap-3 sm:grid-cols-2">
+          <motion.div variants={rowVariant}>
             <Field label="Contact name">
               <Input value={vendorContactName} onChange={setVendorContactName} placeholder="Your name" autoComplete="name" />
-            </Field>
-            <Field label="Business name">
-              <Input value={vendorBusinessName} onChange={setVendorBusinessName} placeholder="Company / Brand" autoComplete="organization" />
             </Field>
           </motion.div>
         )}

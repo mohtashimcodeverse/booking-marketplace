@@ -37,6 +37,7 @@ export class AdminMessagesController {
       page: query.page ?? 1,
       pageSize: query.pageSize ?? 20,
       unreadOnly: query.unreadOnly,
+      topic: query.topic,
     });
   }
 
@@ -50,6 +51,7 @@ export class AdminMessagesController {
       counterpartyUserId: dto.counterpartyUserId,
       counterpartyRole: dto.counterpartyRole,
       subject: dto.subject,
+      topic: dto.topic,
       body: dto.body,
     });
   }
@@ -96,6 +98,7 @@ export class VendorMessagesController {
       page: query.page ?? 1,
       pageSize: query.pageSize ?? 20,
       unreadOnly: query.unreadOnly,
+      topic: query.topic,
     });
   }
 
@@ -108,6 +111,7 @@ export class VendorMessagesController {
       userId: user.id,
       role: UserRole.VENDOR,
       subject: dto.subject,
+      topic: dto.topic,
       body: dto.body,
     });
   }
@@ -154,6 +158,7 @@ export class UserMessagesController {
       page: query.page ?? 1,
       pageSize: query.pageSize ?? 20,
       unreadOnly: query.unreadOnly,
+      topic: query.topic,
     });
   }
 
@@ -166,6 +171,7 @@ export class UserMessagesController {
       userId: user.id,
       role: UserRole.CUSTOMER,
       subject: dto.subject,
+      topic: dto.topic,
       body: dto.body,
     });
   }

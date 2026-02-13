@@ -110,6 +110,39 @@ function googleMapsLink(lat: number, lng: number, label?: string | null) {
 
 export async function generateMetadata(props: PageProps): Promise<Metadata> {
   const { slug } = await props.params;
+  const res = await getPropertyBySlug(slug);
+  if (res.ok) {
+    const p = res.data;
+    const description =
+      p.subtitle ??
+      p.description ??
+      `Operator-managed stay in ${p.area ?? p.city ?? "Dubai"} with verified availability.`;
+    const coverImageUrl = (p as unknown as { coverImage?: { url?: string | null } }).coverImage?.url;
+    const image =
+      coverImageUrl ??
+      p.media.find((m) => m.url && m.url.trim().length > 0)?.url ??
+      "/brand/logo.svg";
+
+    return {
+      title: `${p.title} | Laugh & Lodge`,
+      description,
+      alternates: {
+        canonical: `/properties/${p.slug}`,
+      },
+      openGraph: {
+        title: `${p.title} | Laugh & Lodge`,
+        description,
+        url: `/properties/${p.slug}`,
+        images: [{ url: image }],
+      },
+      twitter: {
+        card: "summary_large_image",
+        title: `${p.title} | Laugh & Lodge`,
+        description,
+        images: [image],
+      },
+    };
+  }
   return {
     title: `${decodeURIComponent(slug)} | Laugh & Lodge`,
   };
@@ -133,6 +166,7 @@ export default async function PropertyDetailPage(props: PageProps) {
   }
 
   const p = res.data;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://rentpropertyuae.com";
 
   const apiAmenities = normalizeAmenities((p as unknown as { amenities?: unknown }).amenities);
   const fallbackAmenities: { key: string }[] = [
@@ -221,9 +255,52 @@ export default async function PropertyDetailPage(props: PageProps) {
   const hasCoords = p.lat !== null && p.lng !== null;
   const mapsHref = hasCoords ? googleMapsLink(p.lat as number, p.lng as number, p.title) : null;
   const metaLocation = [p.area ?? null, p.city ?? null].filter(Boolean).join(" • ");
+  const detailJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "LodgingBusiness",
+    name: p.title,
+    description:
+      p.subtitle ?? p.description ?? "Operator-managed vacation stay with verified availability.",
+    image: [
+      (p as unknown as { coverImage?: { url?: string | null } }).coverImage?.url,
+      ...p.media.map((m) => m.url).filter((url) => Boolean(url && url.trim())),
+    ].filter(Boolean),
+    url: `${siteUrl}/properties/${p.slug}`,
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: p.city ?? "Dubai",
+      addressRegion: p.area ?? undefined,
+      addressCountry: "AE",
+    },
+    geo:
+      p.lat !== null && p.lng !== null
+        ? {
+            "@type": "GeoCoordinates",
+            latitude: p.lat,
+            longitude: p.lng,
+          }
+        : undefined,
+    amenityFeature: amenities.map((amenity) => ({
+      "@type": "LocationFeatureSpecification",
+      name:
+        (amenity as unknown as { label?: string | null }).label?.trim() ||
+        amenity.key,
+      value: true,
+    })),
+    offers: {
+      "@type": "Offer",
+      priceCurrency: p.currency,
+      price: p.priceFrom,
+      url: `${siteUrl}/properties/${p.slug}`,
+      availability: "https://schema.org/InStock",
+    },
+  };
 
   return (
     <main className="min-h-screen bg-warm-base">
+      <script type="application/ld+json" suppressHydrationWarning>
+        {JSON.stringify(detailJsonLd)}
+      </script>
       <section className="hero-light-shell relative overflow-hidden border-b border-line">
         <div className="hero-light-overlay pointer-events-none absolute inset-0">
           <div className="absolute inset-0 opacity-24 [background-image:linear-gradient(rgba(11,15,25,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(11,15,25,0.05)_1px,transparent_1px)] [background-size:34px_34px]" />

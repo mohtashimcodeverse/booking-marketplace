@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { DayPicker, type DateRange } from "react-day-picker";
 import { format } from "date-fns";
 import "react-day-picker/dist/style.css";
@@ -19,6 +19,17 @@ export default function DateRangePicker(props: {
   onChange: (v: DateRangeValue) => void;
   minDate?: Date;
 }) {
+  const [months, setMonths] = useState(2);
+
+  useEffect(() => {
+    function syncMonths() {
+      setMonths(window.innerWidth < 768 ? 1 : 2);
+    }
+    syncMonths();
+    window.addEventListener("resize", syncMonths);
+    return () => window.removeEventListener("resize", syncMonths);
+  }, []);
+
   const selected: DateRange | undefined = useMemo(() => {
     const from = props.value.from ? new Date(props.value.from) : undefined;
     const to = props.value.to ? new Date(props.value.to) : undefined;
@@ -27,7 +38,7 @@ export default function DateRangePicker(props: {
   }, [props.value.from, props.value.to]);
 
   return (
-    <div className="rounded-2xl border border-line bg-surface p-3">
+    <div className="rounded-2xl border border-line bg-surface p-3 shadow-sm">
       <DayPicker
         mode="range"
         selected={selected}
@@ -41,7 +52,10 @@ export default function DateRangePicker(props: {
           if (!props.minDate) return false;
           return d < props.minDate;
         }}
-        numberOfMonths={1}
+        numberOfMonths={months}
+        pagedNavigation
+        showOutsideDays
+        className="text-primary"
       />
     </div>
   );

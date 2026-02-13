@@ -1,20 +1,14 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { CardList, type CardListItem } from "@/components/portal/ui/CardList";
-import { Modal } from "@/components/portal/ui/Modal";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
 import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
-import {
-  downloadAdminBookingDocument,
-  getAdminBookings,
-  listAdminBookingDocuments,
-  type AdminBookingDocument,
-} from "@/lib/api/portal/admin";
+import { getAdminBookings } from "@/lib/api/portal/admin";
 import { useCurrency } from "@/lib/currency/CurrencyProvider";
-
-type AdminBooking = Awaited<ReturnType<typeof getAdminBookings>>["items"][number];
 
 type ViewState =
   | { kind: "loading" }
@@ -34,16 +28,21 @@ function formatDate(value: unknown): string {
   if (!raw) return "-";
   const date = new Date(raw);
   if (Number.isNaN(date.getTime())) return raw;
-  return date.toLocaleString();
+  return date.toLocaleDateString(undefined, {
+    year: "numeric",
+    month: "short",
+    day: "2-digit",
+  });
 }
 
 export default function AdminBookingsPage() {
+  const router = useRouter();
   const { formatFromAed } = useCurrency();
+
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<AdminBooking | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -73,7 +72,7 @@ export default function AdminBookingsPage() {
     if (state.kind !== "ready") return null;
 
     const statuses = Array.from(
-      new Set(state.data.items.map((item) => readString((item as Record<string, unknown>).status)).filter(Boolean)),
+      new Set(state.data.items.map((item) => readString((item as Record<string, unknown>).status)).filter(Boolean))
     ).sort((a, b) => a.localeCompare(b));
 
     const q = query.trim().toLowerCase();
@@ -90,7 +89,6 @@ export default function AdminBookingsPage() {
       });
 
     const totalPages = Math.max(1, Math.ceil(state.data.total / state.data.pageSize));
-
     return { statuses, filtered, totalPages };
   }, [query, state, statusFilter]);
 
@@ -105,11 +103,12 @@ export default function AdminBookingsPage() {
       const status = readString(row.status) || "UNKNOWN";
       const customer = readString(row.customerEmail) || readString(row.customerName) || "Guest";
       const totalAmount = readNumber(row.totalAmount) ?? readNumber(row.amount);
+      const route = id ? `/admin/bookings/${id}` : "/admin/bookings";
 
       return {
         id: id || `row-${index}`,
         title: propertyTitle,
-        subtitle: `${formatDate(row.checkIn)} - ${formatDate(row.checkOut)}`,
+        subtitle: `Check-in ${formatDate(row.checkIn)} - Check-out ${formatDate(row.checkOut)}`,
         status: <StatusPill status={status}>{status}</StatusPill>,
         meta: (
           <div className="flex flex-wrap items-center gap-2 text-xs">
@@ -126,13 +125,24 @@ export default function AdminBookingsPage() {
             ) : null}
           </div>
         ),
-        onClick: () => setSelected(booking),
+        actions: (
+          <Link
+            href={route}
+            className="rounded-xl border border-line/80 bg-surface px-3 py-1.5 text-xs font-semibold text-primary hover:bg-warm-alt"
+          >
+            Open detail
+          </Link>
+        ),
+        onClick: () => {
+          if (!id) return;
+          router.push(route);
+        },
       };
     });
-  }, [derived, formatFromAed]);
+  }, [derived, formatFromAed, router]);
 
   return (
-    <PortalShell role="admin" title="Bookings" subtitle="Platform booking operations and status visibility">
+    <PortalShell role="admin" title="Bookings" subtitle="Full-page booking details with audit actions">
       {state.kind === "loading" ? (
         <div className="space-y-3">
           <SkeletonBlock className="h-24" />
@@ -171,7 +181,7 @@ export default function AdminBookingsPage() {
 
           <CardList
             title="Platform bookings"
-            subtitle="Click a booking to open centered details"
+            subtitle="Open full booking detail pages for timeline, payment events, documents, and force-cancel"
             items={items}
             emptyTitle="No bookings"
             emptyDescription="No records match the current filters."
@@ -202,147 +212,8 @@ export default function AdminBookingsPage() {
               </button>
             </div>
           </div>
-
-          <Modal
-            open={selected !== null}
-            onClose={() => setSelected(null)}
-            size="lg"
-            title={selected ? readString((selected as Record<string, unknown>).propertyTitle) || "Booking detail" : "Booking detail"}
-            subtitle={selected ? `Booking ref: ${readString((selected as Record<string, unknown>).id)}` : undefined}
-          >
-            {selected ? (
-              <BookingDetail booking={selected} />
-            ) : null}
-          </Modal>
         </div>
       )}
     </PortalShell>
-  );
-}
-
-function BookingDetail(props: { booking: AdminBooking }) {
-  const { currency, formatFromAed, formatBaseAed } = useCurrency();
-  const row = props.booking as Record<string, unknown>;
-  const status = readString(row.status) || "UNKNOWN";
-  const amount = readNumber(row.totalAmount) ?? readNumber(row.amount);
-  const bookingId = readString(row.id) || "";
-  const [docsState, setDocsState] = useState<
-    | { kind: "loading" }
-    | { kind: "error"; message: string }
-    | { kind: "ready"; items: AdminBookingDocument[] }
-  >({ kind: "loading" });
-
-  useEffect(() => {
-    let alive = true;
-    async function loadDocs() {
-      if (!bookingId) {
-        setDocsState({ kind: "ready", items: [] });
-        return;
-      }
-      setDocsState({ kind: "loading" });
-      try {
-        const items = await listAdminBookingDocuments(bookingId);
-        if (!alive) return;
-        setDocsState({ kind: "ready", items });
-      } catch (e) {
-        if (!alive) return;
-        setDocsState({
-          kind: "error",
-          message: e instanceof Error ? e.message : "Failed to load booking documents",
-        });
-      }
-    }
-    void loadDocs();
-    return () => {
-      alive = false;
-    };
-  }, [bookingId]);
-
-  async function downloadDocument(doc: AdminBookingDocument) {
-    if (!bookingId) return;
-    const blob = await downloadAdminBookingDocument(bookingId, doc.id);
-    const url = URL.createObjectURL(blob);
-    const anchor = document.createElement("a");
-    anchor.href = url;
-    anchor.download = doc.originalName || `booking-document-${doc.id}`;
-    document.body.appendChild(anchor);
-    anchor.click();
-    anchor.remove();
-    URL.revokeObjectURL(url);
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="flex flex-wrap items-center gap-2">
-        <StatusPill status={status}>{status}</StatusPill>
-        <span className="rounded-full bg-warm-alt px-3 py-1 text-xs font-semibold text-secondary">
-          Total: {amount === null ? "-" : formatFromAed(amount, { maximumFractionDigits: 0 })}
-        </span>
-        {currency !== "AED" && amount !== null ? (
-          <span className="rounded-full bg-warm-alt px-3 py-1 text-xs font-semibold text-secondary">
-            Base: {formatBaseAed(amount)}
-          </span>
-        ) : null}
-      </div>
-
-      <div className="grid gap-3 sm:grid-cols-2">
-        <Info label="Guest" value={readString(row.customerEmail) || readString(row.customerName) || "-"} />
-        <Info label="Property" value={readString(row.propertyTitle) || readString(row.propertyId) || "-"} />
-        <Info label="Check-in" value={formatDate(row.checkIn)} />
-        <Info label="Check-out" value={formatDate(row.checkOut)} />
-        <Info label="Created" value={formatDate(row.createdAt)} />
-      </div>
-
-      <section className="rounded-2xl border border-line/80 bg-surface p-4">
-        <div className="text-sm font-semibold text-primary">Uploaded booking documents</div>
-        <div className="mt-1 text-xs text-secondary">
-          Private documents uploaded by the guest for this booking.
-        </div>
-
-        <div className="mt-3 space-y-2">
-          {docsState.kind === "loading" ? (
-            <div className="space-y-2">
-              <SkeletonBlock className="h-14" />
-              <SkeletonBlock className="h-14" />
-            </div>
-          ) : docsState.kind === "error" ? (
-            <div className="rounded-xl border border-danger/30 bg-danger/12 p-3 text-sm text-danger">
-              {docsState.message}
-            </div>
-          ) : docsState.items.length === 0 ? (
-            <div className="rounded-xl border border-dashed border-line/80 bg-warm-alt p-3 text-sm text-secondary">
-              No booking documents uploaded yet.
-            </div>
-          ) : (
-            docsState.items.map((doc) => (
-              <div key={doc.id} className="flex items-center justify-between gap-3 rounded-xl border border-line/80 bg-warm-base p-3">
-                <div className="min-w-0">
-                  <div className="truncate text-sm font-semibold text-primary">{doc.originalName}</div>
-                  <div className="mt-1 text-xs text-secondary">
-                    {doc.type} • {Math.max(1, Math.round(doc.sizeBytes / 1024))} KB
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void downloadDocument(doc)}
-                  className="shrink-0 rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
-                >
-                  Download
-                </button>
-              </div>
-            ))
-          )}
-        </div>
-      </section>
-    </div>
-  );
-}
-
-function Info(props: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-line/80 bg-warm-base p-4">
-      <div className="text-xs font-semibold text-muted">{props.label}</div>
-      <div className="mt-1 text-sm font-semibold text-primary">{props.value}</div>
-    </div>
   );
 }

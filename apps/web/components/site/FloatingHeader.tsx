@@ -107,7 +107,7 @@ export default function FloatingHeader() {
         <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
           <motion.header
             className={[
-              "pointer-events-auto mt-4 flex items-center justify-between rounded-2xl border px-4 py-3 transition-[transform,box-shadow,border-color] duration-300",
+              "pointer-events-auto mt-4 rounded-2xl border px-4 py-3 transition-[transform,box-shadow,border-color] duration-300",
               isSolid
                 ? "shadow-[0_14px_38px_rgba(11,15,25,0.16)]"
                 : "shadow-[0_10px_28px_rgba(11,15,25,0.10)]",
@@ -117,49 +117,46 @@ export default function FloatingHeader() {
             animate={{ y: 0, opacity: 1 }}
             transition={{ duration: 0.45, ease: [0.22, 1, 0.36, 1] }}
           >
-            <Link href="/" className="flex items-center gap-3">
-              <Image
-                src="/brand/logo.svg"
-                alt="Laugh & Lodge"
-                width={180}
-                height={64}
-                priority
-                className="h-10 w-auto"
-              />
-            </Link>
+            <div className="hidden w-full items-center lg:grid lg:grid-cols-[1fr_auto_1fr] lg:gap-5">
+              <nav className="flex items-center gap-5">
+                {NAV.map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    className={[
+                      "relative text-sm font-semibold transition",
+                      isActive(pathname, item.href)
+                        ? "text-brand after:absolute after:-bottom-2 after:left-0 after:right-0 after:h-[2px] after:rounded-full after:bg-brand"
+                        : "text-primary/88 hover:text-brand",
+                    ].join(" ")}
+                  >
+                    {item.label}
+                  </Link>
+                ))}
+              </nav>
 
-            <nav className="hidden items-center gap-6 lg:flex">
-              {NAV.map((item) => (
-                <Link
-                  key={item.href}
-                  href={item.href}
-                  className={[
-                    "relative text-sm font-semibold transition",
-                    isActive(pathname, item.href)
-                      ? "text-brand after:absolute after:-bottom-2 after:left-0 after:right-0 after:h-[2px] after:rounded-full after:bg-brand"
-                      : "text-primary/88 hover:text-brand",
-                  ].join(" ")}
-                >
-                  {item.label}
-                </Link>
-              ))}
-            </nav>
-
-            <div className="flex items-center gap-2">
-              <div className="hidden lg:block">
-                <CurrencySwitcher compact />
-              </div>
-
-              <Link
-                href="/properties"
-                className="hidden rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-text-invert shadow-brand-soft transition hover:bg-brand-hover lg:inline-flex"
-              >
-                Explore
-                <ArrowRight className="ml-2 h-4 w-4" />
+              <Link href="/" className="mx-auto flex items-center justify-center gap-3">
+                <Image
+                  src="/brand/logo.svg"
+                  alt="Laugh & Lodge"
+                  width={180}
+                  height={64}
+                  priority
+                  className="h-10 w-auto"
+                />
               </Link>
 
-              {/* Desktop auth actions */}
-              <div className="hidden items-center gap-2 lg:flex">
+              <div className="flex items-center justify-end gap-2">
+                <CurrencySwitcher compact />
+
+                <Link
+                  href="/properties"
+                  className="rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-text-invert shadow-brand-soft transition hover:bg-brand-hover"
+                >
+                  Explore
+                  <ArrowRight className="ml-2 h-4 w-4" />
+                </Link>
+
                 {showAuthSkeleton ? (
                   <div className="h-10 w-[180px] animate-pulse rounded-2xl bg-warm-alt/70" />
                 ) : user ? (
@@ -201,20 +198,32 @@ export default function FloatingHeader() {
                   </>
                 )}
               </div>
+            </div>
 
-              <div className="lg:hidden">
+            <div className="flex items-center justify-between lg:hidden">
+              <Link href="/" className="flex items-center gap-3">
+                <Image
+                  src="/brand/logo.svg"
+                  alt="Laugh & Lodge"
+                  width={180}
+                  height={64}
+                  priority
+                  className="h-10 w-auto"
+                />
+              </Link>
+
+              <div className="flex items-center gap-2">
                 <CurrencySwitcher compact />
+                <button
+                  type="button"
+                  onClick={() => setMobileOpen((v) => !v)}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-line/80 bg-surface text-primary"
+                  aria-label="Toggle menu"
+                  aria-expanded={mobileOpen}
+                >
+                  {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
+                </button>
               </div>
-
-              <button
-                type="button"
-                onClick={() => setMobileOpen((v) => !v)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-2xl border border-line/80 bg-surface text-primary lg:hidden"
-                aria-label="Toggle menu"
-                aria-expanded={mobileOpen}
-              >
-                {mobileOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
-              </button>
             </div>
           </motion.header>
         </div>

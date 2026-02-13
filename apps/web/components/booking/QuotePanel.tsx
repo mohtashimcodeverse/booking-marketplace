@@ -97,6 +97,16 @@ export default function QuotePanel({ propertyId, priceFrom }: Props) {
       setUi({ kind: "error", message: res.message });
       return;
     }
+    if (!res.data.canReserve || !res.data.hold) {
+      const reasons = Array.isArray(res.data.reasons)
+        ? res.data.reasons.filter((x): x is string => typeof x === "string")
+        : [];
+      setUi({
+        kind: "error",
+        message: reasons.length > 0 ? reasons.join(" ") : "Selected dates are unavailable.",
+      });
+      return;
+    }
     setUi({ kind: "reserved", reserved: res.data });
     setMobileOpen(true);
   }

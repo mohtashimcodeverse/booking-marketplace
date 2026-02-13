@@ -141,7 +141,8 @@ export type ReserveQuote = {
 export type ReserveResponse = {
   ok: true;
   canReserve: boolean;
-  hold: ReserveHold;
+  reasons?: string[];
+  hold?: ReserveHold;
   quote: ReserveQuote;
 };
 

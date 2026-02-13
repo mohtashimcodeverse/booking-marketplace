@@ -39,6 +39,11 @@ export const BOOKING_DOCUMENTS_DIR = join(
   'bookings',
   'documents',
 );
+export const CUSTOMER_DOCUMENTS_DIR = join(
+  PRIVATE_UPLOADS_DIR,
+  'customers',
+  'documents',
+);
 
 export const PROPERTY_DOCUMENTS_LEGACY_DIR = join(
   PUBLIC_UPLOADS_DIR,

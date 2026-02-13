@@ -1,344 +1,189 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+
 import { PortalShell } from "@/components/portal/PortalShell";
-import { StatusPill } from "@/components/portal/ui/StatusPill";
-import { SkeletonTable } from "@/components/portal/ui/Skeleton";
 import { Toolbar } from "@/components/portal/ui/Toolbar";
+import { StatusPill } from "@/components/portal/ui/StatusPill";
+import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
+
 import { getAdminRefunds } from "@/lib/api/portal/admin";
 
 type AdminRefundsResponse = Awaited<ReturnType<typeof getAdminRefunds>>;
-type AdminRefundRow = AdminRefundsResponse["items"][number];
 
 type ViewState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "ready"; data: AdminRefundsResponse };
 
-type FilterState = {
-  q: string;
-  status: string;
-};
-
 function asRecord(value: unknown): Record<string, unknown> | null {
   if (typeof value !== "object" || value === null) return null;
   return value as Record<string, unknown>;
 }
 
-function getString(obj: unknown, key: string): string | null {
-  const rec = asRecord(obj);
-  if (!rec) return null;
-  const v = rec[key];
-  return typeof v === "string" ? v : null;
+function getString(value: unknown, key: string): string | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  const field = record[key];
+  return typeof field === "string" ? field : null;
 }
 
-function getNumber(obj: unknown, key: string): number | null {
-  const rec = asRecord(obj);
-  if (!rec) return null;
-  const v = rec[key];
-  return typeof v === "number" && Number.isFinite(v) ? v : null;
+function getNumber(value: unknown, key: string): number | null {
+  const record = asRecord(value);
+  if (!record) return null;
+  const field = record[key];
+  return typeof field === "number" && Number.isFinite(field) ? field : null;
 }
 
-function fmtDate(value: string | null): string {
-  if (!value) return "—";
-  const d = new Date(value);
-  if (Number.isNaN(d.getTime())) return value;
-  return d.toLocaleString();
+function formatDate(value: string | null): string {
+  if (!value) return "-";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return value;
+  return date.toLocaleString();
 }
 
-function fmtMoney(amount: number | null, currency: string | null): string {
-  if (amount === null) return "—";
-  const cur = currency ?? "";
-  return `${amount} ${cur}`.trim();
+function formatMoney(amount: number | null, currency: string | null): string {
+  if (amount === null) return "-";
+  return `${amount.toLocaleString()} ${currency ?? ""}`.trim();
 }
 
-function safeLower(v: string | null | undefined): string {
-  return (v ?? "").toLowerCase();
-}
-
-function toneForRefundStatus(s: string | null): "neutral" | "success" | "warning" | "danger" {
-  const v = (s ?? "").toUpperCase();
-  if (v.includes("PROCESSED") || v.includes("SUCCEEDED") || v.includes("SUCCESS")) return "success";
-  if (v.includes("FAIL")) return "danger";
-  if (v.includes("PENDING")) return "warning";
-  return "neutral";
-}
-
-function Drawer(props: {
-  open: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!props.open) return null;
-  return (
-    <div className="fixed inset-0 z-[90]">
-      <button
-        type="button"
-        aria-label="Close drawer"
-        onClick={props.onClose}
-        className="absolute inset-0 bg-dark-1/40"
-      />
-      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-surface shadow-2xl">
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-primary truncate">{props.title}</div>
-            <div className="mt-1 text-xs text-muted">Refund detail</div>
-          </div>
-          <button
-            type="button"
-            onClick={props.onClose}
-            className="rounded-xl border bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
-          >
-            Close
-          </button>
-        </div>
-        <div className="h-[calc(100%-65px)] overflow-auto p-5">{props.children}</div>
-      </div>
-    </div>
-  );
+function toneForStatus(status: string | null) {
+  const normalized = (status ?? "").toUpperCase();
+  if (normalized.includes("SUCCEEDED") || normalized.includes("SUCCESS")) return "success" as const;
+  if (normalized.includes("FAILED") || normalized.includes("CANCEL")) return "danger" as const;
+  if (normalized.includes("PENDING")) return "warning" as const;
+  return "neutral" as const;
 }
 
 export default function AdminRefundsPage() {
   const [state, setState] = useState<ViewState>({ kind: "loading" });
-
-  const [page, setPage] = useState<number>(1);
-  const [pageSize] = useState<number>(20);
-
-  const [filters, setFilters] = useState<FilterState>({ q: "", status: "ALL" });
-  const [selected, setSelected] = useState<AdminRefundRow | null>(null);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState("ALL");
 
   useEffect(() => {
     let alive = true;
+
     async function run() {
       setState({ kind: "loading" });
       try {
-        const data = await getAdminRefunds({ page, pageSize });
+        const data = await getAdminRefunds({ page: 1, pageSize: 100 });
         if (!alive) return;
         setState({ kind: "ready", data });
-      } catch (err) {
+      } catch (error) {
         if (!alive) return;
         setState({
           kind: "error",
-          message: err instanceof Error ? err.message : "Failed to load refunds",
+          message: error instanceof Error ? error.message : "Failed to load refunds",
         });
       }
     }
+
     void run();
     return () => {
       alive = false;
     };
-  }, [page, pageSize]);
+  }, []);
 
-  const nav = useMemo(
-    () => [
-      { href: "/admin", label: "Overview" },
-      { href: "/admin/analytics", label: "Analytics" },
-      { href: "/admin/review-queue", label: "Review Queue" },
-      { href: "/admin/vendors", label: "Vendors" },
-      { href: "/admin/properties", label: "Properties" },
-      { href: "/admin/bookings", label: "Bookings" },
-      { href: "/admin/payments", label: "Payments" },
-      { href: "/admin/refunds", label: "Refunds" },
-      { href: "/admin/ops-tasks", label: "Ops Tasks" },
-    ],
-    [],
-  );
+  const statuses = useMemo(() => {
+    if (state.kind !== "ready") return [];
+    return Array.from(
+      new Set(
+        state.data.items
+          .map((row) => getString(row, "status"))
+          .filter((value): value is string => Boolean(value))
+      )
+    );
+  }, [state]);
 
-  const derived = useMemo(() => {
-    if (state.kind !== "ready") return null;
+  const rows = useMemo(() => {
+    if (state.kind !== "ready") return [];
 
-    const items = state.data.items ?? [];
-    const statuses = Array.from(
-      new Set(items.map((r) => getString(r, "status")).filter((v): v is string => Boolean(v))),
-    ).sort((a, b) => a.localeCompare(b));
+    return state.data.items.filter((row) => {
+      if (status !== "ALL" && getString(row, "status") !== status) return false;
+      const query = q.trim().toLowerCase();
+      if (!query) return true;
+      return JSON.stringify(row).toLowerCase().includes(query);
+    });
+  }, [state, q, status]);
 
-    const filtered = items
-      .filter((r) => (filters.status === "ALL" ? true : getString(r, "status") === filters.status))
-      .filter((r) => {
-        const q = filters.q.trim().toLowerCase();
-        if (!q) return true;
-        const blob = [
-          safeLower(getString(r, "id")),
-          safeLower(getString(r, "bookingId")),
-          safeLower(getString(r, "status")),
-          safeLower(getString(r, "currency")),
-          safeLower(getString(r, "provider")),
-          safeLower(getString(r, "providerRef")),
-        ].join(" | ");
-        return blob.includes(q);
-      });
-
-    const total =
-      typeof (state.data as unknown as { total?: number }).total === "number"
-        ? (state.data as unknown as { total: number }).total
-        : filtered.length;
-
-    const totalPages =
-      typeof (state.data as unknown as { totalPages?: number }).totalPages === "number"
-        ? (state.data as unknown as { totalPages: number }).totalPages
-        : Math.max(1, Math.ceil(total / pageSize));
-
-    return { statuses, filtered, total, totalPages };
-  }, [state, filters, pageSize]);
-
-  const content = useMemo(() => {
-    if (state.kind === "loading") return <SkeletonTable rows={10} />;
-
-    if (state.kind === "error") {
-      return (
-        <div className="rounded-2xl border border-danger/30 bg-danger/12 p-5 text-sm text-danger whitespace-pre-wrap">
-          {state.message}
-        </div>
-      );
-    }
-
-    if (!derived) return null;
-
-    return (
+  return (
+    <PortalShell
+      role="admin"
+      title="Refunds"
+      subtitle="Open full refund detail pages with provider refs and cancellation audit"
+    >
       <div className="space-y-5">
         <Toolbar
-          title="Refunds"
-          subtitle="Track refund requests and outcomes from booking and payment flows."
-          searchPlaceholder="Search refund id, booking id, status, provider ref…"
-          onSearch={(q) => setFilters((p) => ({ ...p, q }))}
-          right={
-            <div className="flex flex-wrap gap-2">
-              <select
-                value={filters.status}
-                onChange={(e) => setFilters((p) => ({ ...p, status: e.target.value }))}
-                className="h-10 rounded-xl border bg-surface px-3 text-sm font-semibold text-primary"
-              >
-                <option value="ALL">All statuses</option>
-                {derived.statuses.map((s) => (
-                  <option key={s} value={s}>
-                    {s}
-                  </option>
-                ))}
-              </select>
-            </div>
-          }
+          title="Refund records"
+          subtitle="Track refund execution state and related booking/payment context."
+          searchPlaceholder="Search refund id, booking id, provider ref..."
+          onSearch={setQ}
+          right={(
+            <select
+              value={status}
+              onChange={(event) => setStatus(event.target.value)}
+              className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm font-semibold text-primary"
+            >
+              <option value="ALL">All statuses</option>
+              {statuses.map((value) => (
+                <option key={value} value={value}>{value}</option>
+              ))}
+            </select>
+          )}
         />
 
-        <div className="rounded-2xl border bg-surface overflow-hidden">
-          <div className="border-b bg-warm-alt px-5 py-3">
-            <div className="text-xs font-semibold text-secondary">Refunds</div>
-            <div className="mt-1 text-xs text-muted">
-              Showing <span className="font-semibold text-primary">{derived.filtered.length}</span> of{" "}
-              <span className="font-semibold text-primary">{derived.total}</span>
-            </div>
+        {state.kind === "loading" ? (
+          <div className="grid gap-3">
+            <SkeletonBlock className="h-24" />
+            <SkeletonBlock className="h-24" />
+            <SkeletonBlock className="h-24" />
           </div>
-
-          {derived.filtered.length === 0 ? (
-            <div className="p-6 text-sm text-secondary">No refunds match this filter.</div>
-          ) : (
-            <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-              {derived.filtered.map((row, idx) => {
-                const id = getString(row, "id") ?? String(idx);
-                const status = getString(row, "status");
-                const bookingId = getString(row, "bookingId") ?? "—";
-                const currency = getString(row, "currency");
-                const amount = getNumber(row, "amount") ?? getNumber(row, "amountRefunded") ?? null;
-                const provider = getString(row, "provider") ?? "—";
-                const createdAt = getString(row, "createdAt");
-
-                return (
-                  <button
-                    key={id}
-                    type="button"
-                    onClick={() => setSelected(row)}
-                    className="rounded-2xl border border-line/80 bg-surface p-4 text-left transition hover:bg-warm-alt"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="truncate text-sm font-semibold text-primary">{id}</div>
-                      <StatusPill tone={toneForRefundStatus(status)}>{status ?? "—"}</StatusPill>
-                    </div>
-                    <div className="mt-3 grid gap-2 text-xs text-secondary">
-                      <div>
-                        <span className="font-semibold text-muted">Booking:</span> {bookingId}
-                      </div>
-                      <div>
-                        <span className="font-semibold text-muted">Amount:</span> {fmtMoney(amount, currency)}
-                      </div>
-                      <div>
-                        <span className="font-semibold text-muted">Provider:</span> {provider}
-                      </div>
-                      <div>
-                        <span className="font-semibold text-muted">Created:</span> {fmtDate(createdAt ?? null)}
-                      </div>
-                    </div>
-                  </button>
-                );
-              })}
-            </div>
-          )}
-
-          <div className="flex items-center justify-between border-t bg-surface px-4 py-3">
-            <div className="text-xs text-secondary">
-              Page <span className="font-semibold text-primary">{page}</span> of{" "}
-              <span className="font-semibold text-primary">{derived.totalPages}</span>
-            </div>
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.max(1, p - 1))}
-                disabled={page <= 1}
-                className="rounded-xl border px-3 py-1.5 text-xs font-semibold text-secondary disabled:opacity-50"
-              >
-                Prev
-              </button>
-              <button
-                type="button"
-                onClick={() => setPage((p) => Math.min(derived.totalPages, p + 1))}
-                disabled={page >= derived.totalPages}
-                className="rounded-xl border px-3 py-1.5 text-xs font-semibold text-secondary disabled:opacity-50"
-              >
-                Next
-              </button>
-            </div>
+        ) : state.kind === "error" ? (
+          <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
+            {state.message}
           </div>
-        </div>
+        ) : rows.length === 0 ? (
+          <div className="rounded-3xl border border-line/60 bg-surface p-6 text-sm text-secondary">
+            No refunds match these filters.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {rows.map((row, index) => {
+              const refundId = getString(row, "id") ?? String(index);
+              const bookingId = getString(row, "bookingId");
+              const refundStatus = getString(row, "status");
+              const reason = getString(row, "reason");
+              const amount = getNumber(row, "amount");
+              const currency = getString(row, "currency");
+              const createdAt = getString(row, "createdAt");
 
-        <Drawer
-          open={selected !== null}
-          title={selected ? `Refund ${getString(selected, "id") ?? ""}`.trim() : "Refund"}
-          onClose={() => setSelected(null)}
-        >
-          {selected ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Detail label="Refund ID" value={getString(selected, "id") ?? "—"} />
-              <Detail label="Status" value={getString(selected, "status") ?? "—"} />
-              <Detail label="Booking ID" value={getString(selected, "bookingId") ?? "—"} />
-              <Detail
-                label="Amount"
-                value={fmtMoney(
-                  getNumber(selected, "amount") ?? getNumber(selected, "amountRefunded"),
-                  getString(selected, "currency"),
-                )}
-              />
-              <Detail label="Provider" value={getString(selected, "provider") ?? "—"} />
-              <Detail label="Provider Ref" value={getString(selected, "providerRef") ?? "—"} />
-              <Detail label="Created" value={fmtDate(getString(selected, "createdAt"))} />
-              <Detail label="Updated" value={fmtDate(getString(selected, "updatedAt"))} />
-            </div>
-          ) : null}
-        </Drawer>
+              return (
+                <Link
+                  key={refundId}
+                  href={`/admin/refunds/${encodeURIComponent(refundId)}`}
+                  className="block rounded-3xl border border-line/60 bg-surface p-5 shadow-sm transition hover:bg-warm-alt/60"
+                >
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <div className="text-sm font-semibold text-primary">Refund {refundId}</div>
+                      <div className="mt-1 text-xs text-secondary">
+                        Booking: {bookingId ?? "-"} · Reason: {reason ?? "-"}
+                      </div>
+                      <div className="mt-1 text-xs text-muted">Created: {formatDate(createdAt)}</div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <div className="text-sm font-semibold text-primary">{formatMoney(amount, currency)}</div>
+                      <StatusPill tone={toneForStatus(refundStatus)}>{refundStatus ?? "-"}</StatusPill>
+                    </div>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+        )}
       </div>
-    );
-  }, [state, derived, filters.status, page, selected]);
-
-  return (
-    <PortalShell role="admin" title="Admin Refunds" nav={nav}>
-      {content}
     </PortalShell>
-  );
-}
-
-function Detail(props: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-line/80 bg-surface p-3">
-      <div className="text-xs font-semibold text-muted">{props.label}</div>
-      <div className="mt-1 text-sm font-semibold text-primary break-words">{props.value}</div>
-    </div>
   );
 }

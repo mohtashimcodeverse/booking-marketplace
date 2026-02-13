@@ -43,7 +43,7 @@ export async function getPropertyCalendarBySlug(
     slug: string;
     from: string;
     to: string;
-    days: Array<{ date: string; status: "AVAILABLE" | "BOOKED" | "BLOCKED" }>;
+    days: Array<{ date: string; status: "AVAILABLE" | "BOOKED" | "HOLD" | "BLOCKED" }>;
   }>(`/properties/${encodeURIComponent(slug)}/calendar`, {
     method: "GET",
     cache: "no-store",

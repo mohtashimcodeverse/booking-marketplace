@@ -11,7 +11,20 @@ import { UserRole } from '@prisma/client';
 export class PropertyServiceConfigsService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async getByPropertyId(propertyId: string) {
+  async getByPropertyIdForActor(
+    actor: { id: string; role: UserRole },
+    propertyId: string,
+  ) {
+    const property = await this.prisma.property.findUnique({
+      where: { id: propertyId },
+      select: { id: true, vendorId: true },
+    });
+    if (!property) throw new BadRequestException('Property not found');
+
+    if (actor.role === UserRole.VENDOR && property.vendorId !== actor.id) {
+      throw new ForbiddenException('Not allowed to view this property config.');
+    }
+
     return this.prisma.propertyServiceConfig.findUnique({
       where: { propertyId },
       include: { servicePlan: true },

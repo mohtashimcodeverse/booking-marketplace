@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { createContactSubmission } from "@/lib/api/contact";
 
 type FormState = "idle" | "sending" | "sent";
 type ContactTopic = "BOOKING" | "OWNERS" | "PARTNERS" | "OTHER";
 
 export default function ContactForm() {
   const [state, setState] = useState<FormState>("idle");
+  const [error, setError] = useState<string | null>(null);
 
   const [name, setName] = useState<string>("");
   const [email, setEmail] = useState<string>("");
@@ -26,9 +28,21 @@ export default function ContactForm() {
     e.preventDefault();
     if (!canSend) return;
 
+    setError(null);
     setState("sending");
-    await new Promise((r) => setTimeout(r, 450));
-    setState("sent");
+    try {
+      await createContactSubmission({
+        name: name.trim(),
+        email: email.trim(),
+        phone: phone.trim() || undefined,
+        topic,
+        message: message.trim(),
+      });
+      setState("sent");
+    } catch (submitError) {
+      setError(submitError instanceof Error ? submitError.message : "Failed to send message");
+      setState("idle");
+    }
   }
 
   return (
@@ -74,7 +88,15 @@ export default function ContactForm() {
                 </p>
                 <button
                   type="button"
-                  onClick={() => setState("idle")}
+                  onClick={() => {
+                    setState("idle");
+                    setError(null);
+                    setName("");
+                    setEmail("");
+                    setPhone("");
+                    setTopic("BOOKING");
+                    setMessage("");
+                  }}
                   className="mt-6 rounded-2xl border border-line bg-surface px-4 py-3 text-sm font-extrabold text-primary transition hover:bg-accent-soft/55"
                 >
                   Send another message
@@ -167,6 +189,12 @@ export default function ContactForm() {
                 >
                   {state === "sending" ? "Sending..." : "Send message"}
                 </button>
+
+                {error ? (
+                  <div className="rounded-2xl border border-danger/30 bg-danger/10 px-4 py-3 text-sm text-danger">
+                    {error}
+                  </div>
+                ) : null}
 
                 <p className="text-xs text-secondary/60">
                   By sending this message, you agree we may contact you regarding your inquiry.

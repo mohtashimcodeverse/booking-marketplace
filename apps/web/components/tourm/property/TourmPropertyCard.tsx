@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SearchResponse } from "@/lib/types/search";
 import { useCurrency } from "@/lib/currency/CurrencyProvider";
@@ -26,6 +27,7 @@ function clamp(n: number, min: number, max: number) {
 }
 
 export default function TourmPropertyCard({ item }: { item: Item }) {
+  const router = useRouter();
   const title = item.title ?? "Stay";
   const area = item.location?.area ?? null;
   const city = item.location?.city ?? null;
@@ -201,7 +203,14 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
   }, [scrollToIndex]);
 
   return (
-    <article className="premium-card premium-card-hover group relative overflow-hidden rounded-2xl border-line-strong shadow-card">
+    <article
+      className="premium-card premium-card-hover group relative cursor-pointer overflow-hidden rounded-2xl border-line-strong shadow-card"
+      onClick={(event) => {
+        const target = event.target as HTMLElement;
+        if (target.closest("a,button,input,textarea,select,label,summary,details")) return;
+        router.push(`/properties/${item.slug}`);
+      }}
+    >
       <div className="relative aspect-[5/4] w-full overflow-hidden">
         {slideCount > 0 ? (
           <div
@@ -310,6 +319,21 @@ export default function TourmPropertyCard({ item }: { item: Item }) {
               {baths} baths
             </span>
           ) : null}
+        </div>
+
+        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+          <Link
+            href={`/properties/${item.slug}`}
+            className="inline-flex items-center justify-center rounded-xl border border-line bg-surface px-3 py-2 text-sm font-semibold text-primary transition hover:bg-accent-soft/55"
+          >
+            View details
+          </Link>
+          <Link
+            href={`/properties/${item.slug}#book`}
+            className="inline-flex items-center justify-center rounded-xl bg-brand px-3 py-2 text-sm font-semibold text-accent-text shadow-sm transition hover:bg-brand-hover"
+          >
+            Instant book
+          </Link>
         </div>
       </div>
     </article>

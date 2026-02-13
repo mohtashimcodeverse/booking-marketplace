@@ -22,6 +22,7 @@ import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 import {
   BookingStatus,
   BookingDocumentType,
+  CustomerDocumentType,
   RefundStatus,
   UserRole,
   type User,
@@ -29,11 +30,15 @@ import {
 import { parseDateRange, parsePageParams } from '../common/portal.utils';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { documentFileFilter } from '../../common/upload/document-file.filter';
-import { bookingDocumentUploadStorage } from '../../common/upload/multer.config';
+import {
+  bookingDocumentUploadStorage,
+  customerDocumentUploadStorage,
+} from '../../common/upload/multer.config';
 import { UploadBookingDocumentDto } from './dto/upload-booking-document.dto';
 import { CreateReviewDto } from './dto/create-review.dto';
 import { createReadStream } from 'fs';
 import type { Response } from 'express';
+import { UploadCustomerDocumentDto } from './dto/upload-customer-document.dto';
 
 @Controller('/portal/user')
 @UseGuards(JwtAccessGuard, RolesGuard)
@@ -59,6 +64,18 @@ export class UserPortalController {
       status: query.status,
       page,
       pageSize,
+    });
+  }
+
+  @Get('bookings/:bookingId')
+  bookingDetail(
+    @CurrentUser() user: User,
+    @Param('bookingId', new ParseUUIDPipe()) bookingId: string,
+  ) {
+    return this.service.getBookingDetail({
+      userId: user.id,
+      role: user.role,
+      bookingId,
     });
   }
 
@@ -148,6 +165,56 @@ export class UserPortalController {
     return new StreamableFile(createReadStream(file.absolutePath));
   }
 
+  @Get('documents')
+  async listCustomerDocuments(@CurrentUser() user: User) {
+    return this.service.listCustomerDocuments({
+      userId: user.id,
+      role: user.role,
+    });
+  }
+
+  @Post('documents')
+  @UseInterceptors(
+    FileInterceptor('file', {
+      storage: customerDocumentUploadStorage,
+      fileFilter: documentFileFilter,
+      limits: { fileSize: 10 * 1024 * 1024 },
+    }),
+  )
+  async uploadCustomerDocument(
+    @CurrentUser() user: User,
+    @Body() dto: UploadCustomerDocumentDto,
+    @UploadedFile() file: Express.Multer.File,
+  ) {
+    return this.service.uploadCustomerDocument({
+      userId: user.id,
+      role: user.role,
+      type: dto.type ?? CustomerDocumentType.OTHER,
+      notes: dto.notes,
+      file,
+    });
+  }
+
+  @Get('documents/:documentId/download')
+  async downloadCustomerDocument(
+    @CurrentUser() user: User,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.service.getCustomerDocumentDownload({
+      userId: user.id,
+      role: user.role,
+      documentId,
+    });
+
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `attachment; filename="${encodeURIComponent(file.downloadName)}"`,
+    );
+    return new StreamableFile(createReadStream(file.absolutePath));
+  }
+
   @Post('reviews')
   async createReview(@CurrentUser() user: User, @Body() dto: CreateReviewDto) {
     return this.service.createReview({
@@ -155,6 +222,10 @@ export class UserPortalController {
       role: user.role,
       bookingId: dto.bookingId,
       rating: dto.rating,
+      cleanlinessRating: dto.cleanlinessRating,
+      locationRating: dto.locationRating,
+      communicationRating: dto.communicationRating,
+      valueRating: dto.valueRating,
       title: dto.title,
       comment: dto.comment,
     });

@@ -12,8 +12,6 @@ import {
   UseGuards,
   UseInterceptors,
   UploadedFile,
-  Res,
-  StreamableFile,
 } from '@nestjs/common';
 import { AuthGuard } from '@nestjs/passport';
 import { VendorPropertiesService } from './vendor-properties.service';
@@ -34,8 +32,6 @@ import {
   documentUploadStorage,
 } from '../common/upload/multer.config';
 import { UpdatePropertyLocationDto } from './dto/update-property-location.dto';
-import { createReadStream } from 'fs';
-import type { Response } from 'express';
 
 type JwtUser = {
   id: string;
@@ -51,12 +47,6 @@ export class VendorPropertiesController {
   private assertVendor(user: JwtUser) {
     if (!user || user.role !== 'VENDOR') {
       throw new ForbiddenException('Only vendors can access this resource.');
-    }
-  }
-
-  private assertVendorOrAdmin(user: JwtUser) {
-    if (!user || (user.role !== 'VENDOR' && user.role !== 'ADMIN')) {
-      throw new ForbiddenException('Not allowed.');
     }
   }
 
@@ -279,39 +269,5 @@ export class VendorPropertiesController {
     this.assertVendor(req.user);
     if (!file) throw new ForbiddenException('File upload failed.');
     return this.service.addDocument(req.user.id, id, dto, file);
-  }
-
-  /**
-   * ✅ PRIVATE document download (authenticated)
-   * - Vendor: only their own property docs
-   * - Admin: any property docs
-   *
-   * NOTE: Documents are NOT served via /uploads anymore.
-   */
-  @Get(':propertyId/documents/:documentId/download')
-  async downloadDocument(
-    @Req() req: { user: JwtUser },
-    @Param('propertyId', new ParseUUIDPipe()) propertyId: string,
-    @Param('documentId', new ParseUUIDPipe()) documentId: string,
-    @Res({ passthrough: true }) res: Response,
-  ) {
-    this.assertVendorOrAdmin(req.user);
-
-    const { absolutePath, downloadName, mimeType } =
-      await this.service.getDocumentDownload({
-        actorUserId: req.user.id,
-        actorRole: req.user.role === 'ADMIN' ? 'ADMIN' : 'VENDOR',
-        propertyId,
-        documentId,
-      });
-
-    res.setHeader('Content-Type', mimeType);
-    res.setHeader(
-      'Content-Disposition',
-      `attachment; filename="${encodeURIComponent(downloadName)}"`,
-    );
-
-    const fileStream = createReadStream(absolutePath);
-    return new StreamableFile(fileStream);
   }
 }

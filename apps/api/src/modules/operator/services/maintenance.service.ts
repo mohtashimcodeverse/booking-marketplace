@@ -1,9 +1,10 @@
 import {
   BadRequestException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
 } from '@nestjs/common';
-import { MaintenanceStatus, Prisma } from '@prisma/client';
+import { MaintenanceStatus, Prisma, UserRole } from '@prisma/client';
 import { PrismaService } from '../../prisma/prisma.service';
 import { CreateMaintenanceRequestDto } from '../dto/create-maintenance-request.dto';
 import { UpdateWorkOrderDto } from '../dto/update-work-order.dto';
@@ -16,17 +17,26 @@ function isMaintenanceStatus(value: string): value is MaintenanceStatus {
 export class MaintenanceService {
   constructor(private readonly prisma: PrismaService) {}
 
-  async createRequest(dto: CreateMaintenanceRequestDto) {
+  async createRequest(
+    actor: { id: string; role: UserRole },
+    dto: CreateMaintenanceRequestDto,
+  ) {
     const property = await this.prisma.property.findUnique({
       where: { id: dto.propertyId },
-      select: { id: true },
+      select: { id: true, vendorId: true },
     });
     if (!property) throw new BadRequestException('Property not found');
+    if (actor.role === UserRole.VENDOR && property.vendorId !== actor.id) {
+      throw new ForbiddenException(
+        'Vendors can only create requests for their own properties.',
+      );
+    }
 
     return this.prisma.$transaction(async (tx) => {
       const req = await tx.maintenanceRequest.create({
         data: {
           propertyId: dto.propertyId,
+          createdByUserId: actor.id,
           priority: dto.priority,
           title: dto.title.trim(),
           description: dto.description.trim(),
@@ -48,6 +58,7 @@ export class MaintenanceService {
   }
 
   async listRequests(params: {
+    actor: { id: string; role: UserRole };
     propertyId?: string;
     status?: string;
     limit?: number;
@@ -58,6 +69,9 @@ export class MaintenanceService {
     const skip = (page - 1) * limit;
 
     const where: Prisma.MaintenanceRequestWhereInput = {};
+    if (params.actor.role === UserRole.VENDOR) {
+      where.property = { vendorId: params.actor.id };
+    }
     if (params.propertyId) where.propertyId = params.propertyId;
     if (params.status) {
       if (!isMaintenanceStatus(params.status)) {
@@ -80,7 +94,14 @@ export class MaintenanceService {
     return { items, total, page, limit };
   }
 
-  async updateWorkOrder(workOrderId: string, dto: UpdateWorkOrderDto) {
+  async updateWorkOrder(
+    actor: { id: string; role: UserRole },
+    workOrderId: string,
+    dto: UpdateWorkOrderDto,
+  ) {
+    if (actor.role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Only admin can update work orders.');
+    }
     const existing = await this.prisma.workOrder.findUnique({
       where: { id: workOrderId },
     });

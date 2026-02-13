@@ -1,15 +1,7 @@
 import Link from "next/link";
+import { BLOG_POSTS, type BlogPost } from "@/lib/content/blog-posts";
 
-type Post = {
-  slug: string;
-  title: string;
-  excerpt: string;
-  date: string;
-  coverUrl: string;
-  tag: string;
-};
-
-function PostCard({ p }: { p: Post }) {
+function PostCard({ p }: { p: BlogPost }) {
   return (
     <Link
       href={`/blog/${p.slug}`}
@@ -31,7 +23,7 @@ function PostCard({ p }: { p: Post }) {
 
       <div className="space-y-2 p-5">
         <p className="text-xs font-extrabold uppercase tracking-[0.22em] text-secondary/60">
-          {p.date}
+          {p.dateLabel}
         </p>
         <h3 className="text-base font-semibold text-primary">{p.title}</h3>
         <p className="text-sm text-secondary/75">{p.excerpt}</p>
@@ -45,39 +37,6 @@ function PostCard({ p }: { p: Post }) {
 }
 
 export default function BlogGrid() {
-  const posts: Post[] = [
-    {
-      slug: "best-areas-to-stay-in-dubai",
-      title: "Best areas to stay in Dubai (based on your trip)",
-      excerpt:
-        "A practical guide to choosing Downtown, Marina, Business Bay, and more — with clear tradeoffs.",
-      date: "Guide",
-      tag: "Area Guide",
-      coverUrl:
-        "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1600&q=80",
-    },
-    {
-      slug: "how-we-keep-stays-consistent",
-      title: "How we keep stays consistent: operations behind the scenes",
-      excerpt:
-        "From cleaning to inspections to readiness checks — a quick look into operator-grade standards.",
-      date: "Operations",
-      tag: "Hospitality",
-      coverUrl:
-        "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=1600&q=80",
-    },
-    {
-      slug: "booking-flow-explained",
-      title: "Booking flow explained: holds, quotes, and inventory safety",
-      excerpt:
-        "Why our booking flow avoids double-booking and why totals stay consistent with server-side quotes.",
-      date: "Product",
-      tag: "Booking",
-      coverUrl:
-        "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=1600&q=80",
-    },
-  ];
-
   return (
     <section className="relative w-full py-14 sm:py-18">
       <div className="mx-auto w-full max-w-7xl px-4 sm:px-6 lg:px-8">
@@ -90,12 +49,12 @@ export default function BlogGrid() {
             Fresh reads
           </h2>
           <p className="mt-2 text-sm text-secondary/75 sm:text-base">
-            This is a UI shell for now — we’ll wire real posts later.
+            Practical notes on booking operations, area planning, and guest experience standards.
           </p>
         </div>
 
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {posts.map((p) => (
+          {BLOG_POSTS.map((p) => (
             <PostCard key={p.slug} p={p} />
           ))}
         </div>

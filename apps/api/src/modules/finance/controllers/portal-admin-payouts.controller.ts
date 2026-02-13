@@ -120,7 +120,7 @@ export class PortalAdminPayoutsController {
   ) {
     return this.payouts.adminCancel({
       payoutId,
-      reason: dto.failureReason ?? dto.providerRef ?? null,
+      reason: dto.reason ?? dto.failureReason ?? dto.providerRef ?? null,
     });
   }
 }

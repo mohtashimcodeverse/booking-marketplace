@@ -1,4 +1,4 @@
-import { Controller, Get, Query, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Query, UseGuards, Post } from '@nestjs/common';
 import { VendorPortalService } from './vendor-portal.service';
 
 import { JwtAccessGuard } from '../../auth/guards/jwt-access.guard';
@@ -6,7 +6,12 @@ import { RolesGuard } from '../../auth/guards/roles.guard';
 import { Roles } from '../../auth/decorators/roles.decorator';
 import { CurrentUser } from '../../auth/decorators/current-user.decorator';
 
-import { BookingStatus, UserRole, type User } from '@prisma/client';
+import {
+  BlockRequestStatus,
+  BookingStatus,
+  UserRole,
+  type User,
+} from '@prisma/client';
 import {
   parseBucket,
   parseDateRange,
@@ -109,6 +114,49 @@ export class VendorPortalController {
       role: user.role,
       page,
       pageSize,
+    });
+  }
+
+  @Get('block-requests')
+  listBlockRequests(
+    @CurrentUser() user: User,
+    @Query()
+    query: {
+      propertyId?: string;
+      status?: BlockRequestStatus;
+      page?: string;
+      pageSize?: string;
+    },
+  ) {
+    const { page, pageSize } = parsePageParams(query);
+    return this.service.listBlockRequests({
+      userId: user.id,
+      role: user.role,
+      propertyId: query.propertyId,
+      status: query.status,
+      page,
+      pageSize,
+    });
+  }
+
+  @Post('block-requests')
+  createBlockRequest(
+    @CurrentUser() user: User,
+    @Body()
+    body: {
+      propertyId: string;
+      startDate: string;
+      endDate: string;
+      reason?: string;
+    },
+  ) {
+    return this.service.createBlockRequest({
+      userId: user.id,
+      role: user.role,
+      propertyId: body.propertyId,
+      startDate: body.startDate,
+      endDate: body.endDate,
+      reason: body.reason,
     });
   }
 }

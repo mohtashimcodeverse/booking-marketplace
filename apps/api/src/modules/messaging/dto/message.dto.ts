@@ -1,7 +1,7 @@
 import { Type } from 'class-transformer';
 import {
   IsBoolean,
-  IsIn,
+  IsEnum,
   IsInt,
   IsOptional,
   IsString,
@@ -9,6 +9,7 @@ import {
   MaxLength,
   Min,
 } from 'class-validator';
+import { MessageCounterpartyRole, MessageTopic } from '@prisma/client';
 
 export class MessageThreadListQueryDto {
   @IsOptional()
@@ -27,6 +28,10 @@ export class MessageThreadListQueryDto {
   @Type(() => Boolean)
   @IsBoolean()
   unreadOnly?: boolean;
+
+  @IsOptional()
+  @IsEnum(MessageTopic)
+  topic?: MessageTopic;
 }
 
 export class MessageBodyDto {
@@ -39,14 +44,17 @@ export class AdminCreateThreadDto {
   @IsUUID()
   counterpartyUserId!: string;
 
-  @IsString()
-  @IsIn(['VENDOR', 'CUSTOMER'])
-  counterpartyRole!: 'VENDOR' | 'CUSTOMER';
+  @IsEnum(MessageCounterpartyRole)
+  counterpartyRole!: MessageCounterpartyRole;
 
   @IsOptional()
   @IsString()
   @MaxLength(200)
   subject?: string;
+
+  @IsOptional()
+  @IsEnum(MessageTopic)
+  topic?: MessageTopic;
 
   @IsString()
   @MaxLength(4000)
@@ -58,6 +66,10 @@ export class CounterpartyCreateThreadDto {
   @IsString()
   @MaxLength(200)
   subject?: string;
+
+  @IsOptional()
+  @IsEnum(MessageTopic)
+  topic?: MessageTopic;
 
   @IsString()
   @MaxLength(4000)

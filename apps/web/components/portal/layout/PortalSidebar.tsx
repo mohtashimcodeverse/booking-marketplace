@@ -27,9 +27,9 @@ export function PortalSidebar(props: {
 
   return (
     <aside className="hidden w-[300px] shrink-0 lg:block">
-      <div className="rounded-3xl border border-inverted/14 bg-ink-2 shadow-card">
+      <div className="sticky top-[90px] rounded-3xl border border-inverted/14 bg-[linear-gradient(160deg,#26368f_0%,#1d2a73_60%,#111736_100%)] shadow-card">
         <div className="border-b border-inverted/14 px-5 py-4">
-          <div className="text-xs font-semibold text-inverted/62">Navigation</div>
+          <div className="text-xs font-semibold text-inverted/65">Navigation</div>
           <div className="mt-1 flex items-center gap-2 text-sm font-semibold text-inverted">
             {props.title}
             <ChevronRight className="h-4 w-4 text-inverted/45" />
@@ -54,8 +54,8 @@ export function PortalSidebar(props: {
                         className={cn(
                           "group flex items-center justify-between rounded-2xl px-3 py-2.5 text-sm font-semibold",
                           active
-                            ? "relative bg-brand/16 text-brand ring-1 ring-inverted/14 before:absolute before:bottom-2 before:left-0 before:top-2 before:w-[3px] before:rounded-r-full before:bg-brand"
-                            : "text-inverted/82 hover:bg-brand/10"
+                            ? "relative bg-white text-[#1d2a73] ring-1 ring-white/20 before:absolute before:bottom-2 before:left-0 before:top-2 before:w-[3px] before:rounded-r-full before:bg-[#1d2a73]"
+                            : "text-inverted hover:bg-white/12"
                         )}
                       >
                         <span className="flex items-center gap-2">
@@ -63,15 +63,15 @@ export function PortalSidebar(props: {
                             className={cn(
                               "flex h-8 w-8 items-center justify-center rounded-xl border",
                               active
-                                ? "border-brand/50 bg-brand/18 text-brand"
-                                : "border-inverted/12 bg-ink-3 text-inverted/62"
+                                ? "border-[#1d2a73]/20 bg-[#1d2a73]/10 text-[#1d2a73]"
+                                : "border-inverted/16 bg-black/20 text-inverted/72"
                             )}
                           >
                             {item.icon ?? <ChevronRight className="h-4 w-4" />}
                           </span>
                           {item.label}
                         </span>
-                        <ChevronRight className="h-4 w-4 text-inverted/45 group-hover:text-brand" />
+                        <ChevronRight className="h-4 w-4 text-inverted/45 group-hover:text-inverted" />
                       </Link>
                     );
                   })}
@@ -80,7 +80,7 @@ export function PortalSidebar(props: {
             ))}
           </div>
 
-          <div className="mt-6 rounded-2xl border border-inverted/14 bg-ink-3/85 p-4">
+          <div className="mt-6 rounded-2xl border border-inverted/14 bg-black/24 p-4">
             <div className="text-xs font-semibold text-inverted/68">Signed in</div>
             <div className="mt-1 text-sm font-semibold text-inverted">{props.userEmail || "—"}</div>
             <div className="mt-1 text-xs text-inverted/58">

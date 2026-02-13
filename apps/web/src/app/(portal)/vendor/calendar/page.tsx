@@ -3,9 +3,8 @@
 import { PortalShell } from "@/components/portal/PortalShell";
 import { PortalAvailabilityCalendar } from "@/components/portal/calendar/PortalAvailabilityCalendar";
 import {
-  blockVendorPropertyDates,
+  createVendorBlockRequest,
   getVendorCalendar,
-  unblockVendorPropertyDates,
 } from "@/lib/api/portal/vendor";
 
 export default function VendorCalendarPage() {
@@ -18,14 +17,17 @@ export default function VendorCalendarPage() {
       <PortalAvailabilityCalendar
         role="vendor"
         allowBlockControls
+        blockControlMode="request"
         loadData={async ({ from, to, propertyId }) =>
           getVendorCalendar({ from, to, propertyId })
         }
         onBlockRange={async ({ propertyId, from, to, note }) =>
-          blockVendorPropertyDates(propertyId, { from, to, note })
-        }
-        onUnblockRange={async ({ propertyId, from, to, note }) =>
-          unblockVendorPropertyDates(propertyId, { from, to, note })
+          createVendorBlockRequest({
+            propertyId,
+            startDate: from,
+            endDate: to,
+            reason: note,
+          })
         }
       />
     </PortalShell>

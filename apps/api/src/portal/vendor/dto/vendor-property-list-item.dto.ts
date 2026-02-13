@@ -3,7 +3,9 @@ import { PropertyStatus } from '@prisma/client';
 export type VendorPropertyListItemDto = {
   id: string;
   title: string;
+  slug: string;
   city: string | null;
+  area: string | null;
   status: PropertyStatus;
 
   // Portal "price from" (schema-aligned)
@@ -11,4 +13,5 @@ export type VendorPropertyListItemDto = {
 
   bookingsCount: number;
   createdAt: string;
+  updatedAt: string;
 };

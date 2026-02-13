@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useParams } from "next/navigation";
 import { RequireAuth } from "@/components/auth/RequireAuth";
@@ -90,12 +91,12 @@ export default function VendorPropertyEditPage() {
               >
                 Retry
               </button>
-              <a
+              <Link
                 href="/vendor/properties"
                 className="rounded-xl border border-line/90 bg-surface px-4 py-2 text-sm font-semibold text-primary"
               >
                 Back to properties
-              </a>
+              </Link>
             </div>
           </div>
         ) : state.kind === "ready" ? (

@@ -19,8 +19,13 @@ export class PropertyServiceConfigsController {
   @Roles('ADMIN', 'VENDOR')
   @Get(':propertyId')
   @ApiOperation({ summary: 'Get service config for a property' })
-  get(@Param('propertyId') propertyId: string) {
-    return this.configs.getByPropertyId(propertyId);
+  get(@CurrentUser() user: User, @Param('propertyId') propertyId: string) {
+    const role =
+      user.role === UserRole.ADMIN ? UserRole.ADMIN : UserRole.VENDOR;
+    return this.configs.getByPropertyIdForActor(
+      { id: user.id, role },
+      propertyId,
+    );
   }
 
   @Roles('ADMIN', 'VENDOR')

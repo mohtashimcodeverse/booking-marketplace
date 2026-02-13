@@ -7,6 +7,7 @@ import { StatusPill } from "@/components/portal/ui/StatusPill";
 import type {
   MessageThreadDetail,
   MessageThreadListResponse,
+  MessageTopic,
   MessageThreadSummary,
 } from "@/lib/api/portal/messaging";
 
@@ -18,10 +19,11 @@ type Props = {
     page?: number;
     pageSize?: number;
     unreadOnly?: boolean;
+    topic?: MessageTopic;
   }) => Promise<MessageThreadListResponse>;
   getThread: (threadId: string) => Promise<MessageThreadDetail>;
   sendMessage: (threadId: string, body: string) => Promise<{ ok: true }>;
-  createThread?: (input: { subject?: string; body: string }) => Promise<MessageThreadDetail>;
+  createThread?: (input: { subject?: string; topic?: MessageTopic; body: string }) => Promise<MessageThreadDetail>;
 };
 
 type ThreadState =
@@ -29,6 +31,20 @@ type ThreadState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
   | { kind: "ready"; thread: MessageThreadDetail };
+
+const TOPIC_OPTIONS: Array<{ value: MessageTopic; label: string }> = [
+  { value: "BOOKING_ISSUE", label: "Booking issue" },
+  { value: "CHECKIN_ACCESS", label: "Check-in / access" },
+  { value: "CLEANING", label: "Cleaning" },
+  { value: "MAINTENANCE", label: "Maintenance" },
+  { value: "PAYMENT_REFUND", label: "Payment / refund" },
+  { value: "OTHER", label: "Other" },
+];
+
+function topicLabel(topic: MessageTopic): string {
+  const selected = TOPIC_OPTIONS.find((item) => item.value === topic);
+  return selected ? selected.label : topic;
+}
 
 export default function PortalMessagesView(props: Props) {
   const [threadsState, setThreadsState] = useState<
@@ -39,7 +55,9 @@ export default function PortalMessagesView(props: Props) {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [threadState, setThreadState] = useState<ThreadState>({ kind: "idle" });
   const [unreadOnly, setUnreadOnly] = useState(false);
+  const [topicFilter, setTopicFilter] = useState<"ALL" | MessageTopic>("ALL");
   const [busyLabel, setBusyLabel] = useState<string | null>(null);
+  const [newTopic, setNewTopic] = useState<MessageTopic>("BOOKING_ISSUE");
   const [newSubject, setNewSubject] = useState("");
   const [newBody, setNewBody] = useState("");
   const [replyBody, setReplyBody] = useState("");
@@ -47,7 +65,12 @@ export default function PortalMessagesView(props: Props) {
   async function loadThreads() {
     setThreadsState({ kind: "loading" });
     try {
-      const data = await props.listThreads({ page: 1, pageSize: 40, unreadOnly });
+      const data = await props.listThreads({
+        page: 1,
+        pageSize: 40,
+        unreadOnly,
+        topic: topicFilter === "ALL" ? undefined : topicFilter,
+      });
       const items = data.items ?? [];
       setThreadsState({ kind: "ready", items });
       if (items.length > 0 && !selectedId) setSelectedId(items[0].id);
@@ -66,7 +89,7 @@ export default function PortalMessagesView(props: Props) {
   useEffect(() => {
     void loadThreads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [unreadOnly]);
+  }, [unreadOnly, topicFilter]);
 
   useEffect(() => {
     let alive = true;
@@ -133,6 +156,7 @@ export default function PortalMessagesView(props: Props) {
     try {
       const thread = await props.createThread({
         subject: newSubject.trim() || undefined,
+        topic: newTopic,
         body: newBody.trim(),
       });
       setNewBody("");
@@ -156,6 +180,17 @@ export default function PortalMessagesView(props: Props) {
           <section className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
             <div className="text-sm font-semibold text-primary">Start a new message</div>
             <div className="mt-3 grid gap-3">
+              <select
+                value={newTopic}
+                onChange={(event) => setNewTopic(event.target.value as MessageTopic)}
+                className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+              >
+                {TOPIC_OPTIONS.map((topic) => (
+                  <option key={topic.value} value={topic.value}>
+                    {topic.label}
+                  </option>
+                ))}
+              </select>
               <input
                 value={newSubject}
                 onChange={(event) => setNewSubject(event.target.value)}
@@ -189,14 +224,28 @@ export default function PortalMessagesView(props: Props) {
         <section className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div className="text-sm font-semibold text-primary">Inbox</div>
-            <label className="inline-flex items-center gap-2 text-sm font-medium text-secondary">
-              <input
-                type="checkbox"
-                checked={unreadOnly}
-                onChange={(event) => setUnreadOnly(event.target.checked)}
-              />
-              Unread only
-            </label>
+            <div className="flex items-center gap-2">
+              <select
+                value={topicFilter}
+                onChange={(event) => setTopicFilter(event.target.value as "ALL" | MessageTopic)}
+                className="h-9 rounded-lg border border-line/80 bg-surface px-3 text-xs font-semibold text-primary"
+              >
+                <option value="ALL">All topics</option>
+                {TOPIC_OPTIONS.map((topic) => (
+                  <option key={topic.value} value={topic.value}>
+                    {topic.label}
+                  </option>
+                ))}
+              </select>
+              <label className="inline-flex items-center gap-2 text-sm font-medium text-secondary">
+                <input
+                  type="checkbox"
+                  checked={unreadOnly}
+                  onChange={(event) => setUnreadOnly(event.target.checked)}
+                />
+                Unread only
+              </label>
+            </div>
           </div>
 
           {busyLabel ? <div className="mt-3 text-xs font-semibold text-secondary">{busyLabel}</div> : null}
@@ -235,6 +284,9 @@ export default function PortalMessagesView(props: Props) {
                         <div className="min-w-0">
                           <div className="truncate text-sm font-semibold text-primary">
                             {thread.subject || "General support"}
+                          </div>
+                          <div className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-muted">
+                            {topicLabel(thread.topic)}
                           </div>
                           <div className="mt-1 truncate text-xs text-secondary">
                             {thread.lastMessagePreview || "No messages yet"}
@@ -280,6 +332,9 @@ export default function PortalMessagesView(props: Props) {
                           ? threadState.thread.counterpartyUser.fullName ||
                             threadState.thread.counterpartyUser.email
                           : threadState.thread.admin.fullName || threadState.thread.admin.email}
+                      </div>
+                      <div className="mt-1 text-xs font-semibold uppercase tracking-wide text-muted">
+                        {topicLabel(threadState.thread.topic)}
                       </div>
                     </div>
                     <StatusPill status={threadState.thread.counterpartyRole}>

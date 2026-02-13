@@ -36,10 +36,6 @@ export function enumerateNights(checkInUtc: Date, checkOutUtc: Date): Date[] {
     nights.push(new Date(t));
     t += 24 * 60 * 60 * 1000;
   }
-
-  // The loop includes checkOut date if checkOut is also midnight; but we want [checkIn, checkOut)
-  // Example: checkIn=1st, checkOut=3rd => nights: 1st, 2nd (2 nights)
-  nights.pop(); // remove checkOut day itself
   return nights;
 }
 

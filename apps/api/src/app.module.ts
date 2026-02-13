@@ -22,6 +22,7 @@ import { SearchModule } from './modules/search/search.module';
 import { FinanceModule } from './modules/finance/finance.module';
 import { FxModule } from './modules/fx/fx.module';
 import { MessagingModule } from './modules/messaging/messaging.module';
+import { ContactModule } from './modules/contact/contact.module';
 
 @Module({
   imports: [
@@ -52,6 +53,7 @@ import { MessagingModule } from './modules/messaging/messaging.module';
     FinanceModule,
     FxModule,
     MessagingModule,
+    ContactModule,
 
     SearchModule,
   ],

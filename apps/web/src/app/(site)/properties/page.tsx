@@ -65,9 +65,24 @@ export default async function PropertiesPage(props: PageProps) {
   const items = res.ok ? res.data.items : [];
   const meta = res.ok ? res.data.meta : null;
   const totalPages = meta ? Math.max(1, Math.ceil(meta.total / meta.limit)) : 1;
+  const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "https://rentpropertyuae.com";
+  const listJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    name: "Laugh & Lodge properties",
+    itemListElement: items.slice(0, 20).map((it, index) => ({
+      "@type": "ListItem",
+      position: index + 1,
+      url: `${siteUrl}/properties/${it.slug}`,
+      name: it.title,
+    })),
+  };
 
   return (
     <main className="min-h-screen bg-warm-base">
+      <script type="application/ld+json" suppressHydrationWarning>
+        {JSON.stringify(listJsonLd)}
+      </script>
       <section className="hero-light-shell relative overflow-hidden border-b border-line">
         <div className="hero-light-overlay pointer-events-none absolute inset-0">
           <div className="absolute inset-0 opacity-24 [background-image:linear-gradient(rgba(11,15,25,0.06)_1px,transparent_1px),linear-gradient(90deg,rgba(11,15,25,0.05)_1px,transparent_1px)] [background-size:34px_34px]" />

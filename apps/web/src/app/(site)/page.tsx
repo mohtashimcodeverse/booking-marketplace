@@ -60,8 +60,8 @@ export default async function HomePage() {
     <main className="bg-warm-base overflow-x-hidden">
       {/* HERO */}
       <HeroSplit
-        titleTop="Premium stays in"
-        titleEmphasis="Dubai & UAE"
+        titleTop="Where every stay"
+        titleEmphasis="feels like home."
         subtitle="Live availability, transparent pricing, and operator-grade hospitality — aligned with our backend booking engine (Frank Porter-style inventory control)."
         heroImageUrl="https://images.unsplash.com/photo-1546412414-8035e1776c9a?auto=format&fit=crop&w=2200&q=84"
         primaryCtaHref="/properties"

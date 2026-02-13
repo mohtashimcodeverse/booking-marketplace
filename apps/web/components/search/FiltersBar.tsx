@@ -273,10 +273,10 @@ export default function FiltersBar() {
             />
 
             <motion.div
-              className="absolute right-0 top-0 h-full w-full max-w-[560px] overflow-y-auto border-l border-line/80 bg-surface p-5 text-primary shadow-2xl"
-              initial={{ x: 24, opacity: 0 }}
-              animate={{ x: 0, opacity: 1 }}
-              exit={{ x: 24, opacity: 0 }}
+              className="absolute left-1/2 top-1/2 max-h-[88vh] w-[min(920px,calc(100vw-1.75rem))] -translate-x-1/2 -translate-y-1/2 overflow-y-auto rounded-3xl border border-line/80 bg-surface p-5 text-primary shadow-[0_28px_80px_rgba(11,15,25,0.30)] sm:p-6"
+              initial={{ y: 18, opacity: 0, scale: 0.98 }}
+              animate={{ y: 0, opacity: 1, scale: 1 }}
+              exit={{ y: 14, opacity: 0, scale: 0.98 }}
               transition={{ duration: 0.28, ease: [0.22, 1, 0.36, 1] }}
             >
               <div className="flex items-start justify-between gap-4">

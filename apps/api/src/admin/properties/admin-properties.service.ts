@@ -801,11 +801,24 @@ export class AdminPropertiesService {
   // Existing review workflow
   // -------------------------
 
-  async reviewQueue(status?: string) {
+  async reviewQueue(params?: {
+    status?: string;
+    page?: number;
+    pageSize?: number;
+  }) {
     const normalized =
-      typeof status === 'string' && status.trim().length > 0
-        ? status.trim().toUpperCase()
+      typeof params?.status === 'string' && params.status.trim().length > 0
+        ? params.status.trim().toUpperCase()
         : 'UNDER_REVIEW';
+
+    const page =
+      typeof params?.page === 'number' && params.page > 0
+        ? Math.floor(params.page)
+        : 1;
+    const pageSize =
+      typeof params?.pageSize === 'number' && params.pageSize > 0
+        ? Math.min(100, Math.floor(params.pageSize))
+        : 20;
 
     const allowed = new Set([
       'UNDER_REVIEW',
@@ -822,18 +835,30 @@ export class AdminPropertiesService {
       throw new BadRequestException('Invalid status filter for review-queue.');
     }
 
-    const items = await this.prisma.property.findMany({
-      where: { status: normalized as PropertyStatus },
-      orderBy: { updatedAt: 'desc' },
-      include: {
-        media: { orderBy: { sortOrder: 'asc' } },
-        documents: { orderBy: { createdAt: 'desc' } },
-        vendor: { select: { id: true, email: true, fullName: true } },
-        reviews: { orderBy: { createdAt: 'desc' }, take: 3 },
-      },
-    });
+    const where = { status: normalized as PropertyStatus };
+    const [total, items] = await this.prisma.$transaction([
+      this.prisma.property.count({ where }),
+      this.prisma.property.findMany({
+        where,
+        orderBy: { updatedAt: 'desc' },
+        skip: (page - 1) * pageSize,
+        take: pageSize,
+        include: {
+          media: { orderBy: { sortOrder: 'asc' } },
+          documents: { orderBy: { createdAt: 'desc' } },
+          vendor: { select: { id: true, email: true, fullName: true } },
+          reviews: { orderBy: { createdAt: 'desc' }, take: 3 },
+        },
+      }),
+    ]);
 
-    return { status: normalized, items };
+    return {
+      status: normalized,
+      page,
+      pageSize,
+      total,
+      items,
+    };
   }
 
   async approve(adminId: string, propertyId: string, dto: ReviewDto) {

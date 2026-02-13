@@ -5,6 +5,8 @@ import helmet from 'helmet';
 import { AppModule } from './app.module';
 import cookieParser from 'cookie-parser';
 import express from 'express';
+import { randomUUID } from 'crypto';
+import type { NextFunction, Request, Response } from 'express';
 import { PROPERTY_IMAGES_DIR } from './common/upload/storage-paths';
 
 type CorsOriginCallback = (error: Error | null, allow?: boolean) => void;
@@ -27,6 +29,35 @@ async function bootstrap() {
   // Cookies + security headers
   app.use(cookieParser());
   app.use(helmet());
+
+  app.use((req: Request, res: Response, next: NextFunction) => {
+    const incoming = req.headers['x-correlation-id'];
+    const correlationId =
+      typeof incoming === 'string' && incoming.trim()
+        ? incoming.trim()
+        : randomUUID();
+
+    req.headers['x-correlation-id'] = correlationId;
+    res.setHeader('X-Correlation-Id', correlationId);
+
+    const startedAt = Date.now();
+    res.on('finish', () => {
+      const line = {
+        level: 'info',
+        type: 'http_request',
+        correlationId,
+        method: req.method,
+        path: req.originalUrl || req.url,
+        statusCode: res.statusCode,
+        durationMs: Date.now() - startedAt,
+        ip: req.ip || null,
+        userAgent: req.get('user-agent') || null,
+      };
+      console.log(JSON.stringify(line));
+    });
+
+    next();
+  });
 
   /**
    * Public static assets
@@ -81,7 +112,8 @@ async function bootstrap() {
     },
     credentials: true,
     methods: 'GET,HEAD,PUT,PATCH,POST,DELETE,OPTIONS',
-    allowedHeaders: 'Content-Type, Authorization, Accept, X-Requested-With',
+    allowedHeaders:
+      'Content-Type, Authorization, Accept, X-Requested-With, Idempotency-Key, X-Correlation-Id',
   });
 
   /**

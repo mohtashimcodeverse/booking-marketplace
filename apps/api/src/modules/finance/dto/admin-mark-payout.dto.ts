@@ -16,4 +16,11 @@ export class AdminMarkPayoutDto {
   @IsOptional()
   @IsString()
   failureReason?: string;
+
+  @ApiPropertyOptional({
+    description: 'Reason for cancelling a payout.',
+  })
+  @IsOptional()
+  @IsString()
+  reason?: string;
 }
