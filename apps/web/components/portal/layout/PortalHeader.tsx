@@ -24,10 +24,18 @@ export function PortalHeader(props: {
   title: string;
   right?: ReactNode;
   userEmail: string | null;
+  userName?: string | null;
+  notificationsHref?: string;
+  unreadCount?: number;
   onLogout: () => void;
 }) {
   const email = props.userEmail ?? "";
-  const badge = email ? initials(email) : "U";
+  const name = props.userName?.trim() || "";
+  const identityLabel = name || email || "Signed in";
+  const firstName = identityLabel.split(/\s+/g)[0] || "there";
+  const badge = initials(identityLabel);
+  const unreadCount = Math.max(0, props.unreadCount ?? 0);
+  const notificationsHref = props.notificationsHref ?? "#";
 
   return (
     <header className="sticky top-0 z-40 bg-[rgba(255,255,255,0.78)] text-primary shadow-[0_14px_40px_rgba(11,15,25,0.08)] backdrop-blur-xl">
@@ -69,14 +77,19 @@ export function PortalHeader(props: {
 
             <CurrencySwitcher compact />
 
-            <button
-              type="button"
+            <Link
+              href={notificationsHref}
               className="inline-flex h-11 items-center gap-2 rounded-2xl bg-white px-4 text-sm font-semibold text-primary shadow-[0_10px_28px_rgba(11,15,25,0.08)] hover:translate-y-[-1px] hover:shadow-[0_14px_34px_rgba(11,15,25,0.12)] active:translate-y-0 active:shadow-[0_10px_28px_rgba(11,15,25,0.08)]"
               aria-label="Notifications"
             >
               <Bell className="h-4 w-4 text-secondary" />
               <span className="hidden xl:inline">Alerts</span>
-            </button>
+              {unreadCount > 0 ? (
+                <span className="rounded-full bg-danger px-2 py-0.5 text-[11px] font-bold text-inverted">
+                  {unreadCount > 99 ? "99+" : unreadCount}
+                </span>
+              ) : null}
+            </Link>
 
             <button
               type="button"
@@ -92,8 +105,8 @@ export function PortalHeader(props: {
                 {badge}
               </div>
               <div className="hidden xl:block">
-                <div className="text-xs font-semibold text-primary">{email || "Signed in"}</div>
-                <div className="text-[11px] text-muted">{props.role ?? "user"}</div>
+                <div className="text-xs font-semibold text-primary">{`Welcome back, ${firstName}`}</div>
+                <div className="text-[11px] text-muted">{email || props.role || "user"}</div>
               </div>
             </div>
           </div>
@@ -104,13 +117,13 @@ export function PortalHeader(props: {
 
           <CurrencySwitcher compact />
 
-          <button
-            type="button"
+          <Link
+            href={notificationsHref}
             className="inline-flex h-10 w-10 items-center justify-center rounded-2xl bg-white shadow-[0_10px_28px_rgba(11,15,25,0.08)] hover:translate-y-[-1px] hover:shadow-[0_14px_34px_rgba(11,15,25,0.12)] active:translate-y-0"
             aria-label="Notifications"
           >
             <Bell className="h-4 w-4 text-secondary" />
-          </button>
+          </Link>
 
           <button
             type="button"

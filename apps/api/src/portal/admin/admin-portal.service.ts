@@ -990,6 +990,7 @@ export class AdminPortalService {
         createdAt: doc.createdAt.toISOString(),
         updatedAt: doc.updatedAt.toISOString(),
         downloadUrl: `/api/admin/properties/${property.id}/documents/${doc.id}/download`,
+        viewUrl: `/api/admin/properties/${property.id}/documents/${doc.id}/view`,
       })),
       bookingStatusBreakdown: statusBreakdown,
       upcomingBookings: upcomingBookings.map((booking) => ({
@@ -1606,6 +1607,7 @@ export class AdminPortalService {
           createdAt: row.createdAt.toISOString(),
           updatedAt: row.updatedAt.toISOString(),
           downloadUrl: `/api/portal/admin/customer-documents/${row.id}/download`,
+          viewUrl: `/api/portal/admin/customer-documents/${row.id}/view`,
           requirement: {
             requiredTypes,
             missingTypes,
@@ -1622,6 +1624,126 @@ export class AdminPortalService {
           },
         };
       }),
+    };
+  }
+
+  async getCustomerDocumentDetail(params: {
+    userId: string;
+    role: UserRole;
+    documentId: string;
+  }) {
+    this.assertAdmin(params.role);
+
+    const row = await this.prisma.customerDocument.findUnique({
+      where: { id: params.documentId },
+      select: {
+        id: true,
+        userId: true,
+        type: true,
+        status: true,
+        fileKey: true,
+        originalName: true,
+        mimeType: true,
+        notes: true,
+        reviewNotes: true,
+        reviewedAt: true,
+        verifiedAt: true,
+        createdAt: true,
+        updatedAt: true,
+        user: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+            createdAt: true,
+          },
+        },
+        reviewedByAdmin: {
+          select: {
+            id: true,
+            email: true,
+            fullName: true,
+          },
+        },
+      },
+    });
+
+    if (!row) throw new NotFoundException('Customer document not found.');
+
+    const requiredTypes: CustomerDocumentType[] = [
+      CustomerDocumentType.PASSPORT,
+      CustomerDocumentType.EMIRATES_ID,
+    ];
+    const now = new Date();
+
+    const [verifiedRequiredRows, nextBooking] = await Promise.all([
+      this.prisma.customerDocument.findMany({
+        where: {
+          userId: row.userId,
+          type: { in: requiredTypes },
+          status: CustomerDocumentStatus.VERIFIED,
+        },
+        select: {
+          type: true,
+        },
+      }),
+      this.prisma.booking.findFirst({
+        where: {
+          customerId: row.userId,
+          status: BookingStatus.CONFIRMED,
+          checkOut: { gt: now },
+        },
+        orderBy: { checkIn: 'asc' },
+        select: {
+          id: true,
+          checkIn: true,
+          checkOut: true,
+          property: {
+            select: {
+              id: true,
+              title: true,
+              slug: true,
+            },
+          },
+        },
+      }),
+    ]);
+
+    const verifiedTypes = new Set(
+      verifiedRequiredRows.map((item) => item.type),
+    );
+    const missingTypes = requiredTypes.filter(
+      (type) => !verifiedTypes.has(type),
+    );
+    const requiresUpload = Boolean(nextBooking) && missingTypes.length > 0;
+    const hoursToCheckIn = nextBooking
+      ? (nextBooking.checkIn.getTime() - now.getTime()) / (60 * 60 * 1000)
+      : null;
+    const urgent =
+      requiresUpload && hoursToCheckIn !== null && hoursToCheckIn <= 48;
+
+    return {
+      ...row,
+      reviewedAt: row.reviewedAt?.toISOString() ?? null,
+      verifiedAt: row.verifiedAt?.toISOString() ?? null,
+      createdAt: row.createdAt.toISOString(),
+      updatedAt: row.updatedAt.toISOString(),
+      downloadUrl: `/api/portal/admin/customer-documents/${row.id}/download`,
+      viewUrl: `/api/portal/admin/customer-documents/${row.id}/view`,
+      requirement: {
+        requiredTypes,
+        missingTypes,
+        requiresUpload,
+        urgent,
+        nextBooking: nextBooking
+          ? {
+              id: nextBooking.id,
+              checkIn: nextBooking.checkIn.toISOString(),
+              checkOut: nextBooking.checkOut.toISOString(),
+              property: nextBooking.property,
+            }
+          : null,
+      },
     };
   }
 

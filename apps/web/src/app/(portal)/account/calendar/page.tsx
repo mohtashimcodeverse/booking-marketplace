@@ -16,6 +16,11 @@ export default function AccountCalendarPage() {
         loadData={async ({ from, to, propertyId }) =>
           getUserCalendar({ from, to, propertyId })
         }
+        eventHref={(event) =>
+          event.type === "BOOKING"
+            ? `/account/bookings/${encodeURIComponent(event.id)}`
+            : null
+        }
       />
     </PortalShell>
   );

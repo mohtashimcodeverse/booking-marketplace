@@ -52,8 +52,8 @@ function labelDocType(type: BookingDocumentType): string {
 }
 
 export default function AccountBookingDetailPage() {
-  const params = useParams<{ id: string }>();
-  const bookingId = typeof params?.id === "string" ? params.id : "";
+  const params = useParams<{ bookingId: string }>();
+  const bookingId = typeof params?.bookingId === "string" ? params.bookingId : "";
 
   const { status: authStatus } = useAuth();
   const { formatFromAed } = useCurrency();

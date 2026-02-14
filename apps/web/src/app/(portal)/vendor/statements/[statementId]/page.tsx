@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -27,12 +28,22 @@ function monthLabel(periodStartISO: string): string {
   return d.toLocaleString(undefined, { month: "long", year: "numeric" });
 }
 
-export default function VendorStatementDetailPage({
-  params,
-}: {
-  params: { statementId: string };
-}) {
-  const statementId = decodeURIComponent(params.statementId);
+function decodeRouteParam(value: string | string[] | undefined): string {
+  const raw = Array.isArray(value) ? value[0] : value;
+  if (!raw) return "";
+  try {
+    return decodeURIComponent(raw);
+  } catch {
+    return raw;
+  }
+}
+
+export default function VendorStatementDetailPage() {
+  const params = useParams<{ statementId: string }>();
+  const statementId = useMemo(
+    () => decodeRouteParam(params?.statementId),
+    [params?.statementId]
+  );
 
   const [state, setState] = useState<ViewState>({ kind: "loading" });
 
@@ -52,6 +63,10 @@ export default function VendorStatementDetailPage({
   useEffect(() => {
     let alive = true;
     async function run() {
+      if (!statementId) {
+        setState({ kind: "error", message: "Missing statement id." });
+        return;
+      }
       setState({ kind: "loading" });
       try {
         const data = await vendorGetStatementDetail(statementId);

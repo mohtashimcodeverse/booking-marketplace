@@ -37,16 +37,64 @@ import {
 } from '../common/portal.utils';
 import { createReadStream } from 'fs';
 import type { Response } from 'express';
+import { PortalNotificationsService } from '../common/portal-notifications.service';
 
 @Controller('/portal/admin')
 @UseGuards(JwtAccessGuard, RolesGuard)
 @Roles(UserRole.ADMIN)
 export class AdminPortalController {
-  constructor(private readonly service: AdminPortalService) {}
+  constructor(
+    private readonly service: AdminPortalService,
+    private readonly notifications: PortalNotificationsService,
+  ) {}
+
+  private parseOptionalBoolean(value?: string): boolean | undefined {
+    if (typeof value !== 'string') return undefined;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return undefined;
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return undefined;
+  }
 
   @Get('overview')
   overview(@CurrentUser() user: User) {
     return this.service.getOverview({ userId: user.id, role: user.role });
+  }
+
+  @Get('notifications')
+  notificationsList(
+    @CurrentUser() user: User,
+    @Query() query: { page?: string; pageSize?: string; unreadOnly?: string },
+  ) {
+    const { page, pageSize } = parsePageParams(query);
+    return this.notifications.listForUser({
+      userId: user.id,
+      page,
+      pageSize,
+      unreadOnly: this.parseOptionalBoolean(query.unreadOnly),
+    });
+  }
+
+  @Get('notifications/unread-count')
+  notificationsUnreadCount(@CurrentUser() user: User) {
+    return this.notifications.unreadCount(user.id);
+  }
+
+  @Post('notifications/:notificationId/read')
+  markNotificationRead(
+    @CurrentUser() user: User,
+    @Param('notificationId', new ParseUUIDPipe()) notificationId: string,
+  ) {
+    return this.notifications.markRead({
+      userId: user.id,
+      notificationId,
+    });
+  }
+
+  @Post('notifications/read-all')
+  markAllNotificationsRead(@CurrentUser() user: User) {
+    return this.notifications.markAllRead(user.id);
   }
 
   @Get('analytics')
@@ -276,6 +324,18 @@ export class AdminPortalController {
     });
   }
 
+  @Get('customer-documents/:documentId')
+  customerDocumentDetail(
+    @CurrentUser() user: User,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+  ) {
+    return this.service.getCustomerDocumentDetail({
+      userId: user.id,
+      role: user.role,
+      documentId,
+    });
+  }
+
   @Get('customer-documents/:documentId/download')
   async downloadCustomerDocument(
     @CurrentUser() user: User,
@@ -292,6 +352,26 @@ export class AdminPortalController {
     res.setHeader(
       'Content-Disposition',
       `attachment; filename="${encodeURIComponent(file.downloadName)}"`,
+    );
+    return new StreamableFile(createReadStream(file.absolutePath));
+  }
+
+  @Get('customer-documents/:documentId/view')
+  async viewCustomerDocument(
+    @CurrentUser() user: User,
+    @Param('documentId', new ParseUUIDPipe()) documentId: string,
+    @Res({ passthrough: true }) res: Response,
+  ) {
+    const file = await this.service.getCustomerDocumentDownload({
+      userId: user.id,
+      role: user.role,
+      documentId,
+    });
+
+    res.setHeader('Content-Type', file.mimeType);
+    res.setHeader(
+      'Content-Disposition',
+      `inline; filename="${encodeURIComponent(file.downloadName)}"`,
     );
     return new StreamableFile(createReadStream(file.absolutePath));
   }

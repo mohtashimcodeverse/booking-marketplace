@@ -130,18 +130,18 @@ export class PropertyDocumentsService {
     return doc;
   }
 
-  async openDocumentStream(params: {
+  private async resolveDocumentFile(params: {
     role: UserRole;
     userId: string;
     propertyId: string;
     documentId: string;
   }): Promise<{
-    stream: ReadStream;
+    doc: DocumentRecord;
+    absPath: string;
     fileName: string;
     mimeType: string;
   }> {
     const { role, userId, propertyId, documentId } = params;
-
     const doc = await this.getDocumentOrThrow(propertyId, documentId);
 
     if (role === UserRole.VENDOR) {
@@ -165,7 +165,56 @@ export class PropertyDocumentsService {
 
     const fileName = sanitizeFilename(doc.originalName ?? `document-${doc.id}`);
     const mimeType = doc.mimeType ?? 'application/octet-stream';
+    return { doc, absPath, fileName, mimeType };
+  }
 
-    return { stream: createReadStream(absPath), fileName, mimeType };
+  async openDocumentStream(params: {
+    role: UserRole;
+    userId: string;
+    propertyId: string;
+    documentId: string;
+  }): Promise<{
+    stream: ReadStream;
+    fileName: string;
+    mimeType: string;
+  }> {
+    const resolved = await this.resolveDocumentFile(params);
+    return {
+      stream: createReadStream(resolved.absPath),
+      fileName: resolved.fileName,
+      mimeType: resolved.mimeType,
+    };
+  }
+
+  async deleteDocument(params: {
+    role: UserRole;
+    userId: string;
+    propertyId: string;
+    documentId: string;
+  }): Promise<{ ok: true; id: string }> {
+    const { role, userId, propertyId, documentId } = params;
+    const doc = await this.getDocumentOrThrow(propertyId, documentId);
+
+    if (role === UserRole.VENDOR) {
+      await this.assertVendorOwnsProperty(userId, propertyId);
+    } else if (role !== UserRole.ADMIN) {
+      throw new ForbiddenException('Not allowed.');
+    }
+
+    const pointer = this.getStoredPointer(doc);
+    const absPath = this.toAbsoluteLocalPath(pointer);
+
+    await this.prisma.propertyDocument.delete({
+      where: { id: doc.id },
+    });
+
+    // Best-effort filesystem cleanup.
+    try {
+      await fs.promises.unlink(absPath);
+    } catch {
+      // ignore if already removed or inaccessible
+    }
+
+    return { ok: true, id: doc.id };
   }
 }

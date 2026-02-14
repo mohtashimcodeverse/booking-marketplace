@@ -1,4 +1,4 @@
-import { Controller, Get, Param, Res, UseGuards } from '@nestjs/common';
+import { Controller, Delete, Get, Param, Res, UseGuards } from '@nestjs/common';
 import type { Response } from 'express';
 
 import { JwtAccessGuard } from '../../../auth/guards/jwt-access.guard';
@@ -38,5 +38,44 @@ export class VendorPropertyDocumentsController {
     });
 
     stream.pipe(res);
+  }
+
+  @Get(':documentId/view')
+  async view(
+    @Param('propertyId') propertyId: string,
+    @Param('documentId') documentId: string,
+    @CurrentUser() user: User,
+    @Res() res: Response,
+  ) {
+    const { stream, fileName, mimeType } = await this.docs.openDocumentStream({
+      role: user.role,
+      userId: user.id,
+      propertyId,
+      documentId,
+    });
+
+    res.setHeader('Content-Type', mimeType);
+    res.setHeader('Content-Disposition', `inline; filename="${fileName}"`);
+
+    stream.on('error', () => {
+      if (!res.headersSent) res.status(500);
+      res.end();
+    });
+
+    stream.pipe(res);
+  }
+
+  @Delete(':documentId')
+  async remove(
+    @Param('propertyId') propertyId: string,
+    @Param('documentId') documentId: string,
+    @CurrentUser() user: User,
+  ) {
+    return this.docs.deleteDocument({
+      role: user.role,
+      userId: user.id,
+      propertyId,
+      documentId,
+    });
   }
 }

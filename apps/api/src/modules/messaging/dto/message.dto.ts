@@ -1,4 +1,4 @@
-import { Type } from 'class-transformer';
+import { Transform, Type } from 'class-transformer';
 import {
   IsBoolean,
   IsEnum,
@@ -10,6 +10,24 @@ import {
   Min,
 } from 'class-validator';
 import { MessageCounterpartyRole, MessageTopic } from '@prisma/client';
+
+function parseOptionalBoolean(value: unknown): boolean | undefined {
+  if (typeof value === 'boolean') return value;
+  if (typeof value !== 'string') return undefined;
+
+  const normalized = value.trim().toLowerCase();
+  if (normalized === '') return undefined;
+  if (normalized === 'true' || normalized === '1') return true;
+  if (normalized === 'false' || normalized === '0') return false;
+  return undefined;
+}
+
+function emptyStringToUndefined(value: unknown): unknown {
+  if (typeof value === 'string' && value.trim() === '') {
+    return undefined;
+  }
+  return value;
+}
 
 export class MessageThreadListQueryDto {
   @IsOptional()
@@ -25,11 +43,16 @@ export class MessageThreadListQueryDto {
   pageSize?: number;
 
   @IsOptional()
-  @Type(() => Boolean)
+  @Transform(({ obj }) =>
+    parseOptionalBoolean((obj as Record<string, unknown>)?.unreadOnly),
+  )
   @IsBoolean()
   unreadOnly?: boolean;
 
   @IsOptional()
+  @Transform(({ obj }) =>
+    emptyStringToUndefined((obj as Record<string, unknown>)?.topic),
+  )
   @IsEnum(MessageTopic)
   topic?: MessageTopic;
 }

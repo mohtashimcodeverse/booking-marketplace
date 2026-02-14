@@ -1,195 +1,119 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { CreditCard, Plus, RefreshCw, Settings2, ArrowRightCircle, XCircle, CheckCircle2, Ban } from "lucide-react";
 
 import { PortalShell } from "@/components/portal/PortalShell";
 import { Toolbar } from "@/components/portal/ui/Toolbar";
 import { DataTable, type Column } from "@/components/portal/ui/DataTable";
-import { StatusPill } from "@/components/portal/ui/StatusPill";
-import { DateText } from "@/components/portal/ui/DateText";
 import { MoneyText } from "@/components/portal/ui/MoneyText";
+import { DateText } from "@/components/portal/ui/DateText";
 import { SkeletonTable } from "@/components/portal/ui/Skeleton";
-import { ConfirmDialog } from "@/components/portal/ui/ConfirmDialog";
-
+import { StatusPill } from "@/components/portal/ui/StatusPill";
 import {
-  adminListPayouts,
   adminCreatePayoutFromStatement,
-  adminMarkPayoutProcessing,
-  adminMarkPayoutSucceeded,
-  adminMarkPayoutFailed,
-  adminCancelPayout,
+  adminListPayouts,
   type PayoutRow,
-  type PayoutStatus,
 } from "@/lib/api/portal/finance";
 
 type ViewState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; items: PayoutRow[]; page: number; pageSize: number; total: number };
+  | {
+      kind: "ready";
+      items: PayoutRow[];
+      page: number;
+      pageSize: number;
+      total: number;
+    };
 
-function safeInt(v: unknown, fallback: number): number {
-  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
-}
-
-function Drawer(props: { open: boolean; title: string; subtitle?: string; onClose: () => void; children: React.ReactNode }) {
-  if (!props.open) return null;
-  return (
-    <div className="fixed inset-0 z-[90]">
-      <button type="button" aria-label="Close drawer" onClick={props.onClose} className="absolute inset-0 bg-dark-1/40" />
-      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-surface shadow-2xl">
-        <div className="border-b border-line/50 bg-warm-base/60 px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-primary">{props.title}</div>
-              <div className="mt-1 text-xs text-secondary">{props.subtitle ?? "Payout lifecycle"}</div>
-            </div>
-            <button
-              type="button"
-              onClick={props.onClose}
-              className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:bg-warm-alt"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-        <div className="h-[calc(100%-78px)] overflow-auto p-5">{props.children}</div>
-      </div>
-    </div>
-  );
-}
-
-function isPending(s: PayoutStatus): boolean {
-  return s === "PENDING";
-}
-function isProcessing(s: PayoutStatus): boolean {
-  return s === "PROCESSING";
-}
-function isSucceeded(s: PayoutStatus): boolean {
-  return s === "SUCCEEDED";
+function safeInt(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 export default function AdminPayoutsPage() {
+  const router = useRouter();
+
   const [state, setState] = useState<ViewState>({ kind: "loading" });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState<string>("ALL");
 
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("ALL");
-
-  const [selected, setSelected] = useState<PayoutRow | null>(null);
-
-  const [busy, setBusy] = useState<string | null>(null);
-
-  // create payout UI
-  const [createOpen, setCreateOpen] = useState(false);
   const [statementId, setStatementId] = useState("");
   const [provider, setProvider] = useState("MANUAL");
   const [providerRef, setProviderRef] = useState("");
 
-  // action inputs (drawer)
-  const [actionProviderRef, setActionProviderRef] = useState("");
-  const [actionFailureReason, setActionFailureReason] = useState("");
-  const [actionIdempotencyKey, setActionIdempotencyKey] = useState("");
-
-  // confirms
-  const [confirmCreateOpen, setConfirmCreateOpen] = useState(false);
-  const [confirmProcessingOpen, setConfirmProcessingOpen] = useState(false);
-  const [confirmSucceededOpen, setConfirmSucceededOpen] = useState(false);
-  const [confirmFailedOpen, setConfirmFailedOpen] = useState(false);
-  const [confirmCancelOpen, setConfirmCancelOpen] = useState(false);
-
-  const nav = useMemo(
-    () => [
-      { href: "/admin", label: "Overview" },
-      { href: "/admin/analytics", label: "Analytics" },
-      { href: "/admin/review-queue", label: "Review Queue" },
-      { href: "/admin/vendors", label: "Vendors" },
-      { href: "/admin/properties", label: "Properties" },
-      { href: "/admin/bookings", label: "Bookings" },
-      { href: "/admin/payments", label: "Payments" },
-      { href: "/admin/refunds", label: "Refunds" },
-      { href: "/admin/ops-tasks", label: "Ops Tasks" },
-      { href: "/admin/statements", label: "Statements" },
-      { href: "/admin/payouts", label: "Payouts" },
-    ],
-    [],
-  );
-
-  async function refresh(nextPage?: number) {
-    const p = nextPage ?? page;
+  async function load(nextPage?: number) {
+    const targetPage = nextPage ?? page;
     setState({ kind: "loading" });
     try {
-      const res = await adminListPayouts({
-        page: p,
+      const response = await adminListPayouts({
+        page: targetPage,
         pageSize,
         status: status !== "ALL" ? status : undefined,
       });
 
-      const items = Array.isArray(res.items) ? res.items : [];
-      const resolvedPage = safeInt(res.page, p);
-      const resolvedPageSize = safeInt(res.pageSize, pageSize);
-      const resolvedTotal = safeInt(res.total, items.length);
-
       setState({
         kind: "ready",
-        items,
-        page: resolvedPage,
-        pageSize: resolvedPageSize,
-        total: resolvedTotal,
+        items: Array.isArray(response.items) ? response.items : [],
+        page: safeInt(response.page, targetPage),
+        pageSize: safeInt(response.pageSize, pageSize),
+        total: safeInt(response.total, 0),
       });
-    } catch (e) {
+    } catch (error) {
       setState({
         kind: "error",
-        message: e instanceof Error ? e.message : "Failed to load payouts",
+        message: error instanceof Error ? error.message : "Failed to load payouts",
       });
     }
   }
 
   useEffect(() => {
-    void refresh(page);
+    void load(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, status]);
 
-  const derived = useMemo(() => {
-    if (state.kind !== "ready") return null;
-
-    const items = state.items ?? [];
-    const statuses = Array.from(new Set(items.map((p) => p.status))).sort((a, b) => a.localeCompare(b));
-
-    const qq = q.trim().toLowerCase();
-    const filtered = !qq
-      ? items
-      : items.filter((p) => {
-          const blob = [p.id, p.vendorId, p.statementId, p.status, p.currency, p.provider, p.providerRef ?? ""]
-            .join(" | ")
-            .toLowerCase();
-          return blob.includes(qq);
-        });
-
-    const totals = filtered.reduce(
-      (acc, p) => {
-        acc.count += 1;
-        acc.amount += p.amount ?? 0;
-        return acc;
-      },
-      { count: 0, amount: 0 },
+  const filteredRows = useMemo(() => {
+    if (state.kind !== "ready") return [];
+    const needle = q.trim().toLowerCase();
+    if (!needle) return state.items;
+    return state.items.filter((item) =>
+      [
+        item.id,
+        item.statementId,
+        item.vendorId,
+        item.status,
+        item.provider,
+        item.providerRef ?? "",
+        item.currency,
+      ]
+        .join(" | ")
+        .toLowerCase()
+        .includes(needle)
     );
+  }, [q, state]);
 
-    return { statuses, filtered, totals };
-  }, [state, q]);
+  const statusOptions = useMemo(() => {
+    if (state.kind !== "ready") return [];
+    return Array.from(new Set(state.items.map((item) => item.status))).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [state]);
 
   const columns = useMemo<Array<Column<PayoutRow>>>(() => {
     return [
       {
         key: "payout",
         header: "Payout",
-        className: "col-span-5",
+        className: "col-span-4",
         render: (row) => (
           <div className="min-w-0">
-            <div className="truncate font-semibold text-primary">{row.id}</div>
-            <div className="mt-1 truncate text-xs text-secondary font-mono">statement: {row.statementId}</div>
+            <div className="truncate text-sm font-semibold text-primary">{row.id}</div>
+            <div className="mt-1 truncate font-mono text-xs text-muted">statement: {row.statementId}</div>
           </div>
         ),
       },
@@ -197,7 +121,7 @@ export default function AdminPayoutsPage() {
         key: "status",
         header: "Status",
         className: "col-span-2",
-        render: (row) => <StatusPill status={row.status} />,
+        render: (row) => <StatusPill status={row.status}>{row.status}</StatusPill>,
       },
       {
         key: "amount",
@@ -208,540 +132,187 @@ export default function AdminPayoutsPage() {
       {
         key: "provider",
         header: "Provider",
-        className: "col-span-3",
+        className: "col-span-2",
         render: (row) => (
           <div className="text-xs text-secondary">
             <div className="font-semibold text-primary">{row.provider}</div>
-            <div className="mt-1 truncate font-mono text-[11px] text-muted">{row.providerRef ?? "—"}</div>
+            <div className="mt-1 truncate font-mono text-muted">{row.providerRef || "—"}</div>
           </div>
         ),
+      },
+      {
+        key: "updatedAt",
+        header: "Updated",
+        className: "col-span-2",
+        render: (row) => <DateText value={row.updatedAt} />,
       },
     ];
   }, []);
 
   const canPrev = state.kind === "ready" ? state.page > 1 : false;
-  const canNext = state.kind === "ready" ? state.page * state.pageSize < state.total : false;
+  const canNext =
+    state.kind === "ready" ? state.page * state.pageSize < state.total : false;
 
-  async function onCreateConfirmed() {
-    const st = statementId.trim();
-    if (!st) return;
-
-    setBusy("Creating…");
+  async function createPayout() {
+    const statement = statementId.trim();
+    if (!statement) {
+      setBusy("Statement id is required.");
+      return;
+    }
+    setBusy("Creating payout...");
     try {
-      await adminCreatePayoutFromStatement(st, {
+      const payout = await adminCreatePayoutFromStatement(statement, {
         provider: provider.trim() || "MANUAL",
-        providerRef: providerRef.trim() ? providerRef.trim() : null,
+        providerRef: providerRef.trim() || null,
       });
-      setCreateOpen(false);
-      setConfirmCreateOpen(false);
       setStatementId("");
-      setProvider("MANUAL");
       setProviderRef("");
-      await refresh(1);
+      await load(1);
       setPage(1);
-      setBusy(null);
-    } catch (e) {
-      setBusy(e instanceof Error ? e.message : "Create payout failed");
-      setTimeout(() => setBusy(null), 2500);
-    }
-  }
-
-  async function doMarkProcessing(payoutId: string) {
-    setBusy("Marking PROCESSING…");
-    try {
-      await adminMarkPayoutProcessing(payoutId, {
-        providerRef: actionProviderRef.trim() ? actionProviderRef.trim() : null,
-      });
-      await refresh();
-      setSelected(null);
-      setBusy(null);
-    } catch (e) {
-      setBusy(e instanceof Error ? e.message : "Mark processing failed");
-      setTimeout(() => setBusy(null), 2500);
-    }
-  }
-
-  async function doMarkSucceeded(payoutId: string) {
-    setBusy("Marking SUCCEEDED…");
-    try {
-      await adminMarkPayoutSucceeded(payoutId, {
-        providerRef: actionProviderRef.trim() ? actionProviderRef.trim() : null,
-        idempotencyKey: actionIdempotencyKey.trim() ? actionIdempotencyKey.trim() : undefined,
-      });
-      await refresh();
-      setSelected(null);
-      setBusy(null);
-    } catch (e) {
-      setBusy(e instanceof Error ? e.message : "Mark succeeded failed");
-      setTimeout(() => setBusy(null), 2500);
-    }
-  }
-
-  async function doMarkFailed(payoutId: string) {
-    if (!actionFailureReason.trim()) return;
-
-    setBusy("Marking FAILED…");
-    try {
-      await adminMarkPayoutFailed(payoutId, {
-        failureReason: actionFailureReason.trim(),
-        providerRef: actionProviderRef.trim() ? actionProviderRef.trim() : null,
-      });
-      await refresh();
-      setSelected(null);
-      setBusy(null);
-    } catch (e) {
-      setBusy(e instanceof Error ? e.message : "Mark failed failed");
-      setTimeout(() => setBusy(null), 2500);
-    }
-  }
-
-  async function doCancel(payoutId: string) {
-    setBusy("Cancelling…");
-    try {
-      await adminCancelPayout(payoutId, null);
-      await refresh();
-      setSelected(null);
-      setBusy(null);
-    } catch (e) {
-      setBusy(e instanceof Error ? e.message : "Cancel failed");
-      setTimeout(() => setBusy(null), 2500);
+      setBusy(`Payout created (${payout.id}).`);
+    } catch (error) {
+      setBusy(error instanceof Error ? error.message : "Failed to create payout.");
     }
   }
 
   return (
-    <PortalShell role="admin" title="Admin Payouts" nav={nav}>
-      {state.kind === "loading" ? (
-        <div className="space-y-4">
-          <Toolbar
-            title="Payouts"
-            subtitle="Create payouts from finalized statements and manage payout lifecycle."
-            onSearch={setQ}
-            searchPlaceholder="Search payout id, statement id, vendor id, provider ref…"
-            right={
+    <PortalShell role="admin" title="Payouts" subtitle="Portal Home / Payouts">
+      <div className="space-y-5">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+          <Link href="/admin" className="hover:text-primary">
+            Portal Home
+          </Link>
+          <span className="mx-2">/</span>
+          <span className="text-primary">Payouts</span>
+        </div>
+
+        <section className="rounded-3xl border border-line/70 bg-surface p-5 shadow-sm">
+          <div className="text-sm font-semibold text-primary">Create payout from statement</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+            <label className="block">
+              <div className="mb-1 text-xs font-semibold text-secondary">Statement ID</div>
+              <input
+                value={statementId}
+                onChange={(event) => setStatementId(event.target.value)}
+                className="h-10 w-full rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+                placeholder="UUID"
+              />
+            </label>
+            <label className="block">
+              <div className="mb-1 text-xs font-semibold text-secondary">Provider</div>
+              <input
+                value={provider}
+                onChange={(event) => setProvider(event.target.value)}
+                className="h-10 w-full rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+                placeholder="MANUAL"
+              />
+            </label>
+            <label className="block">
+              <div className="mb-1 text-xs font-semibold text-secondary">Provider reference</div>
+              <input
+                value={providerRef}
+                onChange={(event) => setProviderRef(event.target.value)}
+                className="h-10 w-full rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+                placeholder="Optional"
+              />
+            </label>
+            <div className="flex items-end">
+              <button
+                type="button"
+                disabled={busy !== null}
+                onClick={() => void createPayout()}
+                className="h-10 w-full rounded-xl bg-brand px-4 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-60"
+              >
+                Create payout
+              </button>
+            </div>
+          </div>
+          {busy ? (
+            <div className="mt-3 rounded-xl border border-line/70 bg-warm-base p-3 text-sm text-secondary">
+              {busy}
+            </div>
+          ) : null}
+        </section>
+
+        <Toolbar
+          title="Payout lifecycle"
+          subtitle="Open each payout on a dedicated page for status transitions."
+          searchPlaceholder="Search by payout id, statement id, provider ref..."
+          onSearch={setQ}
+          right={
+            <select
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPage(1);
+              }}
+              className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm font-semibold text-primary"
+            >
+              <option value="ALL">All statuses</option>
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          }
+        />
+
+        {state.kind === "loading" ? (
+          <SkeletonTable rows={8} />
+        ) : state.kind === "error" ? (
+          <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
+            {state.message}
+          </div>
+        ) : (
+          <>
+            <DataTable<PayoutRow>
+              title="Payouts"
+              subtitle={
+                <>
+                  Showing <span className="font-semibold text-primary">{filteredRows.length}</span>{" "}
+                  of <span className="font-semibold text-primary">{state.total}</span>
+                </>
+              }
+              rows={filteredRows}
+              columns={columns}
+              onRowClick={(row) => router.push(`/admin/payouts/${encodeURIComponent(row.id)}`)}
+              rowActions={(row) => (
+                <Link
+                  href={`/admin/payouts/${encodeURIComponent(row.id)}`}
+                  className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
+                >
+                  Open
+                </Link>
+              )}
+            />
+
+            <div className="flex items-center justify-between rounded-2xl border border-line/70 bg-surface p-4">
+              <div className="text-xs text-secondary">
+                Page {state.page} · {state.total} records
+              </div>
               <div className="flex items-center gap-2">
                 <button
                   type="button"
-                  onClick={() => void refresh(1)}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
+                  onClick={() => setPage((value) => Math.max(1, value - 1))}
+                  disabled={!canPrev}
+                  className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-50"
                 >
-                  <RefreshCw className="h-4 w-4" />
-                  Refresh
+                  Previous
                 </button>
-
                 <button
                   type="button"
-                  onClick={() => setCreateOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95"
+                  onClick={() => setPage((value) => value + 1)}
+                  disabled={!canNext}
+                  className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-50"
                 >
-                  <Plus className="h-4 w-4" />
-                  Create payout
+                  Next
                 </button>
               </div>
-            }
-          />
-          <SkeletonTable rows={10} />
-        </div>
-      ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger whitespace-pre-wrap">
-          {state.message}
-        </div>
-      ) : (
-        <div className="space-y-5">
-          <Toolbar
-            title="Payouts"
-            subtitle="Operator-ready. Actions are confirmed and follow backend status rules."
-            onSearch={setQ}
-            searchPlaceholder="Search payouts…"
-            right={
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="hidden items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-secondary shadow-sm md:flex">
-                  <Settings2 className="h-4 w-4 text-muted" />
-                  <select
-                    value={status}
-                    onChange={(e) => {
-                      setStatus(e.target.value);
-                      setPage(1);
-                    }}
-                    className="bg-transparent text-sm font-semibold text-primary outline-none"
-                  >
-                    <option value="ALL">All statuses</option>
-                    {derived?.statuses.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm">
-                  Total (page): <MoneyText amount={derived?.totals.amount ?? 0} currency={state.items?.[0]?.currency ?? "AED"} />
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => setCreateOpen(true)}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create payout
-                </button>
-              </div>
-            }
-          />
-
-          <DataTable
-            title="Payouts"
-            subtitle="Open a payout to move through PENDING → PROCESSING → SUCCEEDED/FAILED."
-            rows={derived?.filtered ?? []}
-            columns={columns}
-            empty="No payouts found."
-            rowActions={(row) => (
-              <button
-                type="button"
-                onClick={() => {
-                  setSelected(row);
-                  setActionProviderRef(row.providerRef ?? "");
-                  setActionFailureReason("");
-                  setActionIdempotencyKey("");
-                }}
-                className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
-              >
-                <CreditCard className="h-4 w-4" />
-                Open
-              </button>
-            )}
-          />
-
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              disabled={!canPrev}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
-            >
-              Prev
-            </button>
-            <div className="text-sm text-secondary">
-              Page {state.page} {state.total ? `· ${state.total} total` : ""}
             </div>
-            <button
-              type="button"
-              disabled={!canNext}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
-            >
-              Next
-            </button>
-          </div>
-
-          {/* Create payout drawer */}
-          <Drawer open={createOpen} title="Create payout" subtitle="Create a payout from a finalized statement." onClose={() => setCreateOpen(false)}>
-            <div className="space-y-4">
-              {busy ? (
-                <div className="rounded-2xl bg-brand px-3 py-2 text-xs font-semibold text-accent-text">{busy}</div>
-              ) : null}
-
-              <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
-                <div className="text-sm font-semibold text-primary">Source statement</div>
-                <div className="mt-1 text-sm text-secondary">Paste the statement UUID you want to pay out.</div>
-
-                <div className="mt-3">
-                  <div className="text-xs font-semibold text-secondary">Statement ID</div>
-                  <input
-                    value={statementId}
-                    onChange={(e) => setStatementId(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20 font-mono"
-                    placeholder="statement UUID"
-                  />
-                </div>
-              </div>
-
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
-                  <div className="text-xs font-semibold text-secondary">Provider</div>
-                  <input
-                    value={provider}
-                    onChange={(e) => setProvider(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
-                    placeholder="MANUAL"
-                  />
-                </div>
-
-                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
-                  <div className="text-xs font-semibold text-secondary">Provider ref (optional)</div>
-                  <input
-                    value={providerRef}
-                    onChange={(e) => setProviderRef(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
-                    placeholder="bank transfer ref / payout ref"
-                  />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => setCreateOpen(false)}
-                  className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setConfirmCreateOpen(true)}
-                  disabled={!statementId.trim().length || busy !== null}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95 disabled:opacity-60"
-                >
-                  <Plus className="h-4 w-4" />
-                  Create
-                </button>
-              </div>
-
-              <div className="rounded-3xl border border-line/50 bg-warm-base p-4 text-sm text-secondary">
-                <div className="font-semibold text-primary">Safety</div>
-                <ul className="mt-2 list-disc space-y-1 pl-5">
-                  <li>Create payouts only for <span className="font-semibold">FINALIZED</span> statements.</li>
-                  <li>Backend enforces allowed transitions.</li>
-                </ul>
-              </div>
-
-              <ConfirmDialog
-                open={confirmCreateOpen}
-                title="Create payout from this statement?"
-                description={
-                  <>
-                    A new payout will be created for statement <span className="font-mono text-xs">{statementId.trim()}</span>.
-                  </>
-                }
-                tone="warning"
-                confirmText="Create payout"
-                busy={busy === "Creating…"}
-                onCancel={() => setConfirmCreateOpen(false)}
-                onConfirm={async () => {
-                  setConfirmCreateOpen(false);
-                  await onCreateConfirmed();
-                }}
-              />
-            </div>
-          </Drawer>
-
-          {/* Payout actions drawer */}
-          <Drawer
-            open={selected !== null}
-            title={selected ? `Payout • ${selected.id}` : "Payout"}
-            subtitle={selected ? `Statement: ${selected.statementId}` : undefined}
-            onClose={() => setSelected(null)}
-          >
-            {selected ? (
-              <div className="space-y-4">
-                {busy ? (
-                  <div className="rounded-2xl bg-brand px-3 py-2 text-xs font-semibold text-accent-text">{busy}</div>
-                ) : null}
-
-                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-muted">Status</div>
-                      <div className="mt-2">
-                        <StatusPill status={selected.status} />
-                      </div>
-                      <div className="mt-3 text-xs text-secondary font-mono break-all">vendor: {selected.vendorId}</div>
-                    </div>
-
-                    <div className="rounded-2xl border border-line/50 bg-warm-base px-4 py-3">
-                      <div className="text-xs font-semibold text-secondary">Amount</div>
-                      <div className="mt-1 text-sm font-semibold text-primary">
-                        <MoneyText amount={selected.amount} currency={selected.currency} />
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-line/50 bg-warm-base p-4">
-                      <div className="text-xs font-semibold text-secondary">Created</div>
-                      <div className="mt-1 text-sm font-semibold text-primary">
-                        <DateText value={selected.createdAt} />
-                      </div>
-                    </div>
-
-                    <div className="rounded-2xl border border-line/50 bg-warm-base p-4">
-                      <div className="text-xs font-semibold text-secondary">Processed</div>
-                      <div className="mt-1 text-sm font-semibold text-primary">
-                        <DateText value={selected.processedAt ?? selected.failedAt ?? selected.scheduledAt} />
-                      </div>
-                    </div>
-                  </div>
-
-                  {selected.failureReason ? (
-                    <div className="mt-4 rounded-2xl border border-danger/30 bg-danger/12 p-4 text-sm text-danger">
-                      <div className="text-xs font-semibold">Failure reason</div>
-                      <div className="mt-1">{selected.failureReason}</div>
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Action inputs */}
-                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
-                  <div className="text-sm font-semibold text-primary">Action inputs</div>
-                  <div className="mt-1 text-sm text-secondary">
-                    Provider ref is optional for PROCESSING/SUCCEEDED. Failure reason is required for FAILED.
-                  </div>
-
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div>
-                      <div className="text-xs font-semibold text-secondary">Provider ref (optional)</div>
-                      <input
-                        value={actionProviderRef}
-                        onChange={(e) => setActionProviderRef(e.target.value)}
-                        className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
-                        placeholder="bank transfer ref / payout ref"
-                      />
-                    </div>
-
-                    <div>
-                      <div className="text-xs font-semibold text-secondary">Idempotency key (recommended)</div>
-                      <input
-                        value={actionIdempotencyKey}
-                        onChange={(e) => setActionIdempotencyKey(e.target.value)}
-                        className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20 font-mono"
-                        placeholder="optional"
-                      />
-                    </div>
-
-                    <div className="sm:col-span-2">
-                      <div className="text-xs font-semibold text-secondary">Failure reason (required for FAILED)</div>
-                      <textarea
-                        value={actionFailureReason}
-                        onChange={(e) => setActionFailureReason(e.target.value)}
-                        rows={3}
-                        className="mt-1 w-full rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
-                        placeholder="Explain why the payout failed…"
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                {/* Actions */}
-                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
-                  <div className="text-sm font-semibold text-primary">Lifecycle actions</div>
-                  <div className="mt-1 text-sm text-secondary">
-                    These actions are audited. Backend enforces safe transitions.
-                  </div>
-
-                  <div className="mt-4 flex flex-wrap gap-2">
-                    <button
-                      type="button"
-                      onClick={() => setConfirmProcessingOpen(true)}
-                      disabled={!isPending(selected.status) || busy !== null}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:bg-brand-hover disabled:opacity-60"
-                    >
-                      <ArrowRightCircle className="h-4 w-4" />
-                      Mark PROCESSING
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setConfirmSucceededOpen(true)}
-                      disabled={!isProcessing(selected.status) || busy !== null}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-success px-4 py-2 text-sm font-semibold text-inverted shadow-sm hover:bg-success disabled:opacity-60"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Mark SUCCEEDED
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setConfirmFailedOpen(true)}
-                      disabled={!isProcessing(selected.status) || busy !== null}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-danger/30 bg-danger/12 px-4 py-2 text-sm font-semibold text-danger shadow-sm hover:bg-danger/12 disabled:opacity-60"
-                    >
-                      <XCircle className="h-4 w-4" />
-                      Mark FAILED
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => setConfirmCancelOpen(true)}
-                      disabled={isSucceeded(selected.status) || busy !== null}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
-                    >
-                      <Ban className="h-4 w-4" />
-                      Cancel
-                    </button>
-                  </div>
-
-                  <div className="mt-4 rounded-3xl border border-line/50 bg-warm-base p-4 text-sm text-secondary">
-                    <div className="font-semibold text-primary">Important</div>
-                    <ul className="mt-2 list-disc space-y-1 pl-5">
-                      <li>SUCCEEDED should be used only after confirmed payout execution.</li>
-                      <li>Backend will mark linked statement as PAID on payout success.</li>
-                      <li>Use an idempotency key when retrying SUCCEEDED.</li>
-                    </ul>
-                  </div>
-                </div>
-
-                {/* Confirms */}
-                <ConfirmDialog
-                  open={confirmProcessingOpen}
-                  title="Move payout to PROCESSING?"
-                  description="Use when payout execution has started (e.g., bank transfer initiated)."
-                  tone="warning"
-                  confirmText="Mark PROCESSING"
-                  busy={busy === "Marking PROCESSING…"}
-                  onCancel={() => setConfirmProcessingOpen(false)}
-                  onConfirm={async () => {
-                    setConfirmProcessingOpen(false);
-                    await doMarkProcessing(selected.id);
-                  }}
-                />
-
-                <ConfirmDialog
-                  open={confirmSucceededOpen}
-                  title="Mark payout as SUCCEEDED?"
-                  description="This will mark the payout SUCCEEDED and update the linked statement to PAID (backend-driven)."
-                  tone="success"
-                  confirmText="Mark SUCCEEDED"
-                  busy={busy === "Marking SUCCEEDED…"}
-                  onCancel={() => setConfirmSucceededOpen(false)}
-                  onConfirm={async () => {
-                    setConfirmSucceededOpen(false);
-                    await doMarkSucceeded(selected.id);
-                  }}
-                />
-
-                <ConfirmDialog
-                  open={confirmFailedOpen}
-                  title="Mark payout as FAILED?"
-                  description="This requires a failure reason. Backend will record an audit entry."
-                  tone="danger"
-                  confirmText="Mark FAILED"
-                  confirmDisabled={!actionFailureReason.trim().length}
-                  busy={busy === "Marking FAILED…"}
-                  onCancel={() => setConfirmFailedOpen(false)}
-                  onConfirm={async () => {
-                    setConfirmFailedOpen(false);
-                    await doMarkFailed(selected.id);
-                  }}
-                />
-
-                <ConfirmDialog
-                  open={confirmCancelOpen}
-                  title="Cancel this payout?"
-                  description="Use only if the payout should not proceed. Backend enforces final-state safety."
-                  tone="danger"
-                  confirmText="Cancel payout"
-                  busy={busy === "Cancelling…"}
-                  onCancel={() => setConfirmCancelOpen(false)}
-                  onConfirm={async () => {
-                    setConfirmCancelOpen(false);
-                    await doCancel(selected.id);
-                  }}
-                />
-              </div>
-            ) : null}
-          </Drawer>
-        </div>
-      )}
+          </>
+        )}
+      </div>
     </PortalShell>
   );
 }

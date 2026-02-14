@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useAuth } from "@/lib/auth/auth-context";
@@ -12,6 +12,7 @@ import {
   type PortalRole,
 } from "@/components/portal/layout/portal-navigation";
 import { PortalSidebar } from "@/components/portal/layout/PortalSidebar";
+import { getPortalUnreadCount, type PortalNotificationRole } from "@/lib/api/portal/notifications";
 
 export type { PortalRole, PortalNavItem };
 
@@ -21,6 +22,26 @@ function cn(...xs: Array<string | false | null | undefined>) {
 
 function isActive(pathname: string, href: string): boolean {
   return pathname === href || pathname.startsWith(href + "/");
+}
+
+function loginHrefForRole(role?: PortalRole): string {
+  if (role === "vendor") return "/login?role=vendor";
+  if (role === "customer") return "/login?role=customer";
+  return "/login";
+}
+
+function notificationRole(role?: PortalRole): PortalNotificationRole | null {
+  if (role === "admin") return "admin";
+  if (role === "vendor") return "vendor";
+  if (role === "customer") return "customer";
+  return null;
+}
+
+function notificationsHref(role?: PortalRole): string | null {
+  if (role === "admin") return "/admin/notifications";
+  if (role === "vendor") return "/vendor/notifications";
+  if (role === "customer") return "/account/notifications";
+  return null;
 }
 
 export function PortalShell(props: {
@@ -34,9 +55,43 @@ export function PortalShell(props: {
   const { user, logout } = useAuth();
   const router = useRouter();
   const pathname = usePathname();
+  const [unreadCount, setUnreadCount] = useState(0);
+  const activeNotificationRole = notificationRole(props.role);
+  const notificationsPageHref = notificationsHref(props.role);
+  const identityName = useMemo(() => {
+    const first = user?.firstName?.trim();
+    if (first) return first;
+    const full = user?.fullName?.trim();
+    if (full) return full;
+    return null;
+  }, [user?.firstName, user?.fullName]);
 
   // Enforce one role-aware sidebar source across all portals.
   const navItems = getRoleNav(props.role);
+
+  useEffect(() => {
+    let alive = true;
+
+    async function loadUnread() {
+      if (!activeNotificationRole || !user?.id) {
+        setUnreadCount(0);
+        return;
+      }
+      try {
+        const data = await getPortalUnreadCount(activeNotificationRole);
+        if (!alive) return;
+        setUnreadCount(data.unreadCount ?? 0);
+      } catch {
+        if (!alive) return;
+        setUnreadCount(0);
+      }
+    }
+
+    void loadUnread();
+    return () => {
+      alive = false;
+    };
+  }, [activeNotificationRole, pathname, user?.id]);
 
   return (
     <div className="portal-density min-h-screen">
@@ -51,9 +106,12 @@ export function PortalShell(props: {
         title={props.title}
         right={props.right}
         userEmail={user?.email ?? null}
+        userName={identityName}
+        notificationsHref={notificationsPageHref ?? undefined}
+        unreadCount={unreadCount}
         onLogout={async () => {
           await logout();
-          router.replace("/");
+          router.replace(loginHrefForRole(props.role));
         }}
       />
 
@@ -96,6 +154,7 @@ export function PortalShell(props: {
           subtitle={props.subtitle}
           nav={navItems}
           userEmail={user?.email ?? null}
+          userName={identityName}
         />
 
         <main className="min-w-0">

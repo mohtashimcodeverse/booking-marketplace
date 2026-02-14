@@ -186,6 +186,19 @@ export function MediaManager({ property, onChanged }: Props) {
     }
   }
 
+  function viewMedia(url: string) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function downloadMedia(url: string, filename: string) {
+    const anchor = document.createElement("a");
+    anchor.href = url;
+    anchor.download = filename;
+    document.body.appendChild(anchor);
+    anchor.click();
+    anchor.remove();
+  }
+
   function UploadBlock(props: {
     category: MediaCategory;
     title: string;
@@ -396,6 +409,23 @@ export function MediaManager({ property, onChanged }: Props) {
                       className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary hover:bg-warm-alt disabled:opacity-50"
                     >
                       Down
+                    </button>
+                  </div>
+
+                  <div className="flex items-center justify-between gap-2">
+                    <button
+                      type="button"
+                      onClick={() => viewMedia(m.url)}
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary hover:bg-warm-alt"
+                    >
+                      View
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => downloadMedia(m.url, `property-${property.id}-${m.id}.jpg`)}
+                      className="w-full rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary hover:bg-warm-alt"
+                    >
+                      Download
                     </button>
                   </div>
 

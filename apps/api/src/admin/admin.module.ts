@@ -6,9 +6,10 @@ import { AdminVendorsController } from './vendors/admin-vendors.controller';
 import { AdminVendorsService } from './vendors/admin-vendors.service';
 import { AdminReviewsController } from './reviews/admin-reviews.controller';
 import { AdminReviewsService } from './reviews/admin-reviews.service';
+import { NotificationsModule } from '../modules/notifications/notifications.module';
 
 @Module({
-  imports: [PrismaModule],
+  imports: [PrismaModule, NotificationsModule],
   controllers: [
     AdminPropertiesController,
     AdminVendorsController,

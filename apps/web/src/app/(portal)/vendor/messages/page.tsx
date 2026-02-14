@@ -18,6 +18,7 @@ export default function VendorMessagesPage() {
       getThread={getVendorMessageThread}
       sendMessage={sendVendorMessage}
       createThread={createVendorMessageThread}
+      threadHref={(threadId) => `/vendor/messages/${encodeURIComponent(threadId)}`}
     />
   );
 }

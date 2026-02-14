@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import type {
   AmenitiesCatalogResponse,
@@ -26,6 +27,7 @@ import {
 import { MediaManager } from "@/components/portal/vendor/property/MediaManager";
 import { DocumentManager } from "@/components/portal/vendor/property/DocumentManager";
 import { ReviewChecklistCard, computeGates } from "@/components/portal/vendor/property/ReviewChecklistCard";
+import { PortalMapPicker } from "@/components/portal/maps/PortalMapPicker";
 
 function cn(...xs: Array<string | false | null | undefined>) {
   return xs.filter(Boolean).join(" ");
@@ -457,6 +459,20 @@ export default function VendorPropertyEditor(props: {
                 </button>
               </div>
 
+              {property.status === "APPROVED_PENDING_ACTIVATION_PAYMENT" ? (
+                <div className="mt-4 rounded-xl border border-warning/30 bg-warning/12 p-3 text-sm text-warning">
+                  Activation payment is required before publishing.
+                  <div className="mt-2">
+                    <Link
+                      href={`/vendor/properties/${encodeURIComponent(property.id)}/activation`}
+                      className="inline-flex rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
+                    >
+                      Open activation payment
+                    </Link>
+                  </div>
+                </div>
+              ) : null}
+
               {!readiness.allOk ? (
                 <div className="mt-4 rounded-xl border border-warning/30 bg-warning/12 p-3 text-sm text-warning">
                   Your listing is not ready yet. Complete the checklist above before submitting.
@@ -816,9 +832,7 @@ function LocationPanel(props: {
       <div className="flex items-start justify-between gap-3">
         <div>
           <h3 className="text-base font-semibold text-primary">Location</h3>
-          <p className="mt-1 text-sm text-secondary">
-            For now: manual lat/lng. Next step: map pin UX.
-          </p>
+          <p className="mt-1 text-sm text-secondary">Drop a pin on the map to set exact location.</p>
         </div>
       </div>
 
@@ -869,6 +883,22 @@ function LocationPanel(props: {
             placeholder="55.2708"
           />
         </Field>
+      </div>
+
+      <div className="mt-4">
+        <PortalMapPicker
+          value={{
+            lat: Number.isFinite(latNum) ? latNum : null,
+            lng: Number.isFinite(lngNum) ? lngNum : null,
+            address: address.trim().length ? address.trim() : null,
+          }}
+          onChange={(next) => {
+            setLat(String(next.lat));
+            setLng(String(next.lng));
+            if (next.address) setAddress(next.address);
+          }}
+          disabled={props.disabled}
+        />
       </div>
 
       <div className="mt-5">

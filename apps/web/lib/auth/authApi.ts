@@ -94,3 +94,23 @@ export async function resetPassword(payload: ResetPasswordPayload): Promise<{ ok
   });
   return unwrap(res);
 }
+
+export async function requestEmailVerificationOtp(): Promise<{ ok: true }> {
+  const res = await apiFetch<{ ok: true }>("/auth/email-verification/request", {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    body: {},
+  });
+  return unwrap(res);
+}
+
+export async function verifyEmailOtp(otp: string): Promise<{ ok: true }> {
+  const res = await apiFetch<{ ok: true }>("/auth/email-verification/verify", {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    body: { otp },
+  });
+  return unwrap(res);
+}

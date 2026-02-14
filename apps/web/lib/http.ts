@@ -26,10 +26,59 @@ function isJsonResponse(res: Response): boolean {
   return ct.includes("application/json");
 }
 
+/**
+ * Nest validation errors commonly look like:
+ * { statusCode: 400, message: ["...", "..."], error: "Bad Request" }
+ * or:
+ * { message: "Some string" }
+ * or:
+ * { errors: [{ message: "..." }, ...] }
+ *
+ * Convert those into a single readable string.
+ */
 function pickMessageFromJson(j: unknown): string | null {
   if (typeof j !== "object" || j === null) return null;
-  const maybeMsg = (j as { message?: unknown }).message;
-  return typeof maybeMsg === "string" ? maybeMsg : null;
+
+  const asAny = j as {
+    message?: unknown;
+    error?: unknown;
+    errors?: unknown;
+  };
+
+  const msg = asAny.message;
+
+  // message: "..."
+  if (typeof msg === "string" && msg.trim()) return msg;
+
+  // message: ["...", "..."]
+  if (Array.isArray(msg)) {
+    const parts = msg
+      .filter((x): x is string => typeof x === "string")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length > 0) return parts.join("\n");
+  }
+
+  // errors: [{ message: "..." }, ...]
+  if (Array.isArray(asAny.errors)) {
+    const parts = asAny.errors
+      .map((e) => {
+        if (typeof e === "string") return e;
+        if (typeof e !== "object" || e === null) return null;
+        const m = (e as { message?: unknown }).message;
+        return typeof m === "string" ? m : null;
+      })
+      .filter((x): x is string => typeof x === "string")
+      .map((s) => s.trim())
+      .filter(Boolean);
+    if (parts.length > 0) return parts.join("\n");
+  }
+
+  // error: "Bad Request"
+  const err = asAny.error;
+  if (typeof err === "string" && err.trim()) return err;
+
+  return null;
 }
 
 function shouldDebugRequest(path: string): boolean {
@@ -101,7 +150,6 @@ export async function apiFetch<T>(
   }
 
   // ✅ IMPORTANT: default to cookie-friendly requests for auth refresh token cookie (HttpOnly)
-  // You can still override per-call by passing opts.credentials.
   const credentials: RequestCredentials = opts?.credentials ?? "include";
 
   let res: Response;
@@ -118,7 +166,7 @@ export async function apiFetch<T>(
     if (debugLog) {
       console.error(
         `[apiFetch] ${method} ${url.toString()} -> network error`,
-        err,
+        err
       );
     }
     const msg = err instanceof Error ? err.message : "Network error";
@@ -160,19 +208,16 @@ export async function apiFetch<T>(
 
   const rt = opts?.responseType;
 
-  // Explicit blob
   if (rt === "blob") {
     const data = (await res.blob()) as unknown as T;
     return { ok: true, status, data };
   }
 
-  // Explicit text
   if (rt === "text") {
     const text = (await res.text()) as unknown as T;
     return { ok: true, status, data: text };
   }
 
-  // Default: json if json, else text
   if (isJsonResponse(res)) {
     const data = (await res.json()) as T;
     return { ok: true, status, data };

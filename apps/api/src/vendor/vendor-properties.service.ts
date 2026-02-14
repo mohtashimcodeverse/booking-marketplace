@@ -7,6 +7,8 @@ import {
 import { join } from 'path';
 import { existsSync, unlinkSync } from 'fs';
 import {
+  ActivationInvoiceStatus,
+  PaymentProvider,
   Prisma,
   PropertyDeletionRequestStatus,
   PropertyUnpublishRequestStatus,
@@ -117,6 +119,7 @@ export class VendorPropertiesService {
     // Any meaningful change to an approved/reviewed/published listing must re-enter workflow.
     return (
       status === PropertyStatus.APPROVED ||
+      status === PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT ||
       status === PropertyStatus.UNDER_REVIEW ||
       status === PropertyStatus.PUBLISHED
     );
@@ -557,8 +560,196 @@ export class VendorPropertiesService {
     });
   }
 
+  private activationDepositAmountMinor(): number {
+    const raw = Number(process.env.ACTIVATION_DEPOSIT_AMOUNT_MINOR || '25000');
+    if (!Number.isFinite(raw) || raw < 0) return 25000;
+    return Math.trunc(raw);
+  }
+
+  private activationDepositCurrency(): string {
+    const v = (process.env.ACTIVATION_DEPOSIT_CURRENCY || 'AED').trim();
+    return v.length > 0 ? v : 'AED';
+  }
+
+  private serializeActivationInvoice(
+    invoice: {
+      id: string;
+      propertyId: string;
+      vendorId: string;
+      amount: number;
+      currency: string;
+      status: ActivationInvoiceStatus;
+      provider: PaymentProvider;
+      providerRef: string | null;
+      createdAt: Date;
+      paidAt: Date | null;
+      updatedAt: Date;
+    } | null,
+  ) {
+    if (!invoice) return null;
+    return {
+      ...invoice,
+      createdAt: invoice.createdAt.toISOString(),
+      paidAt: invoice.paidAt?.toISOString() ?? null,
+      updatedAt: invoice.updatedAt.toISOString(),
+    };
+  }
+
+  async getActivationStatus(vendorUserId: string, propertyId: string) {
+    const prop = await this.assertOwnership(vendorUserId, propertyId);
+    const latest = await this.prisma.propertyActivationInvoice.findFirst({
+      where: {
+        propertyId,
+        vendorId: vendorUserId,
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+
+    return {
+      propertyId: prop.id,
+      propertyStatus: prop.status,
+      activationRequired:
+        prop.status === PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT,
+      invoice: this.serializeActivationInvoice(latest),
+    };
+  }
+
+  async createActivationInvoice(
+    vendorUserId: string,
+    propertyId: string,
+    input?: { provider?: PaymentProvider; providerRef?: string | null },
+  ) {
+    const prop = await this.assertOwnership(vendorUserId, propertyId);
+
+    if (prop.status !== PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT) {
+      throw new BadRequestException(
+        `Activation payment is not required in status ${prop.status}.`,
+      );
+    }
+
+    const existing = await this.prisma.propertyActivationInvoice.findFirst({
+      where: {
+        propertyId,
+        vendorId: vendorUserId,
+        status: {
+          in: [
+            ActivationInvoiceStatus.PENDING,
+            ActivationInvoiceStatus.PROCESSING,
+          ],
+        },
+      },
+      orderBy: [{ createdAt: 'desc' }],
+    });
+
+    if (existing) {
+      return {
+        propertyId: prop.id,
+        propertyStatus: prop.status,
+        invoice: this.serializeActivationInvoice(existing),
+      };
+    }
+
+    const created = await this.prisma.propertyActivationInvoice.create({
+      data: {
+        propertyId: prop.id,
+        vendorId: vendorUserId,
+        amount: this.activationDepositAmountMinor(),
+        currency: this.activationDepositCurrency(),
+        provider: input?.provider ?? PaymentProvider.MANUAL,
+        providerRef: input?.providerRef?.trim() || null,
+        status: ActivationInvoiceStatus.PENDING,
+      },
+    });
+
+    return {
+      propertyId: prop.id,
+      propertyStatus: prop.status,
+      invoice: this.serializeActivationInvoice(created),
+    };
+  }
+
+  async confirmActivationManual(
+    vendorUserId: string,
+    propertyId: string,
+    input?: { invoiceId?: string; providerRef?: string | null },
+  ) {
+    const prop = await this.assertOwnership(vendorUserId, propertyId);
+
+    if (prop.status !== PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT) {
+      throw new BadRequestException(
+        `Activation payment is not required in status ${prop.status}.`,
+      );
+    }
+
+    const targetInvoice = input?.invoiceId
+      ? await this.prisma.propertyActivationInvoice.findFirst({
+          where: {
+            id: input.invoiceId,
+            propertyId,
+            vendorId: vendorUserId,
+          },
+        })
+      : await this.prisma.propertyActivationInvoice.findFirst({
+          where: {
+            propertyId,
+            vendorId: vendorUserId,
+            status: {
+              in: [
+                ActivationInvoiceStatus.PENDING,
+                ActivationInvoiceStatus.PROCESSING,
+              ],
+            },
+          },
+          orderBy: [{ createdAt: 'desc' }],
+        });
+
+    if (!targetInvoice) {
+      throw new NotFoundException('Activation invoice not found.');
+    }
+
+    if (targetInvoice.status === ActivationInvoiceStatus.PAID) {
+      return {
+        ok: true,
+        invoice: this.serializeActivationInvoice(targetInvoice),
+        propertyStatus: PropertyStatus.APPROVED,
+      };
+    }
+
+    const paidAt = new Date();
+    const { invoice, property } = await this.prisma.$transaction(async (tx) => {
+      const updatedInvoice = await tx.propertyActivationInvoice.update({
+        where: { id: targetInvoice.id },
+        data: {
+          status: ActivationInvoiceStatus.PAID,
+          providerRef: input?.providerRef?.trim() || targetInvoice.providerRef,
+          paidAt,
+        },
+      });
+
+      const updatedProperty = await tx.property.update({
+        where: { id: prop.id },
+        data: { status: PropertyStatus.APPROVED },
+        select: { status: true },
+      });
+
+      return { invoice: updatedInvoice, property: updatedProperty };
+    });
+
+    return {
+      ok: true,
+      invoice: this.serializeActivationInvoice(invoice),
+      propertyStatus: property.status,
+    };
+  }
+
   async publish(vendorUserId: string, propertyId: string) {
     const prop = await this.assertOwnership(vendorUserId, propertyId);
+
+    if (prop.status === PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT) {
+      throw new BadRequestException(
+        'Activation payment is required before publishing.',
+      );
+    }
 
     if (prop.status !== PropertyStatus.APPROVED) {
       throw new BadRequestException(

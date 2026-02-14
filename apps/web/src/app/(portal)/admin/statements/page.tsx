@@ -1,203 +1,129 @@
 "use client";
 
+import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { FileText, RefreshCw, Wand2, CheckCircle2, Ban, Search, Filter } from "lucide-react";
 
 import { PortalShell } from "@/components/portal/PortalShell";
 import { Toolbar } from "@/components/portal/ui/Toolbar";
 import { DataTable, type Column } from "@/components/portal/ui/DataTable";
-import { StatusPill } from "@/components/portal/ui/StatusPill";
 import { DateText } from "@/components/portal/ui/DateText";
 import { MoneyText } from "@/components/portal/ui/MoneyText";
+import { StatusPill } from "@/components/portal/ui/StatusPill";
 import { SkeletonTable } from "@/components/portal/ui/Skeleton";
-import { ConfirmDialog } from "@/components/portal/ui/ConfirmDialog";
-
 import {
-  adminListStatements,
   adminGenerateStatements,
-  adminFinalizeStatement,
-  adminVoidStatement,
+  adminListStatements,
   type VendorStatementListItem,
-  type VendorStatementStatus,
 } from "@/lib/api/portal/finance";
 
 type ViewState =
   | { kind: "loading" }
   | { kind: "error"; message: string }
-  | { kind: "ready"; items: VendorStatementListItem[]; page: number; pageSize: number; total: number };
+  | {
+      kind: "ready";
+      items: VendorStatementListItem[];
+      page: number;
+      pageSize: number;
+      total: number;
+    };
 
-function safeInt(v: unknown, fallback: number): number {
-  return typeof v === "number" && Number.isFinite(v) ? v : fallback;
+function safeInt(value: unknown, fallback: number): number {
+  return typeof value === "number" && Number.isFinite(value) ? value : fallback;
 }
 
 function monthLabel(periodStartISO: string): string {
-  const d = new Date(periodStartISO);
-  if (Number.isNaN(d.getTime())) return periodStartISO;
-  return d.toLocaleString(undefined, { month: "long", year: "numeric" });
-}
-
-function Drawer(props: { open: boolean; title: string; subtitle?: string; onClose: () => void; children: React.ReactNode }) {
-  if (!props.open) return null;
-  return (
-    <div className="fixed inset-0 z-[90]">
-      <button type="button" aria-label="Close drawer" onClick={props.onClose} className="absolute inset-0 bg-dark-1/40" />
-      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-surface shadow-2xl">
-        <div className="border-b border-line/50 bg-warm-base/60 px-5 py-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <div className="truncate text-sm font-semibold text-primary">{props.title}</div>
-              <div className="mt-1 text-xs text-secondary">{props.subtitle ?? "Admin actions"}</div>
-            </div>
-            <button
-              type="button"
-              onClick={props.onClose}
-              className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary shadow-sm hover:bg-warm-alt"
-            >
-              Close
-            </button>
-          </div>
-        </div>
-        <div className="h-[calc(100%-78px)] overflow-auto p-5">{props.children}</div>
-      </div>
-    </div>
-  );
-}
-
-function isDraft(s: VendorStatementStatus): boolean {
-  return s === "DRAFT";
-}
-
-function isPaid(s: VendorStatementStatus): boolean {
-  return s === "PAID";
+  const date = new Date(periodStartISO);
+  if (Number.isNaN(date.getTime())) return periodStartISO;
+  return date.toLocaleString(undefined, { month: "long", year: "numeric" });
 }
 
 export default function AdminStatementsPage() {
+  const router = useRouter();
+
   const [state, setState] = useState<ViewState>({ kind: "loading" });
+  const [busy, setBusy] = useState<string | null>(null);
+  const [q, setQ] = useState("");
+  const [status, setStatus] = useState<string>("ALL");
 
   const [page, setPage] = useState(1);
   const pageSize = 10;
 
-  const [q, setQ] = useState("");
-  const [status, setStatus] = useState<string>("ALL");
-  const [selected, setSelected] = useState<VendorStatementListItem | null>(null);
-
-  const [busy, setBusy] = useState<string | null>(null);
-
-  // generate form
   const now = new Date();
-  const [genYear, setGenYear] = useState<number>(now.getFullYear());
-  const [genMonth, setGenMonth] = useState<number>(now.getMonth() + 1);
-  const [genVendorId, setGenVendorId] = useState<string>("");
-  const [genCurrency, setGenCurrency] = useState<string>("AED");
+  const [genYear, setGenYear] = useState(now.getFullYear());
+  const [genMonth, setGenMonth] = useState(now.getMonth() + 1);
+  const [genVendorId, setGenVendorId] = useState("");
+  const [genCurrency, setGenCurrency] = useState("AED");
 
-  // statement actions
-  const [finalizeNote, setFinalizeNote] = useState<string>("");
-  const [voidReason, setVoidReason] = useState<string>("");
-
-  const [confirmFinalizeOpen, setConfirmFinalizeOpen] = useState(false);
-  const [confirmVoidOpen, setConfirmVoidOpen] = useState(false);
-
-  const nav = useMemo(
-    () => [
-      { href: "/admin", label: "Overview" },
-      { href: "/admin/analytics", label: "Analytics" },
-      { href: "/admin/review-queue", label: "Review Queue" },
-      { href: "/admin/vendors", label: "Vendors" },
-      { href: "/admin/properties", label: "Properties" },
-      { href: "/admin/bookings", label: "Bookings" },
-      { href: "/admin/payments", label: "Payments" },
-      { href: "/admin/refunds", label: "Refunds" },
-      { href: "/admin/ops-tasks", label: "Ops Tasks" },
-      { href: "/admin/statements", label: "Statements" },
-      { href: "/admin/payouts", label: "Payouts" },
-    ],
-    [],
-  );
-
-  async function refresh(nextPage?: number) {
-    const p = nextPage ?? page;
+  async function load(nextPage?: number) {
+    const targetPage = nextPage ?? page;
     setState({ kind: "loading" });
     try {
-      const res = await adminListStatements({
-        page: p,
+      const response = await adminListStatements({
+        page: targetPage,
         pageSize,
         status: status !== "ALL" ? status : undefined,
       });
-
-      const items = Array.isArray(res.items) ? res.items : [];
-      const resolvedPage = safeInt(res.page, p);
-      const resolvedPageSize = safeInt(res.pageSize, pageSize);
-      const resolvedTotal = safeInt(res.total, items.length);
-
       setState({
         kind: "ready",
-        items,
-        page: resolvedPage,
-        pageSize: resolvedPageSize,
-        total: resolvedTotal,
+        items: Array.isArray(response.items) ? response.items : [],
+        page: safeInt(response.page, targetPage),
+        pageSize: safeInt(response.pageSize, pageSize),
+        total: safeInt(response.total, 0),
       });
-    } catch (e) {
+    } catch (error) {
       setState({
         kind: "error",
-        message: e instanceof Error ? e.message : "Failed to load statements",
+        message: error instanceof Error ? error.message : "Failed to load statements",
       });
     }
   }
 
   useEffect(() => {
-    void refresh(page);
+    void load(page);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [page, status]);
 
-  const derived = useMemo(() => {
-    if (state.kind !== "ready") return null;
-
-    const items = state.items ?? [];
-    const statuses = Array.from(new Set(items.map((s) => s.status))).sort((a, b) => a.localeCompare(b));
-
-    const qq = q.trim().toLowerCase();
-    const filtered = !qq
-      ? items
-      : items.filter((s) => {
-          const blob = [s.id, s.vendorId, s.status, s.currency, s.periodStart, s.periodEnd].join(" | ").toLowerCase();
-          return blob.includes(qq);
-        });
-
-    const totalPages = Math.max(1, Math.ceil((state.total ?? filtered.length) / state.pageSize));
-
-    const totals = filtered.reduce(
-      (acc, s) => {
-        acc.count += 1;
-        acc.net += s.netPayable ?? 0;
-        return acc;
-      },
-      { count: 0, net: 0 },
+  const filteredRows = useMemo(() => {
+    if (state.kind !== "ready") return [];
+    const needle = q.trim().toLowerCase();
+    if (!needle) return state.items;
+    return state.items.filter((item) =>
+      [item.id, item.vendorId, item.status, item.currency, item.periodStart, item.periodEnd]
+        .join(" | ")
+        .toLowerCase()
+        .includes(needle)
     );
+  }, [q, state]);
 
-    return { statuses, filtered, totalPages, totals };
-  }, [state, q]);
+  const statusOptions = useMemo(() => {
+    if (state.kind !== "ready") return [];
+    return Array.from(new Set(state.items.map((item) => item.status))).sort((a, b) =>
+      a.localeCompare(b)
+    );
+  }, [state]);
 
   const columns = useMemo<Array<Column<VendorStatementListItem>>>(() => {
     return [
       {
-        key: "period",
+        key: "statement",
         header: "Statement",
-        className: "col-span-5",
+        className: "col-span-4",
         render: (row) => (
           <div className="min-w-0">
-            <div className="truncate font-semibold text-primary">{monthLabel(row.periodStart)}</div>
-            <div className="mt-1 truncate text-xs text-secondary font-mono">{row.id}</div>
+            <div className="truncate text-sm font-semibold text-primary">{monthLabel(row.periodStart)}</div>
+            <div className="mt-1 truncate font-mono text-xs text-muted">{row.id}</div>
           </div>
         ),
       },
       {
-        key: "vendorId",
+        key: "vendor",
         header: "Vendor",
         className: "col-span-3",
         render: (row) => (
-          <div className="text-xs text-secondary">
-            <div className="truncate font-semibold text-primary">{row.vendorId}</div>
-            <div className="mt-1 truncate font-mono text-[11px] text-muted">{row.currency}</div>
+          <div className="min-w-0">
+            <div className="truncate text-sm text-primary">{row.vendorId}</div>
+            <div className="mt-1 text-xs text-secondary">{row.currency}</div>
           </div>
         ),
       },
@@ -205,445 +131,202 @@ export default function AdminStatementsPage() {
         key: "status",
         header: "Status",
         className: "col-span-2",
-        render: (row) => <StatusPill status={row.status} />,
+        render: (row) => <StatusPill status={row.status}>{row.status}</StatusPill>,
       },
       {
-        key: "netPayable",
-        header: "Net",
+        key: "net",
+        header: "Net Payable",
         className: "col-span-2",
         render: (row) => <MoneyText amount={row.netPayable} currency={row.currency} />,
+      },
+      {
+        key: "generated",
+        header: "Generated",
+        className: "col-span-1",
+        render: (row) => <DateText value={row.generatedAt} />,
       },
     ];
   }, []);
 
   const canPrev = state.kind === "ready" ? state.page > 1 : false;
-  const canNext = state.kind === "ready" ? state.page * state.pageSize < state.total : false;
+  const canNext =
+    state.kind === "ready" ? state.page * state.pageSize < state.total : false;
 
-  async function onGenerate() {
-    const year = Number(genYear);
-    const month = Number(genMonth);
-
-    if (!Number.isFinite(year) || year < 2000 || year > 2100) {
-      setBusy("Invalid year");
-      setTimeout(() => setBusy(null), 1500);
+  async function generate() {
+    if (!Number.isFinite(genYear) || genYear < 2000 || genYear > 2100) {
+      setBusy("Year must be between 2000 and 2100.");
       return;
     }
-    if (!Number.isFinite(month) || month < 1 || month > 12) {
-      setBusy("Invalid month");
-      setTimeout(() => setBusy(null), 1500);
+    if (!Number.isFinite(genMonth) || genMonth < 1 || genMonth > 12) {
+      setBusy("Month must be between 1 and 12.");
       return;
     }
 
-    setBusy("Generating…");
+    setBusy("Generating statements...");
     try {
       await adminGenerateStatements({
-        year,
-        month,
+        year: genYear,
+        month: genMonth,
         vendorId: genVendorId.trim() ? genVendorId.trim() : null,
         currency: genCurrency.trim() ? genCurrency.trim() : null,
       });
-      await refresh(1);
       setPage(1);
-      setBusy(null);
-    } catch (e) {
-      setBusy(e instanceof Error ? e.message : "Generate failed");
-      setTimeout(() => setBusy(null), 2500);
-    }
-  }
-
-  async function doFinalize(statementId: string) {
-    setBusy("Finalizing…");
-    try {
-      await adminFinalizeStatement(statementId, finalizeNote.trim() ? finalizeNote.trim() : null);
-      await refresh();
-      setSelected(null);
-      setFinalizeNote("");
-      setBusy(null);
-    } catch (e) {
-      setBusy(e instanceof Error ? e.message : "Finalize failed");
-      setTimeout(() => setBusy(null), 2500);
-    }
-  }
-
-  async function doVoid(statementId: string) {
-    if (!voidReason.trim()) return;
-
-    setBusy("Voiding…");
-    try {
-      await adminVoidStatement(statementId, voidReason.trim());
-      await refresh();
-      setSelected(null);
-      setVoidReason("");
-      setBusy(null);
-    } catch (e) {
-      setBusy(e instanceof Error ? e.message : "Void failed");
-      setTimeout(() => setBusy(null), 2500);
+      await load(1);
+      setBusy("Statements generated.");
+    } catch (error) {
+      setBusy(error instanceof Error ? error.message : "Failed to generate statements.");
     }
   }
 
   return (
-    <PortalShell role="admin" title="Admin Statements" nav={nav}>
-      {state.kind === "loading" ? (
-        <div className="space-y-4">
-          <Toolbar
-            title="Statements"
-            subtitle="Generate and manage vendor monthly statements."
-            onSearch={setQ}
-            searchPlaceholder="Search by statement id, vendor id, status…"
-            right={
-              <div className="flex items-center gap-2">
-                <div className="hidden items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-secondary shadow-sm md:flex">
-                  <Filter className="h-4 w-4 text-muted" />
-                  <select
-                    value={status}
-                    onChange={(e) => setStatus(e.target.value)}
-                    className="bg-transparent text-sm font-semibold text-primary outline-none"
-                  >
-                    <option value="ALL">All statuses</option>
-                  </select>
-                </div>
-
-                <button
-                  type="button"
-                  onClick={() => void refresh(1)}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Refresh
-                </button>
-              </div>
-            }
-          />
-          <SkeletonTable rows={10} />
+    <PortalShell role="admin" title="Statements" subtitle="Portal Home / Statements">
+      <div className="space-y-5">
+        <div className="text-xs font-semibold uppercase tracking-wide text-muted">
+          <Link href="/admin" className="hover:text-primary">
+            Portal Home
+          </Link>
+          <span className="mx-2">/</span>
+          <span className="text-primary">Statements</span>
         </div>
-      ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger whitespace-pre-wrap">
-          {state.message}
-        </div>
-      ) : (
-        <div className="space-y-5">
-          {/* Generate panel */}
-          <div className="overflow-hidden rounded-3xl border border-line/50 bg-surface shadow-sm">
-            <div className="border-b border-line/50 bg-warm-base/60 px-5 py-4">
-              <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="min-w-0">
-                  <div className="flex items-center gap-2 text-sm font-semibold text-primary">
-                    <div className="flex h-9 w-9 items-center justify-center rounded-2xl bg-surface shadow-sm ring-1 ring-line/55">
-                      <Wand2 className="h-4 w-4 text-primary" />
-                    </div>
-                    Generate statements
-                  </div>
-                  <div className="mt-1 text-sm text-secondary">
-                    Generate monthly statements for a single vendor (optional) or all vendors.
-                  </div>
-                </div>
 
-                {busy ? (
-                  <div className="rounded-full bg-brand px-3 py-1 text-xs font-semibold text-accent-text">{busy}</div>
-                ) : null}
-              </div>
-            </div>
-
-            <div className="p-5">
-              <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
-                <div>
-                  <div className="text-xs font-semibold text-secondary">Year</div>
-                  <input
-                    value={String(genYear)}
-                    onChange={(e) => setGenYear(Number(e.target.value))}
-                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
-                    inputMode="numeric"
-                  />
-                </div>
-
-                <div>
-                  <div className="text-xs font-semibold text-secondary">Month</div>
-                  <input
-                    value={String(genMonth)}
-                    onChange={(e) => setGenMonth(Number(e.target.value))}
-                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
-                    inputMode="numeric"
-                    placeholder="1-12"
-                  />
-                </div>
-
-                <div className="sm:col-span-2">
-                  <div className="text-xs font-semibold text-secondary">Vendor ID (optional)</div>
-                  <input
-                    value={genVendorId}
-                    onChange={(e) => setGenVendorId(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20 font-mono"
-                    placeholder="vendor UUID"
-                  />
-                </div>
-
-                <div>
-                  <div className="text-xs font-semibold text-secondary">Currency</div>
-                  <input
-                    value={genCurrency}
-                    onChange={(e) => setGenCurrency(e.target.value)}
-                    className="mt-1 h-11 w-full rounded-2xl border border-line/80 bg-surface px-3 text-sm text-primary shadow-sm outline-none focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
-                    placeholder="AED"
-                  />
-                </div>
-              </div>
-
-              <div className="mt-4 flex items-center justify-end gap-2">
-                <button
-                  type="button"
-                  onClick={() => void refresh(1)}
-                  className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
-                >
-                  <RefreshCw className="h-4 w-4" />
-                  Refresh list
-                </button>
-                <button
-                  type="button"
-                  onClick={onGenerate}
-                  disabled={busy !== null}
-                  className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95 disabled:opacity-60"
-                >
-                  <Wand2 className="h-4 w-4" />
-                  Generate
-                </button>
-              </div>
-            </div>
-          </div>
-
-          {/* List toolbar */}
-          <Toolbar
-            title="Statements"
-            subtitle="Open a statement to finalize or void it safely."
-            onSearch={setQ}
-            searchPlaceholder="Search statements…"
-            right={
-              <div className="flex flex-wrap items-center gap-2">
-                <div className="hidden items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-secondary shadow-sm md:flex">
-                  <Search className="h-4 w-4 text-muted" />
-                  <select
-                    value={status}
-                    onChange={(e) => {
-                      setStatus(e.target.value);
-                      setPage(1);
-                    }}
-                    className="bg-transparent text-sm font-semibold text-primary outline-none"
-                  >
-                    <option value="ALL">All statuses</option>
-                    {derived?.statuses.map((s) => (
-                      <option key={s} value={s}>
-                        {s}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm">
-                  Net (page): <MoneyText amount={derived?.totals.net ?? 0} currency={state.items?.[0]?.currency ?? "AED"} />
-                </div>
-              </div>
-            }
-          />
-
-          <DataTable
-            title="Statements"
-            subtitle="Operator-ready. Every action is confirmed and follows backend rules."
-            rows={derived?.filtered ?? []}
-            columns={columns}
-            empty="No statements found."
-            rowActions={(row) => (
+        <section className="rounded-3xl border border-line/70 bg-surface p-5 shadow-sm">
+          <div className="text-sm font-semibold text-primary">Generate statements</div>
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-5">
+            <label className="block">
+              <div className="mb-1 text-xs font-semibold text-secondary">Year</div>
+              <input
+                type="number"
+                value={genYear}
+                onChange={(event) => setGenYear(Number(event.target.value))}
+                className="h-10 w-full rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+              />
+            </label>
+            <label className="block">
+              <div className="mb-1 text-xs font-semibold text-secondary">Month</div>
+              <input
+                type="number"
+                min={1}
+                max={12}
+                value={genMonth}
+                onChange={(event) => setGenMonth(Number(event.target.value))}
+                className="h-10 w-full rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+              />
+            </label>
+            <label className="block">
+              <div className="mb-1 text-xs font-semibold text-secondary">Vendor ID (optional)</div>
+              <input
+                value={genVendorId}
+                onChange={(event) => setGenVendorId(event.target.value)}
+                className="h-10 w-full rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+                placeholder="All vendors"
+              />
+            </label>
+            <label className="block">
+              <div className="mb-1 text-xs font-semibold text-secondary">Currency</div>
+              <input
+                value={genCurrency}
+                onChange={(event) => setGenCurrency(event.target.value)}
+                className="h-10 w-full rounded-xl border border-line/80 bg-surface px-3 text-sm text-primary"
+                placeholder="AED"
+              />
+            </label>
+            <div className="flex items-end">
               <button
                 type="button"
-                onClick={() => {
-                  setSelected(row);
-                  setFinalizeNote("");
-                  setVoidReason("");
-                }}
-                className="inline-flex items-center gap-2 rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
+                disabled={busy !== null}
+                onClick={() => void generate()}
+                className="h-10 w-full rounded-xl bg-brand px-4 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-60"
               >
-                <FileText className="h-4 w-4" />
-                Open
+                Generate
               </button>
-            )}
-          />
-
-          <div className="flex items-center justify-between">
-            <button
-              type="button"
-              disabled={!canPrev}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
-            >
-              Prev
-            </button>
-            <div className="text-sm text-secondary">
-              Page {state.page} {state.total ? `· ${state.total} total` : ""}
             </div>
-            <button
-              type="button"
-              disabled={!canNext}
-              onClick={() => setPage((p) => p + 1)}
-              className="rounded-2xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt disabled:opacity-60"
-            >
-              Next
-            </button>
           </div>
+          {busy ? (
+            <div className="mt-3 rounded-xl border border-line/70 bg-warm-base p-3 text-sm text-secondary">
+              {busy}
+            </div>
+          ) : null}
+        </section>
 
-          <Drawer
-            open={selected !== null}
-            title={selected ? `Statement • ${monthLabel(selected.periodStart)}` : "Statement"}
-            subtitle={selected ? `ID: ${selected.id}` : undefined}
-            onClose={() => setSelected(null)}
-          >
-            {selected ? (
-              <div className="space-y-4">
-                {/* Summary */}
-                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
-                  <div className="flex flex-wrap items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="text-xs font-semibold text-muted">Vendor</div>
-                      <div className="mt-1 break-all font-mono text-xs text-secondary">{selected.vendorId}</div>
-                    </div>
-                    <div className="shrink-0">
-                      <StatusPill status={selected.status} />
-                    </div>
-                  </div>
+        <Toolbar
+          title="Vendor statements"
+          subtitle="Route-based detail pages replace drawers."
+          searchPlaceholder="Search by statement id, vendor id, status, period..."
+          onSearch={setQ}
+          right={
+            <select
+              value={status}
+              onChange={(event) => {
+                setStatus(event.target.value);
+                setPage(1);
+              }}
+              className="h-10 rounded-xl border border-line/80 bg-surface px-3 text-sm font-semibold text-primary"
+            >
+              <option value="ALL">All statuses</option>
+              {statusOptions.map((option) => (
+                <option key={option} value={option}>
+                  {option}
+                </option>
+              ))}
+            </select>
+          }
+        />
 
-                  <div className="mt-4 grid gap-3 sm:grid-cols-2">
-                    <div className="rounded-2xl border border-line/50 bg-warm-base p-4">
-                      <div className="text-xs font-semibold text-secondary">Net payable</div>
-                      <div className="mt-1 text-sm font-semibold text-primary">
-                        <MoneyText amount={selected.netPayable} currency={selected.currency} />
-                      </div>
-                    </div>
+        {state.kind === "loading" ? (
+          <SkeletonTable rows={8} />
+        ) : state.kind === "error" ? (
+          <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
+            {state.message}
+          </div>
+        ) : (
+          <>
+            <DataTable<VendorStatementListItem>
+              title="Statements"
+              subtitle={
+                <>
+                  Showing <span className="font-semibold text-primary">{filteredRows.length}</span>{" "}
+                  of <span className="font-semibold text-primary">{state.total}</span>
+                </>
+              }
+              rows={filteredRows}
+              columns={columns}
+              onRowClick={(row) => router.push(`/admin/statements/${encodeURIComponent(row.id)}`)}
+              rowActions={(row) => (
+                <Link
+                  href={`/admin/statements/${encodeURIComponent(row.id)}`}
+                  className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
+                >
+                  Open
+                </Link>
+              )}
+            />
 
-                    <div className="rounded-2xl border border-line/50 bg-warm-base p-4">
-                      <div className="text-xs font-semibold text-secondary">Generated</div>
-                      <div className="mt-1 text-sm font-semibold text-primary">
-                        <DateText value={selected.generatedAt} />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Finalize block */}
-                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-primary">Finalize</div>
-                      <div className="mt-1 text-sm text-secondary">
-                        Locks totals and marks the statement ready for payout.
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={!isDraft(selected.status) || busy !== null}
-                      onClick={() => setConfirmFinalizeOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-2xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95 disabled:opacity-60"
-                    >
-                      <CheckCircle2 className="h-4 w-4" />
-                      Finalize
-                    </button>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="text-xs font-semibold text-secondary">Finalize note (optional)</div>
-                    <textarea
-                      value={finalizeNote}
-                      onChange={(e) => setFinalizeNote(e.target.value)}
-                      rows={3}
-                      placeholder="Short operator note (optional)…"
-                      className="mt-1 w-full rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary shadow-sm outline-none placeholder:text-muted focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
-                    />
-                  </div>
-
-                  {!isDraft(selected.status) ? (
-                    <div className="mt-3 rounded-2xl border border-warning/30 bg-warning/12 p-3 text-sm text-warning">
-                      Finalize is allowed only from <span className="font-semibold">DRAFT</span>.
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Void block */}
-                <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
-                  <div className="flex items-center justify-between gap-3">
-                    <div>
-                      <div className="text-sm font-semibold text-primary">Void</div>
-                      <div className="mt-1 text-sm text-secondary">
-                        Voids the statement. Not allowed once it is PAID.
-                      </div>
-                    </div>
-                    <button
-                      type="button"
-                      disabled={isPaid(selected.status) || busy !== null}
-                      onClick={() => setConfirmVoidOpen(true)}
-                      className="inline-flex items-center gap-2 rounded-2xl border border-danger/30 bg-danger/12 px-4 py-2 text-sm font-semibold text-danger shadow-sm hover:bg-danger/12 disabled:opacity-60"
-                    >
-                      <Ban className="h-4 w-4" />
-                      Void
-                    </button>
-                  </div>
-
-                  <div className="mt-3">
-                    <div className="text-xs font-semibold text-secondary">Void reason (required)</div>
-                    <textarea
-                      value={voidReason}
-                      onChange={(e) => setVoidReason(e.target.value)}
-                      rows={3}
-                      placeholder="Explain why this statement should be voided…"
-                      className="mt-1 w-full rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary shadow-sm outline-none placeholder:text-muted focus:border-brand/45 focus:ring-4 focus:ring-brand/20"
-                    />
-                  </div>
-
-                  {isPaid(selected.status) ? (
-                    <div className="mt-3 rounded-2xl border border-warning/30 bg-warning/12 p-3 text-sm text-warning">
-                      This statement is <span className="font-semibold">PAID</span>. Void is blocked by backend rules.
-                    </div>
-                  ) : null}
-                </div>
-
-                {/* Confirm dialogs */}
-                <ConfirmDialog
-                  open={confirmFinalizeOpen}
-                  title="Finalize this statement?"
-                  description={
-                    <>
-                      This will lock totals and mark the statement as <span className="font-semibold">FINALIZED</span>.
-                      Continue?
-                    </>
-                  }
-                  tone="warning"
-                  confirmText="Finalize"
-                  busy={busy === "Finalizing…"}
-                  onCancel={() => setConfirmFinalizeOpen(false)}
-                  onConfirm={async () => {
-                    setConfirmFinalizeOpen(false);
-                    await doFinalize(selected.id);
-                  }}
-                />
-
-                <ConfirmDialog
-                  open={confirmVoidOpen}
-                  title="Void this statement?"
-                  description={
-                    <>
-                      This will mark the statement as <span className="font-semibold">VOID</span>. This is auditable.
-                    </>
-                  }
-                  tone="danger"
-                  confirmText="Void statement"
-                  confirmDisabled={!voidReason.trim().length}
-                  busy={busy === "Voiding…"}
-                  onCancel={() => setConfirmVoidOpen(false)}
-                  onConfirm={async () => {
-                    setConfirmVoidOpen(false);
-                    await doVoid(selected.id);
-                  }}
-                />
+            <div className="flex items-center justify-between rounded-2xl border border-line/70 bg-surface p-4">
+              <div className="text-xs text-secondary">
+                Page {state.page} · {state.total} records
               </div>
-            ) : null}
-          </Drawer>
-        </div>
-      )}
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setPage((value) => Math.max(1, value - 1))}
+                  disabled={!canPrev}
+                  className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-50"
+                >
+                  Previous
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setPage((value) => value + 1)}
+                  disabled={!canNext}
+                  className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-50"
+                >
+                  Next
+                </button>
+              </div>
+            </div>
+          </>
+        )}
+      </div>
     </PortalShell>
   );
 }

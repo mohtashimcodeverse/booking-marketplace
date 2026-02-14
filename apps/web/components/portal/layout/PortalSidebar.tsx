@@ -20,6 +20,7 @@ export function PortalSidebar(props: {
   subtitle?: string;
   nav: PortalNavItem[];
   userEmail: string | null;
+  userName?: string | null;
   footerHint?: ReactNode;
 }) {
   const pathname = usePathname();
@@ -126,7 +127,10 @@ export function PortalSidebar(props: {
 
           <div className="mt-6 rounded-3xl bg-[rgba(255,255,255,0.74)] p-4 shadow-[0_14px_40px_rgba(11,15,25,0.12)]">
             <div className="text-xs font-semibold text-[#0B0F19]/60">Signed in</div>
-            <div className="mt-1 text-sm font-semibold text-primary">{props.userEmail || "—"}</div>
+            <div className="mt-1 text-sm font-semibold text-primary">
+              {props.userName?.trim() || "Welcome back"}
+            </div>
+            <div className="mt-1 text-xs text-secondary">{props.userEmail || "—"}</div>
             <div className="mt-1 text-xs leading-relaxed text-[#0B0F19]/62">
               {props.footerHint ?? "Use the search bar to find items fast."}
             </div>

@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { motion, type Variants } from "framer-motion";
 import { ArrowRight, Building2, User2, Eye, EyeOff } from "lucide-react";
 import { AuthCard } from "@/components/auth/AuthCard";
-import { signup } from "@/lib/auth/authApi";
+import { login, signup } from "@/lib/auth/authApi";
 
 type UiRole = "customer" | "vendor";
 
@@ -154,8 +154,9 @@ function SignupPageContent() {
         fullName: fullName || undefined,
         role: role === "vendor" ? "VENDOR" : "CUSTOMER",
       });
-      const qs = new URLSearchParams({ role, next: nextPath });
-      router.push(`/login?${qs.toString()}`);
+      await login({ email: email.trim(), password });
+      const qs = new URLSearchParams({ role, next: nextPath, email: email.trim() });
+      router.push(`/verify-email?${qs.toString()}`);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Signup failed");
     } finally {

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { Toolbar } from "@/components/portal/ui/Toolbar";
@@ -10,6 +11,7 @@ import {
   downloadAdminCustomerDocument,
   getAdminCustomerDocuments,
   rejectAdminCustomerDocument,
+  viewAdminCustomerDocument,
   type AdminCustomerDocument,
   type AdminCustomerDocumentStatus,
   type AdminCustomerDocumentType,
@@ -61,7 +63,19 @@ export default function AdminCustomerDocumentsPage() {
     const normalized = query.trim().toLowerCase();
     if (!normalized) return state.data.items;
     return state.data.items.filter((item) => {
-      const haystack = JSON.stringify(item).toLowerCase();
+      const haystack = [
+        item.id,
+        item.type,
+        item.status,
+        item.user.email,
+        item.user.fullName ?? "",
+        item.notes ?? "",
+        item.reviewNotes ?? "",
+        item.requirement.nextBooking?.id ?? "",
+        item.requirement.nextBooking?.property.title ?? "",
+      ]
+        .join(" ")
+        .toLowerCase();
       return haystack.includes(normalized);
     });
   }, [query, state]);
@@ -78,6 +92,26 @@ export default function AdminCustomerDocumentsPage() {
       anchor.click();
       anchor.remove();
       URL.revokeObjectURL(url);
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function view(item: AdminCustomerDocument) {
+    setBusy(`Opening ${item.id}...`);
+    try {
+      const blob = await viewAdminCustomerDocument(item.id);
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank", "noopener,noreferrer");
+      if (!win) {
+        const anchor = document.createElement("a");
+        anchor.href = url;
+        anchor.download = item.originalName || `${item.type.toLowerCase()}.pdf`;
+        document.body.appendChild(anchor);
+        anchor.click();
+        anchor.remove();
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
     } finally {
       setBusy(null);
     }
@@ -202,6 +236,20 @@ export default function AdminCustomerDocumentsPage() {
                 ) : null}
 
                 <div className="mt-3 flex flex-wrap gap-2">
+                  <Link
+                    href={`/admin/customer-documents/${encodeURIComponent(item.id)}`}
+                    className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
+                  >
+                    Open page
+                  </Link>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => void view(item)}
+                    className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
+                  >
+                    View
+                  </button>
                   <button
                     type="button"
                     disabled={busy !== null}

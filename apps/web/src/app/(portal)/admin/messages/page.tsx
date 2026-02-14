@@ -16,6 +16,7 @@ export default function AdminMessagesPage() {
       listThreads={listAdminMessageThreads}
       getThread={getAdminMessageThread}
       sendMessage={sendAdminMessage}
+      threadHref={(threadId) => `/admin/messages/${encodeURIComponent(threadId)}`}
     />
   );
 }

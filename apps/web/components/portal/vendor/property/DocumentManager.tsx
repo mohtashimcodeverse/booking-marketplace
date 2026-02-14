@@ -7,8 +7,10 @@ import type {
   PropertyDocumentType,
 } from "@/lib/api/portal/vendor";
 import {
+  deleteVendorPropertyDocument,
   downloadVendorPropertyDocument,
   uploadVendorPropertyDocument,
+  viewVendorPropertyDocument,
 } from "@/lib/api/portal/vendor";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
 
@@ -123,6 +125,41 @@ export function DocumentManager({ property, onChanged }: Props) {
     }
   }
 
+  async function view(document: VendorPropertyDocument) {
+    setError(null);
+    setBusy("Opening preview...");
+    try {
+      const blob = await viewVendorPropertyDocument(property.id, document.id);
+      const url = URL.createObjectURL(blob);
+      const win = window.open(url, "_blank", "noopener,noreferrer");
+      if (!win) {
+        triggerDownload(blob, safeFilename(document));
+      }
+      setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch (viewError) {
+      setError(viewError instanceof Error ? viewError.message : "Preview failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove(document: VendorPropertyDocument) {
+    const confirmed = window.confirm("Delete this document?");
+    if (!confirmed) return;
+
+    setError(null);
+    setBusy("Deleting...");
+    try {
+      await deleteVendorPropertyDocument(property.id, document.id);
+      const next = property.documents.filter((item) => item.id !== document.id);
+      onChanged({ ...property, documents: next });
+    } catch (deleteError) {
+      setError(deleteError instanceof Error ? deleteError.message : "Delete failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   return (
     <section className="space-y-4 rounded-2xl border border-line bg-surface p-5 shadow-sm">
       <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
@@ -214,10 +251,26 @@ export function DocumentManager({ property, onChanged }: Props) {
                   <button
                     type="button"
                     disabled={busy !== null}
+                    onClick={() => void view(uploaded)}
+                    className="shrink-0 rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-50"
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
                     onClick={() => void download(uploaded)}
                     className="shrink-0 rounded-xl bg-brand px-3 py-2 text-xs font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-50"
                   >
                     Download
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => void remove(uploaded)}
+                    className="shrink-0 rounded-xl border border-danger/30 bg-danger/12 px-3 py-2 text-xs font-semibold text-danger hover:bg-danger/12 disabled:opacity-50"
+                  >
+                    Delete
                   </button>
                 </div>
               ) : (
@@ -255,10 +308,26 @@ export function DocumentManager({ property, onChanged }: Props) {
                   <button
                     type="button"
                     disabled={busy !== null}
+                    onClick={() => view(document)}
+                    className="shrink-0 rounded-xl border border-line/80 bg-surface px-4 py-2 text-sm font-semibold text-primary hover:bg-warm-alt disabled:opacity-50"
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
                     onClick={() => void download(document)}
                     className="shrink-0 rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover disabled:opacity-50"
                   >
                     Download
+                  </button>
+                  <button
+                    type="button"
+                    disabled={busy !== null}
+                    onClick={() => void remove(document)}
+                    className="shrink-0 rounded-xl border border-danger/30 bg-danger/12 px-4 py-2 text-sm font-semibold text-danger hover:bg-danger/12 disabled:opacity-50"
+                  >
+                    Delete
                   </button>
                 </div>
               </li>

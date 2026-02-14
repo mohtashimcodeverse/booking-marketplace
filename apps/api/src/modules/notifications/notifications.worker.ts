@@ -588,6 +588,8 @@ export class NotificationsWorker implements OnModuleInit {
         return 'Action required: upload guest documents';
       case 'OPS_TASKS_CREATED':
         return 'Your stay services are scheduled';
+      case 'PROPERTY_APPROVED_ACTIVATION_REQUIRED':
+        return 'Property approved: activation payment required';
       default: {
         const ref = this.getNested(payload, 'booking.id');
         if (typeof ref === 'string' && ref.trim())
@@ -732,6 +734,8 @@ export class NotificationsWorker implements OnModuleInit {
         return 'document-upload-request';
       case 'OPS_TASKS_CREATED':
         return 'ops-tasks-created';
+      case 'PROPERTY_APPROVED_ACTIVATION_REQUIRED':
+        return 'property-approved-activation-required';
       default:
         return 'booking-confirmed';
     }

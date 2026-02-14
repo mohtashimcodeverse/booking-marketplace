@@ -5,13 +5,20 @@ import { mkdirSync, rmSync, writeFileSync } from 'fs';
 import { join } from 'path';
 import { PRIVATE_UPLOADS_DIR } from '../src/common/upload/storage-paths';
 import {
+  ActivationInvoiceStatus,
   BookingDocumentType,
   BookingStatus,
   CalendarDayStatus,
+  CancellationActor,
+  CancellationMode,
+  CancellationReason,
   FxQuoteCurrency,
   GuestReviewStatus,
   HoldStatus,
+  LedgerDirection,
+  LedgerEntryType,
   MessageCounterpartyRole,
+  NotificationType,
   OpsTaskStatus,
   OpsTaskType,
   PaymentEventType,
@@ -23,10 +30,14 @@ import {
   PropertyMediaCategory,
   PropertyReviewDecision,
   PropertyStatus,
+  RefundReason,
+  RefundStatus,
   ServicePlanType,
   UserRole,
   VendorAgreementStatus,
+  VendorStatementStatus,
   VendorStatus,
+  PayoutStatus,
 } from '@prisma/client';
 
 const prisma = new PrismaClient();
@@ -38,13 +49,28 @@ const SEED_RUN_MAX_ATTEMPTS = 3;
 const SEED_RUN_RETRY_DELAY_MS = 3_000;
 
 const TARGET_COUNTS = {
-  vendors: 15,
-  customers: 50,
-  properties: 42,
-  completedBookings: 90,
-  confirmedBookings: 70,
-  pendingBookings: 25,
+  vendors: 4,
+  customers: 10,
+  properties: 15,
+  vendorOwnedProperties: 12,
+  adminOwnedProperties: 3,
+  completedBookings: 10,
+  confirmedBookings: 26,
+  pendingBookings: 8,
+  cancelledBookings: 6,
 };
+
+if (
+  TARGET_COUNTS.vendorOwnedProperties + TARGET_COUNTS.adminOwnedProperties !==
+  TARGET_COUNTS.properties
+) {
+  throw new Error(
+    'Seed config invalid: vendorOwnedProperties + adminOwnedProperties must equal total properties.',
+  );
+}
+
+const BOOKING_WINDOW_START = new Date(Date.UTC(2026, 1, 14, 12, 0, 0));
+const BOOKING_WINDOW_END = new Date(Date.UTC(2026, 2, 15, 12, 0, 0));
 
 const ONE_DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -123,21 +149,23 @@ const REVIEW_COMMENTS = [
 ] as const;
 
 const VENDOR_COMPANIES = [
-  'Harborline Stays',
-  'Desert Pearl Homes',
-  'Skyline Key Hosting',
-  'Marina Crest Holidays',
-  'Palm Axis Living',
-  'Canalfront Hospitality',
-  'DIFC Luxe Rentals',
-  'Bluewaters Residence Co',
-  'Urban Dunes Management',
-  'Horizon Bay Properties',
-  'Jumeirah Nest Rentals',
-  'Creekline Suites',
-  'Vertex Stay Operations',
-  'Asteria Homes',
-  'Metroline Guest Homes',
+  'Al Noor Stays',
+  'Dar Al Sahel Homes',
+  'Masaar Holiday Homes',
+  'Wahat Al Bahr Rentals',
+] as const;
+
+const CUSTOMER_FULL_NAMES = [
+  'Omar Al Mansoori',
+  'Fatima Al Suwaidi',
+  'Mariam Al Kaabi',
+  'Yousef Al Hammadi',
+  'Sara Al Mazrouei',
+  'Khalid Al Nuaimi',
+  'Noora Al Dhaheri',
+  'Hamad Al Marri',
+  'Aisha Al Falasi',
+  'Rashid Al Ketbi',
 ] as const;
 
 type SeedAmenity = {
@@ -647,12 +675,13 @@ async function main() {
 
   const customers = [] as Array<{ id: string; email: string; fullName: string }>;
   for (let i = 0; i < TARGET_COUNTS.customers; i++) {
+    const fullName = CUSTOMER_FULL_NAMES[i] ?? `Customer ${i + 1}`;
     const user = await prisma.user.create({
       data: {
         email: `customer${String(i + 1).padStart(2, '0')}@demo.com`,
         passwordHash,
         role: UserRole.CUSTOMER,
-        fullName: `Customer ${i + 1}`,
+        fullName,
         isEmailVerified: true,
       },
       select: { id: true, email: true, fullName: true },
@@ -661,7 +690,7 @@ async function main() {
     customers.push({
       id: user.id,
       email: user.email,
-      fullName: user.fullName ?? `Customer ${i + 1}`,
+      fullName: user.fullName ?? fullName,
     });
   }
 
@@ -710,14 +739,15 @@ async function main() {
   }
 
   const statusPool: PropertyStatus[] = shuffle(rand, [
-    ...Array.from({ length: 22 }, () => PropertyStatus.PUBLISHED),
-    ...Array.from({ length: 6 }, () => PropertyStatus.APPROVED),
-    ...Array.from({ length: 5 }, () => PropertyStatus.UNDER_REVIEW),
-    ...Array.from({ length: 3 }, () => PropertyStatus.CHANGES_REQUESTED),
-    ...Array.from({ length: 3 }, () => PropertyStatus.DRAFT),
-    ...Array.from({ length: 1 }, () => PropertyStatus.REJECTED),
-    ...Array.from({ length: 1 }, () => PropertyStatus.SUSPENDED),
-    ...Array.from({ length: 1 }, () => PropertyStatus.ARCHIVED),
+    ...Array.from({ length: 7 }, () => PropertyStatus.PUBLISHED),
+    ...Array.from({ length: 3 }, () => PropertyStatus.APPROVED),
+    ...Array.from(
+      { length: 1 },
+      () => PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT,
+    ),
+    ...Array.from({ length: 2 }, () => PropertyStatus.UNDER_REVIEW),
+    ...Array.from({ length: 1 }, () => PropertyStatus.CHANGES_REQUESTED),
+    ...Array.from({ length: 1 }, () => PropertyStatus.DRAFT),
   ]);
 
   const amenityProfiles: readonly string[][] = [
@@ -731,6 +761,7 @@ async function main() {
 
   for (let i = 0; i < TARGET_COUNTS.properties; i++) {
     const vendor = seededVendors[i % seededVendors.length] as SeedVendor;
+    const isAdminOwned = i >= TARGET_COUNTS.vendorOwnedProperties;
     const area = pick(rand, DUBAI_AREAS);
     const titleStem = pick(rand, PROPERTY_TITLE_STEMS);
 
@@ -812,7 +843,8 @@ async function main() {
 
     const created = await prisma.property.create({
       data: {
-        vendorId: vendor.userId,
+        vendorId: isAdminOwned ? admin.id : vendor.userId,
+        createdByAdminId: isAdminOwned ? admin.id : null,
         title: `${titleStem} • ${area.area}`,
         slug,
         description:
@@ -874,8 +906,9 @@ async function main() {
       });
     }
 
-    const plan =
-      vendor.planCode === 'FP_LIST'
+    const plan = isAdminOwned
+      ? full
+      : vendor.planCode === 'FP_LIST'
         ? list
         : vendor.planCode === 'FP_SEMI'
           ? semi
@@ -885,7 +918,7 @@ async function main() {
       data: {
         propertyId: created.id,
         servicePlanId: plan.id,
-        vendorAgreementId: vendor.agreementId,
+        vendorAgreementId: isAdminOwned ? null : vendor.agreementId,
         cleaningRequired: null,
         linenChangeRequired: null,
         inspectionRequired: null,
@@ -942,56 +975,58 @@ async function main() {
       skipDuplicates: true,
     });
 
-    const ownershipPdf = createSeedPdf('properties', `${slug}-ownership-proof`);
+    if (!isAdminOwned) {
+      const ownershipPdf = createSeedPdf('properties', `${slug}-ownership-proof`);
 
-    const ownershipDoc = await prisma.propertyDocument.create({
-      data: {
-        propertyId: created.id,
-        type: PropertyDocumentType.OWNERSHIP_PROOF,
-        uploadedByUserId: vendor.userId,
-        reviewedByAdminId:
-          created.status === PropertyStatus.PUBLISHED ||
-          created.status === PropertyStatus.APPROVED
-            ? admin.id
-            : null,
-        storageKey: ownershipPdf.storageKey,
-        originalName: ownershipPdf.originalName,
-        mimeType: ownershipPdf.mimeType,
-        url: null,
-      },
-      select: { id: true },
-    });
-
-    await prisma.propertyDocument.update({
-      where: { id: ownershipDoc.id },
-      data: {
-        url: `/api/vendor/properties/${created.id}/documents/${ownershipDoc.id}/download`,
-      },
-    });
-
-    if (rand() > 0.45) {
-      const permitPdf = createSeedPdf('properties', `${slug}-holiday-home-permit`);
-      const permit = await prisma.propertyDocument.create({
+      const ownershipDoc = await prisma.propertyDocument.create({
         data: {
           propertyId: created.id,
-          type: PropertyDocumentType.HOLIDAY_HOME_PERMIT,
+          type: PropertyDocumentType.OWNERSHIP_PROOF,
           uploadedByUserId: vendor.userId,
           reviewedByAdminId:
-            created.status === PropertyStatus.PUBLISHED ? admin.id : null,
-          storageKey: permitPdf.storageKey,
-          originalName: permitPdf.originalName,
-          mimeType: permitPdf.mimeType,
+            created.status === PropertyStatus.PUBLISHED ||
+            created.status === PropertyStatus.APPROVED
+              ? admin.id
+              : null,
+          storageKey: ownershipPdf.storageKey,
+          originalName: ownershipPdf.originalName,
+          mimeType: ownershipPdf.mimeType,
           url: null,
         },
         select: { id: true },
       });
 
       await prisma.propertyDocument.update({
-        where: { id: permit.id },
+        where: { id: ownershipDoc.id },
         data: {
-          url: `/api/vendor/properties/${created.id}/documents/${permit.id}/download`,
+          url: `/api/vendor/properties/${created.id}/documents/${ownershipDoc.id}/download`,
         },
       });
+
+      if (rand() > 0.45) {
+        const permitPdf = createSeedPdf('properties', `${slug}-holiday-home-permit`);
+        const permit = await prisma.propertyDocument.create({
+          data: {
+            propertyId: created.id,
+            type: PropertyDocumentType.HOLIDAY_HOME_PERMIT,
+            uploadedByUserId: vendor.userId,
+            reviewedByAdminId:
+              created.status === PropertyStatus.PUBLISHED ? admin.id : null,
+            storageKey: permitPdf.storageKey,
+            originalName: permitPdf.originalName,
+            mimeType: permitPdf.mimeType,
+            url: null,
+          },
+          select: { id: true },
+        });
+
+        await prisma.propertyDocument.update({
+          where: { id: permit.id },
+          data: {
+            url: `/api/vendor/properties/${created.id}/documents/${permit.id}/download`,
+          },
+        });
+      }
     }
 
     if (
@@ -1023,6 +1058,40 @@ async function main() {
     }
   }
 
+  const activationProperty = properties.find(
+    (property) =>
+      property.status === PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT &&
+      property.vendorId !== admin.id,
+  );
+
+  if (activationProperty) {
+    await prisma.propertyActivationInvoice.create({
+      data: {
+        propertyId: activationProperty.id,
+        vendorId: activationProperty.vendorId,
+        amount: 25000,
+        currency: 'AED',
+        status: ActivationInvoiceStatus.PENDING,
+        provider: PaymentProvider.MANUAL,
+      },
+    });
+
+    await prisma.notificationEvent.create({
+      data: {
+        type: NotificationType.PROPERTY_APPROVED_ACTIVATION_REQUIRED,
+        entityType: 'PROPERTY',
+        entityId: activationProperty.id,
+        recipientUserId: activationProperty.vendorId,
+        payloadJson: JSON.stringify({
+          propertyId: activationProperty.id,
+          status: PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT,
+          amount: 25000,
+          currency: 'AED',
+        }),
+      },
+    });
+  }
+
   const bookableProperties = properties.filter(
     (p) =>
       p.status === PropertyStatus.PUBLISHED ||
@@ -1032,6 +1101,7 @@ async function main() {
   const allBookings: SeedBooking[] = [];
   const completedBookings: SeedBooking[] = [];
   const upcomingBookings: SeedBooking[] = [];
+  const confirmedBookings: SeedBooking[] = [];
 
   async function createSeedBooking(params: {
     property: SeedProperty;
@@ -1070,6 +1140,18 @@ async function main() {
         status: params.status,
         totalAmount,
         currency: 'AED',
+        cancelledAt:
+          params.status === BookingStatus.CANCELLED
+            ? addHours(params.checkIn, -20)
+            : null,
+        cancelledBy:
+          params.status === BookingStatus.CANCELLED
+            ? CancellationActor.CUSTOMER
+            : null,
+        cancellationReason:
+          params.status === BookingStatus.CANCELLED
+            ? CancellationReason.GUEST_REQUEST
+            : null,
         expiresAt:
           params.status === BookingStatus.PENDING_PAYMENT
             ? addHours(now, 24)
@@ -1128,6 +1210,62 @@ async function main() {
       },
     });
 
+    if (params.status === BookingStatus.CANCELLED) {
+      const refundableAmount = Math.max(0, Math.round(totalAmount * 0.7));
+      const penaltyAmount = totalAmount - refundableAmount;
+
+      const refund = await prisma.refund.create({
+        data: {
+          bookingId: booking.id,
+          paymentId: payment.id,
+          status: RefundStatus.SUCCEEDED,
+          reason: RefundReason.CANCELLATION,
+          amount: refundableAmount,
+          currency: 'AED',
+          provider: PaymentProvider.MANUAL,
+          providerRefundRef: `seed_refund_${booking.id}`,
+          idempotencyKey: `seed_refund_${booking.id}`,
+        },
+        select: { id: true },
+      });
+
+      await prisma.bookingCancellation.create({
+        data: {
+          bookingId: booking.id,
+          actor: CancellationActor.CUSTOMER,
+          reason: CancellationReason.GUEST_REQUEST,
+          mode: CancellationMode.SOFT,
+          policyVersion: 'seed-policy-v1',
+          cancelledAt: addHours(params.checkIn, -20),
+          totalAmount,
+          managementFee: 0,
+          penaltyAmount,
+          refundableAmount,
+          currency: 'AED',
+          releasesInventory: true,
+          refundId: refund.id,
+        },
+      });
+
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: { status: PaymentStatus.REFUNDED },
+      });
+
+      await prisma.paymentEvent.create({
+        data: {
+          paymentId: payment.id,
+          type: PaymentEventType.REFUND,
+          providerRef: `seed_refund_${booking.id}`,
+          payloadJson: JSON.stringify({
+            source: 'seed',
+            bookingId: booking.id,
+            refundStatus: RefundStatus.SUCCEEDED,
+          }),
+        },
+      });
+    }
+
     const seededBooking: SeedBooking = {
       id: booking.id,
       propertyId: booking.propertyId,
@@ -1145,66 +1283,114 @@ async function main() {
     } else {
       upcomingBookings.push(seededBooking);
     }
+    if (seededBooking.status === BookingStatus.CONFIRMED) {
+      confirmedBookings.push(seededBooking);
+    }
 
     return seededBooking;
   }
 
-  for (let i = 0; i < TARGET_COUNTS.completedBookings; i++) {
-    const property = bookableProperties[i % bookableProperties.length] as SeedProperty;
-    const customer = customers[(i * 7) % customers.length] as { id: string };
+  const windowProperties =
+    bookableProperties.length > 0
+      ? bookableProperties
+      : properties.slice(0, Math.min(8, properties.length));
 
-    const stayNights = clamp(2 + Math.floor(rand() * 6), 2, 8);
-    const checkIn = addDays(today, -(240 - (i % 200)));
+  const windowCursor = new Map<string, Date>();
+  windowProperties.forEach((property, index) => {
+    windowCursor.set(property.id, addDays(BOOKING_WINDOW_START, index % 5));
+  });
+
+  const pastCursor = new Map<string, Date>();
+  windowProperties.forEach((property, index) => {
+    pastCursor.set(property.id, addDays(BOOKING_WINDOW_START, -(52 + index * 2)));
+  });
+
+  function reserveWindowSlot(
+    property: SeedProperty,
+    stayNights: number,
+  ): { checkIn: Date; checkOut: Date } | null {
+    const cursor = windowCursor.get(property.id) ?? BOOKING_WINDOW_START;
+    const checkIn = new Date(cursor);
     const checkOut = addDays(checkIn, stayNights);
+    if (checkOut > BOOKING_WINDOW_END) return null;
+    windowCursor.set(property.id, new Date(checkOut));
+    return { checkIn, checkOut };
+  }
 
+  function reservePastSlot(
+    property: SeedProperty,
+    stayNights: number,
+  ): { checkIn: Date; checkOut: Date } | null {
+    const cursor = pastCursor.get(property.id) ?? addDays(BOOKING_WINDOW_START, -60);
+    const checkIn = new Date(cursor);
+    const checkOut = addDays(checkIn, stayNights);
+    if (checkOut >= BOOKING_WINDOW_START) return null;
+    pastCursor.set(property.id, addDays(checkOut, 2));
+    return { checkIn, checkOut };
+  }
+
+  async function seedWindowBookings(target: number, status: BookingStatus, propertyStep: number, customerStep: number) {
+    let created = 0;
+    let cursor = 0;
+    let attempts = 0;
+    while (created < target && attempts < target * 20) {
+      attempts += 1;
+      const property =
+        windowProperties[(cursor * propertyStep + 1) % windowProperties.length] as SeedProperty;
+      const customer = customers[(cursor * customerStep + 3) % customers.length] as { id: string };
+      const stayNights = clamp(2 + Math.floor(rand() * 4), 2, 5);
+      const slot = reserveWindowSlot(property, stayNights);
+      cursor += 1;
+      if (!slot) continue;
+      await createSeedBooking({
+        property,
+        customerId: customer.id,
+        checkIn: slot.checkIn,
+        checkOut: slot.checkOut,
+        status,
+      });
+      created += 1;
+    }
+  }
+
+  for (let i = 0; i < TARGET_COUNTS.completedBookings; i++) {
+    const property = windowProperties[i % windowProperties.length] as SeedProperty;
+    const customer = customers[(i * 7 + 1) % customers.length] as { id: string };
+    const stayNights = clamp(2 + Math.floor(rand() * 4), 2, 6);
+    const slot = reservePastSlot(property, stayNights);
+    if (!slot) continue;
     await createSeedBooking({
       property,
       customerId: customer.id,
-      checkIn,
-      checkOut,
+      checkIn: slot.checkIn,
+      checkOut: slot.checkOut,
       status: BookingStatus.COMPLETED,
     });
   }
 
-  for (let i = 0; i < TARGET_COUNTS.confirmedBookings; i++) {
-    const property =
-      bookableProperties[(i * 3 + 2) % bookableProperties.length] as SeedProperty;
-    const customer = customers[(i * 11 + 3) % customers.length] as { id: string };
+  await seedWindowBookings(TARGET_COUNTS.confirmedBookings, BookingStatus.CONFIRMED, 3, 5);
+  await seedWindowBookings(TARGET_COUNTS.pendingBookings, BookingStatus.PENDING_PAYMENT, 5, 7);
+  await seedWindowBookings(TARGET_COUNTS.cancelledBookings, BookingStatus.CANCELLED, 7, 9);
 
-    const stayNights = clamp(2 + Math.floor(rand() * 7), 2, 10);
-    const checkIn = addDays(today, 3 + (i % 180));
-    const checkOut = addDays(checkIn, stayNights);
-
-    await createSeedBooking({
-      property,
-      customerId: customer.id,
-      checkIn,
-      checkOut,
-      status: BookingStatus.CONFIRMED,
+  for (let i = 0; i < 4; i++) {
+    const property = windowProperties[i % windowProperties.length] as SeedProperty;
+    const customer = customers[(i * 3 + 2) % customers.length] as { id: string };
+    const checkIn = addDays(BOOKING_WINDOW_START, 2 + i * 4);
+    const checkOut = addDays(checkIn, 2);
+    await prisma.propertyHold.create({
+      data: {
+        propertyId: property.id,
+        checkIn,
+        checkOut,
+        status: HoldStatus.EXPIRED,
+        expiresAt: addHours(checkIn, -6),
+        createdById: customer.id,
+      },
     });
   }
 
-  for (let i = 0; i < TARGET_COUNTS.pendingBookings; i++) {
-    const property =
-      bookableProperties[(i * 5 + 1) % bookableProperties.length] as SeedProperty;
-    const customer = customers[(i * 13 + 1) % customers.length] as { id: string };
-
-    const stayNights = clamp(2 + Math.floor(rand() * 4), 2, 6);
-    const checkIn = addDays(today, 1 + (i % 35));
-    const checkOut = addDays(checkIn, stayNights);
-
-    await createSeedBooking({
-      property,
-      customerId: customer.id,
-      checkIn,
-      checkOut,
-      status: BookingStatus.PENDING_PAYMENT,
-    });
-  }
-
-  const opsSourceBookings = allBookings.slice(0, 120);
+  const opsSourceBookings = confirmedBookings;
   for (const booking of opsSourceBookings) {
-    const isDone = booking.status === BookingStatus.COMPLETED;
     const scheduled = addDays(booking.checkIn, -1);
 
     await prisma.opsTask.create({
@@ -1212,10 +1398,10 @@ async function main() {
         propertyId: booking.propertyId,
         bookingId: booking.id,
         type: OpsTaskType.CLEANING,
-        status: isDone ? OpsTaskStatus.DONE : OpsTaskStatus.PENDING,
+        status: OpsTaskStatus.PENDING,
         scheduledFor: scheduled,
         dueAt: addHours(scheduled, 12),
-        completedAt: isDone ? addDays(booking.checkOut, -1) : null,
+        completedAt: null,
         notes: 'Seeded cleaning run for booking turnover.',
       },
     });
@@ -1225,10 +1411,10 @@ async function main() {
         propertyId: booking.propertyId,
         bookingId: booking.id,
         type: OpsTaskType.INSPECTION,
-        status: isDone ? OpsTaskStatus.DONE : OpsTaskStatus.PENDING,
+        status: OpsTaskStatus.PENDING,
         scheduledFor: addHours(scheduled, 6),
         dueAt: addHours(scheduled, 20),
-        completedAt: isDone ? addDays(booking.checkOut, -1) : null,
+        completedAt: null,
         notes: 'Seeded inspection checkpoint for quality control.',
       },
     });
@@ -1257,6 +1443,160 @@ async function main() {
           originalName: pdf.originalName,
           mimeType: pdf.mimeType,
           notes: 'Seeded booking verification document.',
+        },
+      });
+    }
+  }
+
+  const statementPeriodStart = new Date(Date.UTC(2026, 0, 1, 0, 0, 0));
+  const statementPeriodEnd = new Date(Date.UTC(2026, 1, 1, 0, 0, 0));
+  const propertyById = new Map(properties.map((property) => [property.id, property]));
+
+  for (let i = 0; i < seededVendors.length; i++) {
+    const vendor = seededVendors[i] as SeedVendor;
+    const vendorCompleted = completedBookings.filter((booking) => {
+      const property = propertyById.get(booking.propertyId);
+      return property?.vendorId === vendor.userId;
+    });
+
+    const grossRaw = vendorCompleted.reduce((sum, booking) => sum + booking.totalAmount, 0);
+    const grossBookings = grossRaw > 0 ? grossRaw : 240000 + i * 25000;
+    const managementFees = Math.round(grossBookings * (0.14 + i * 0.01));
+    const refunds = i % 2 === 0 ? Math.round(grossBookings * 0.025) : 0;
+    const adjustments = i === 2 ? -6500 : i === 3 ? 3200 : 0;
+    const netPayable = Math.max(0, grossBookings - managementFees - refunds + adjustments);
+
+    const statementStatusByIndex: VendorStatementStatus[] = [
+      VendorStatementStatus.PAID,
+      VendorStatementStatus.FINALIZED,
+      VendorStatementStatus.FINALIZED,
+      VendorStatementStatus.DRAFT,
+    ];
+    const statementStatus =
+      statementStatusByIndex[i] ?? VendorStatementStatus.FINALIZED;
+
+    const statement = await prisma.vendorStatement.create({
+      data: {
+        vendorId: vendor.userId,
+        periodStart: statementPeriodStart,
+        periodEnd: statementPeriodEnd,
+        currency: 'AED',
+        status: statementStatus,
+        grossBookings,
+        managementFees,
+        refunds,
+        adjustments,
+        netPayable,
+        generatedAt: addDays(BOOKING_WINDOW_START, -10 + i),
+        finalizedAt:
+          statementStatus === VendorStatementStatus.DRAFT
+            ? null
+            : addDays(BOOKING_WINDOW_START, -5 + i),
+        paidAt:
+          statementStatus === VendorStatementStatus.PAID
+            ? addDays(BOOKING_WINDOW_START, -2 + i)
+            : null,
+        metaJson: JSON.stringify({
+          seeded: true,
+          vendor: vendor.email,
+          month: '2026-01',
+        }),
+      },
+      select: { id: true, status: true },
+    });
+
+    let payoutStatus: PayoutStatus | null = null;
+    if (i === 0) payoutStatus = PayoutStatus.SUCCEEDED;
+    if (i === 1) payoutStatus = PayoutStatus.PROCESSING;
+
+    if (payoutStatus) {
+      await prisma.payout.create({
+        data: {
+          vendorId: vendor.userId,
+          statementId: statement.id,
+          status: payoutStatus,
+          amount: netPayable,
+          currency: 'AED',
+          provider: PaymentProvider.MANUAL,
+          providerRef: `seed_payout_${i + 1}`,
+          scheduledAt: addDays(BOOKING_WINDOW_START, -3 + i),
+          processedAt:
+            payoutStatus === PayoutStatus.SUCCEEDED
+              ? addDays(BOOKING_WINDOW_START, -2 + i)
+              : null,
+          failedAt: null,
+          failureReason: null,
+        },
+      });
+    }
+
+    const ledgerRows: Array<{
+      type: LedgerEntryType;
+      direction: LedgerDirection;
+      amount: number;
+      idempotencyKey: string;
+    }> = [
+      {
+        type: LedgerEntryType.BOOKING_CAPTURED,
+        direction: LedgerDirection.CREDIT,
+        amount: grossBookings,
+        idempotencyKey: `seed_stmt_${vendor.userId}_capture`,
+      },
+      {
+        type: LedgerEntryType.MANAGEMENT_FEE,
+        direction: LedgerDirection.DEBIT,
+        amount: managementFees,
+        idempotencyKey: `seed_stmt_${vendor.userId}_fee`,
+      },
+    ];
+
+    if (refunds > 0) {
+      ledgerRows.push({
+        type: LedgerEntryType.REFUND,
+        direction: LedgerDirection.DEBIT,
+        amount: refunds,
+        idempotencyKey: `seed_stmt_${vendor.userId}_refund`,
+      });
+    }
+
+    if (adjustments !== 0) {
+      ledgerRows.push({
+        type: LedgerEntryType.ADJUSTMENT,
+        direction:
+          adjustments > 0 ? LedgerDirection.CREDIT : LedgerDirection.DEBIT,
+        amount: Math.abs(adjustments),
+        idempotencyKey: `seed_stmt_${vendor.userId}_adjustment`,
+      });
+    }
+
+    if (payoutStatus === PayoutStatus.SUCCEEDED) {
+      ledgerRows.push({
+        type: LedgerEntryType.PAYOUT,
+        direction: LedgerDirection.DEBIT,
+        amount: netPayable,
+        idempotencyKey: `seed_stmt_${vendor.userId}_payout`,
+      });
+    }
+
+    for (let rowIndex = 0; rowIndex < ledgerRows.length; rowIndex++) {
+      const row = ledgerRows[rowIndex] as {
+        type: LedgerEntryType;
+        direction: LedgerDirection;
+        amount: number;
+        idempotencyKey: string;
+      };
+
+      await prisma.ledgerEntry.create({
+        data: {
+          vendorId: vendor.userId,
+          statementId: statement.id,
+          type: row.type,
+          direction: row.direction,
+          amount: row.amount,
+          currency: 'AED',
+          occurredAt: addDays(BOOKING_WINDOW_START, -9 + rowIndex),
+          idempotencyKey: row.idempotencyKey,
+          metaJson: JSON.stringify({ seeded: true, statementId: statement.id }),
         },
       });
     }

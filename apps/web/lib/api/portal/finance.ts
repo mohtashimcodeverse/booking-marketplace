@@ -196,6 +196,20 @@ export async function adminVoidStatement(statementId: string, note?: string | nu
   return unwrap(res);
 }
 
+export async function adminGetStatementDetail(
+  statementId: string
+): Promise<VendorStatementDetail> {
+  const res = await apiFetch<VendorStatementDetail>(
+    `/portal/admin/statements/${encodeURIComponent(statementId)}`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
 export async function adminListPayouts(params?: {
   page?: number;
   pageSize?: number;
@@ -215,6 +229,18 @@ export async function adminListPayouts(params?: {
     cache: "no-store",
     query,
   });
+  return unwrap(res);
+}
+
+export async function adminGetPayoutDetail(payoutId: string): Promise<PayoutRow & { statement?: VendorStatementListItem | null }> {
+  const res = await apiFetch<PayoutRow & { statement?: VendorStatementListItem | null }>(
+    `/portal/admin/payouts/${encodeURIComponent(payoutId)}`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
   return unwrap(res);
 }
 

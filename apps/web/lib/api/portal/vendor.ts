@@ -65,10 +65,12 @@ export type VendorPropertyStatus =
   | "DRAFT"
   | "UNDER_REVIEW"
   | "APPROVED"
+  | "APPROVED_PENDING_ACTIVATION_PAYMENT"
   | "CHANGES_REQUESTED"
   | "REJECTED"
   | "PUBLISHED"
-  | "SUSPENDED";
+  | "SUSPENDED"
+  | "ARCHIVED";
 
 export type VendorPropertyListItem = {
   id: string;
@@ -164,6 +166,20 @@ export type VendorPropertyDocument = {
   originalName: string | null;
   mimeType: string | null;
   createdAt: string;
+  updatedAt: string;
+};
+
+export type VendorPropertyActivationInvoice = {
+  id: string;
+  propertyId: string;
+  vendorId: string;
+  amount: number;
+  currency: string;
+  status: "PENDING" | "PROCESSING" | "PAID" | "FAILED" | "CANCELLED";
+  provider: "STRIPE" | "TELR" | "MANUAL" | "OTHER";
+  providerRef: string | null;
+  createdAt: string;
+  paidAt: string | null;
   updatedAt: string;
 };
 
@@ -729,6 +745,112 @@ export async function downloadVendorPropertyDocument(
     }
   );
 
+  return unwrap(res);
+}
+
+export async function viewVendorPropertyDocument(
+  propertyId: string,
+  documentId: string
+): Promise<Blob> {
+  const res = await apiFetch<Blob>(
+    `/vendor/properties/${encodeURIComponent(propertyId)}/documents/${encodeURIComponent(
+      documentId
+    )}/view`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      responseType: "blob",
+      headers: {
+        Accept: "application/pdf,image/*,*/*",
+      },
+    }
+  );
+
+  return unwrap(res);
+}
+
+export async function deleteVendorPropertyDocument(
+  propertyId: string,
+  documentId: string
+): Promise<{ ok: true; id: string }> {
+  const res = await apiFetch<{ ok: true; id: string }>(
+    `/vendor/properties/${encodeURIComponent(propertyId)}/documents/${encodeURIComponent(documentId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
+export async function getVendorPropertyActivation(
+  propertyId: string
+): Promise<{
+  propertyId: string;
+  propertyStatus: VendorPropertyStatus;
+  activationRequired: boolean;
+  invoice: VendorPropertyActivationInvoice | null;
+}> {
+  const res = await apiFetch<{
+    propertyId: string;
+    propertyStatus: VendorPropertyStatus;
+    activationRequired: boolean;
+    invoice: VendorPropertyActivationInvoice | null;
+  }>(`/vendor/properties/${encodeURIComponent(propertyId)}/activation`, {
+    method: "GET",
+    credentials: "include",
+    cache: "no-store",
+  });
+  return unwrap(res);
+}
+
+export async function createVendorPropertyActivationInvoice(
+  propertyId: string,
+  input?: { provider?: VendorPropertyActivationInvoice["provider"]; providerRef?: string }
+): Promise<{
+  propertyId: string;
+  propertyStatus: VendorPropertyStatus;
+  invoice: VendorPropertyActivationInvoice;
+}> {
+  const res = await apiFetch<{
+    propertyId: string;
+    propertyStatus: VendorPropertyStatus;
+    invoice: VendorPropertyActivationInvoice;
+  }>(`/vendor/properties/${encodeURIComponent(propertyId)}/activation/invoice`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    body: {
+      provider: input?.provider ?? "MANUAL",
+      providerRef: input?.providerRef?.trim() || undefined,
+    },
+  });
+  return unwrap(res);
+}
+
+export async function confirmVendorPropertyActivationManual(
+  propertyId: string,
+  input?: { invoiceId?: string; providerRef?: string }
+): Promise<{
+  ok: true;
+  invoice: VendorPropertyActivationInvoice;
+  propertyStatus: VendorPropertyStatus;
+}> {
+  const res = await apiFetch<{
+    ok: true;
+    invoice: VendorPropertyActivationInvoice;
+    propertyStatus: VendorPropertyStatus;
+  }>(`/vendor/properties/${encodeURIComponent(propertyId)}/activation/manual-confirm`, {
+    method: "POST",
+    credentials: "include",
+    cache: "no-store",
+    body: {
+      invoiceId: input?.invoiceId,
+      providerRef: input?.providerRef?.trim() || undefined,
+    },
+  });
   return unwrap(res);
 }
 

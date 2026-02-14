@@ -6,7 +6,10 @@ import {
 import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import {
+  ActivationInvoiceStatus,
   BookingStatus,
+  NotificationType,
+  PaymentProvider,
   PropertyMediaCategory,
   Prisma,
   PropertyDeletionRequestStatus,
@@ -22,12 +25,16 @@ import {
   ReorderMediaDto,
   UpdateMediaCategoryDto,
 } from '../../vendor/vendor-properties.dto';
+import { NotificationsService } from '../../modules/notifications/notifications.service';
 
 type ReviewDto = { notes?: string; checklistJson?: string };
 
 @Injectable()
 export class AdminPropertiesService {
-  constructor(private readonly prisma: PrismaService) {}
+  constructor(
+    private readonly prisma: PrismaService,
+    private readonly notifications: NotificationsService,
+  ) {}
 
   // -------------------------
   // Shared slug helpers (copy of vendor behavior)
@@ -118,6 +125,17 @@ export class AdminPropertiesService {
     }
 
     return issues;
+  }
+
+  private activationDepositAmountMinor(): number {
+    const raw = Number(process.env.ACTIVATION_DEPOSIT_AMOUNT_MINOR || '25000');
+    if (!Number.isFinite(raw) || raw < 0) return 25000;
+    return Math.trunc(raw);
+  }
+
+  private activationDepositCurrency(): string {
+    const v = (process.env.ACTIVATION_DEPOSIT_CURRENCY || 'AED').trim();
+    return v.length > 0 ? v : 'AED';
   }
 
   async getOneByAdmin(propertyId: string) {
@@ -318,7 +336,7 @@ export class AdminPropertiesService {
     propertyId: string,
     dto: AdminUpdatePropertyDto,
   ) {
-    await this.mustFindProperty(propertyId);
+    const existing = await this.mustFindProperty(propertyId);
 
     let slug: string | undefined;
     if (dto.slug?.trim()) {
@@ -333,19 +351,20 @@ export class AdminPropertiesService {
           : base;
     }
 
-    // Validate reassignment if provided
-    if (dto.vendorId) {
-      const u = await this.prisma.user.findUnique({
-        where: { id: dto.vendorId },
-        select: { id: true },
-      });
-      if (!u) throw new BadRequestException('vendorId is invalid.');
+    if (
+      typeof dto.vendorId === 'string' &&
+      dto.vendorId.trim().length > 0 &&
+      dto.vendorId !== existing.vendorId
+    ) {
+      throw new BadRequestException(
+        'Property ownership cannot be changed from admin edit.',
+      );
     }
 
     return this.prisma.property.update({
       where: { id: propertyId },
       data: {
-        vendorId: dto.vendorId,
+        vendorId: undefined,
         // keep createdByAdminId as original creator; we don't overwrite here
         title: dto.title?.trim(),
         slug,
@@ -381,6 +400,15 @@ export class AdminPropertiesService {
     // Admin can publish from most states except SUSPENDED
     if (prop.status === PropertyStatus.SUSPENDED) {
       throw new BadRequestException('Property is suspended.');
+    }
+
+    if (
+      prop.status === PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT &&
+      !prop.createdByAdminId
+    ) {
+      throw new BadRequestException(
+        'Activation payment is required before publishing this vendor listing.',
+      );
     }
 
     if (prop.lat == null || prop.lng == null) {
@@ -825,6 +853,7 @@ export class AdminPropertiesService {
       'CHANGES_REQUESTED',
       'REJECTED',
       'APPROVED',
+      'APPROVED_PENDING_ACTIVATION_PAYMENT',
       'DRAFT',
       'PUBLISHED',
       'SUSPENDED',
@@ -862,7 +891,7 @@ export class AdminPropertiesService {
   }
 
   async approve(adminId: string, propertyId: string, dto: ReviewDto) {
-    return this.prisma.$transaction(async (tx) => {
+    const result = await this.prisma.$transaction(async (tx) => {
       const prop = await this.mustFindProperty(propertyId);
 
       if (prop.status !== PropertyStatus.UNDER_REVIEW) {
@@ -871,9 +900,14 @@ export class AdminPropertiesService {
         );
       }
 
+      const requiresActivation = !prop.createdByAdminId;
+      const nextStatus = requiresActivation
+        ? PropertyStatus.APPROVED_PENDING_ACTIVATION_PAYMENT
+        : PropertyStatus.APPROVED;
+
       const updated = await tx.property.update({
         where: { id: propertyId },
-        data: { status: PropertyStatus.APPROVED },
+        data: { status: nextStatus },
       });
 
       await tx.propertyReview.create({
@@ -886,8 +920,57 @@ export class AdminPropertiesService {
         },
       });
 
-      return { ok: true, item: updated };
+      if (requiresActivation) {
+        const existingInvoice = await tx.propertyActivationInvoice.findFirst({
+          where: {
+            propertyId,
+            vendorId: prop.vendorId,
+            status: {
+              in: [
+                ActivationInvoiceStatus.PENDING,
+                ActivationInvoiceStatus.PROCESSING,
+              ],
+            },
+          },
+          orderBy: [{ createdAt: 'desc' }],
+          select: { id: true },
+        });
+
+        if (!existingInvoice) {
+          await tx.propertyActivationInvoice.create({
+            data: {
+              propertyId,
+              vendorId: prop.vendorId,
+              amount: this.activationDepositAmountMinor(),
+              currency: this.activationDepositCurrency(),
+              status: ActivationInvoiceStatus.PENDING,
+              provider: PaymentProvider.MANUAL,
+            },
+          });
+        }
+      }
+
+      return { ok: true, item: updated, requiresActivation };
     });
+
+    if (result.requiresActivation) {
+      await this.notifications.emit({
+        type: NotificationType.PROPERTY_APPROVED_ACTIVATION_REQUIRED,
+        entityType: 'property',
+        entityId: propertyId,
+        recipientUserId: result.item.vendorId,
+        payload: {
+          propertyId,
+          title: result.item.title,
+          status: result.item.status,
+          activationAmount: this.activationDepositAmountMinor(),
+          currency: this.activationDepositCurrency(),
+          actionUrl: `/vendor/properties/${propertyId}/activation`,
+        },
+      });
+    }
+
+    return { ok: result.ok, item: result.item };
   }
 
   async requestChanges(adminId: string, propertyId: string, dto: ReviewDto) {

@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { PortalShell } from "@/components/portal/PortalShell";
 import { CardList, type CardListItem } from "@/components/portal/ui/CardList";
 import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
@@ -40,6 +43,7 @@ function toneForStatus(status: string | null): "neutral" | "success" | "warning"
 }
 
 export default function VendorOpsTasksPage() {
+  const router = useRouter();
   const [state, setState] = useState<ViewState>({ kind: "loading" });
 
   useEffect(() => {
@@ -47,7 +51,7 @@ export default function VendorOpsTasksPage() {
     async function run() {
       setState({ kind: "loading" });
       try {
-        const data = await getVendorOpsTasks({ page: 1, pageSize: 30 });
+        const data = await getVendorOpsTasks({ page: 1, pageSize: 100 });
         if (!alive) return;
         setState({ kind: "ready", data });
       } catch (err) {
@@ -82,20 +86,25 @@ export default function VendorOpsTasksPage() {
         status: <StatusPill tone={toneForStatus(status)}>{status}</StatusPill>,
         meta: (
           <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded-full bg-warm-alt px-3 py-1 font-semibold text-secondary">
-              Task: {id}
-            </span>
-            <span className="rounded-full bg-warm-alt px-3 py-1 font-semibold text-secondary">
-              Property: {propertyId}
-            </span>
-            <span className="rounded-full bg-warm-alt px-3 py-1 font-semibold text-secondary">
-              Booking: {bookingId}
-            </span>
+            <span className="rounded-full bg-warm-alt px-3 py-1 font-semibold text-secondary">Task: {id}</span>
+            <span className="rounded-full bg-warm-alt px-3 py-1 font-semibold text-secondary">Property: {propertyId}</span>
+            <span className="rounded-full bg-warm-alt px-3 py-1 font-semibold text-secondary">Booking: {bookingId}</span>
           </div>
         ),
+        actions: (
+          <Link
+            href={`/vendor/ops-tasks/${encodeURIComponent(id)}`}
+            className="rounded-xl border border-line/80 bg-surface px-3 py-1.5 text-xs font-semibold text-primary hover:bg-warm-alt"
+          >
+            Open page
+          </Link>
+        ),
+        onClick: () => {
+          router.push(`/vendor/ops-tasks/${encodeURIComponent(id)}`);
+        },
       };
     });
-  }, [state]);
+  }, [router, state]);
 
   return (
     <PortalShell role="vendor" title="Ops Tasks" subtitle="Operational tasks generated from bookings and workflows">
@@ -105,13 +114,11 @@ export default function VendorOpsTasksPage() {
           <SkeletonBlock className="h-24" />
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
-          {state.message}
-        </div>
+        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">{state.message}</div>
       ) : (
         <CardList
           title="Ops tasks"
-          subtitle="Track and action tasks without raw payloads"
+          subtitle="Open detail pages for each task"
           items={items}
           emptyTitle="No ops tasks"
           emptyDescription="No active tasks found for your listings."

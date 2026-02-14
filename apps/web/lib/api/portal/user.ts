@@ -242,6 +242,7 @@ export type UserCustomerDocument = {
   createdAt: string;
   updatedAt: string;
   downloadUrl: string;
+  viewUrl?: string;
   reviewedByAdmin?: {
     id: string;
     email: string;
@@ -450,6 +451,36 @@ export async function downloadUserCustomerDocument(documentId: string): Promise<
       headers: {
         Accept: "application/octet-stream",
       },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function viewUserCustomerDocument(documentId: string): Promise<Blob> {
+  const res = await apiFetch<Blob>(
+    `/portal/user/documents/${encodeURIComponent(documentId)}/view`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      responseType: "blob",
+      headers: {
+        Accept: "application/pdf,image/*,*/*",
+      },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function deleteUserCustomerDocument(
+  documentId: string
+): Promise<{ ok: true; id: string }> {
+  const res = await apiFetch<{ ok: true; id: string }>(
+    `/portal/user/documents/${encodeURIComponent(documentId)}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      cache: "no-store",
     }
   );
   return unwrap(res);

@@ -32,6 +32,7 @@ import {
   documentUploadStorage,
 } from '../common/upload/multer.config';
 import { UpdatePropertyLocationDto } from './dto/update-property-location.dto';
+import { PaymentProvider } from '@prisma/client';
 
 type JwtUser = {
   id: string;
@@ -196,6 +197,41 @@ export class VendorPropertiesController {
   ) {
     this.assertVendor(req.user);
     return this.service.requestDeletion(req.user.id, id, dto.reason);
+  }
+
+  @Get(':id/activation')
+  async activationStatus(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+  ) {
+    this.assertVendor(req.user);
+    return this.service.getActivationStatus(req.user.id, id);
+  }
+
+  @Post(':id/activation/invoice')
+  async createActivationInvoice(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body?: { provider?: PaymentProvider; providerRef?: string },
+  ) {
+    this.assertVendor(req.user);
+    return this.service.createActivationInvoice(req.user.id, id, {
+      provider: body?.provider,
+      providerRef: body?.providerRef,
+    });
+  }
+
+  @Post(':id/activation/manual-confirm')
+  async confirmActivationManual(
+    @Req() req: { user: JwtUser },
+    @Param('id', new ParseUUIDPipe()) id: string,
+    @Body() body?: { invoiceId?: string; providerRef?: string },
+  ) {
+    this.assertVendor(req.user);
+    return this.service.confirmActivationManual(req.user.id, id, {
+      invoiceId: body?.invoiceId,
+      providerRef: body?.providerRef,
+    });
   }
 
   @Post(':id/media')

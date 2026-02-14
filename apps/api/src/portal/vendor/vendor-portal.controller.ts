@@ -1,4 +1,13 @@
-import { Body, Controller, Get, Query, UseGuards, Post } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Post,
+  Query,
+  UseGuards,
+} from '@nestjs/common';
 import { VendorPortalService } from './vendor-portal.service';
 
 import { JwtAccessGuard } from '../../auth/guards/jwt-access.guard';
@@ -19,16 +28,64 @@ import {
 } from '../common/portal.utils';
 import type { VendorOpsTaskQueryDto } from './dto/vendor-ops-task-query.dto';
 import type { VendorPropertiesQueryDto } from './dto/vendor-properties-query.dto';
+import { PortalNotificationsService } from '../common/portal-notifications.service';
 
 @Controller('/portal/vendor')
 @UseGuards(JwtAccessGuard, RolesGuard)
 @Roles(UserRole.VENDOR)
 export class VendorPortalController {
-  constructor(private readonly service: VendorPortalService) {}
+  constructor(
+    private readonly service: VendorPortalService,
+    private readonly notifications: PortalNotificationsService,
+  ) {}
+
+  private parseOptionalBoolean(value?: string): boolean | undefined {
+    if (typeof value !== 'string') return undefined;
+    const normalized = value.trim().toLowerCase();
+    if (!normalized) return undefined;
+    if (['1', 'true', 'yes', 'on'].includes(normalized)) return true;
+    if (['0', 'false', 'no', 'off'].includes(normalized)) return false;
+    return undefined;
+  }
 
   @Get('overview')
   overview(@CurrentUser() user: User) {
     return this.service.getOverview({ userId: user.id, role: user.role });
+  }
+
+  @Get('notifications')
+  notificationsList(
+    @CurrentUser() user: User,
+    @Query() query: { page?: string; pageSize?: string; unreadOnly?: string },
+  ) {
+    const { page, pageSize } = parsePageParams(query);
+    return this.notifications.listForUser({
+      userId: user.id,
+      page,
+      pageSize,
+      unreadOnly: this.parseOptionalBoolean(query.unreadOnly),
+    });
+  }
+
+  @Get('notifications/unread-count')
+  notificationsUnreadCount(@CurrentUser() user: User) {
+    return this.notifications.unreadCount(user.id);
+  }
+
+  @Post('notifications/:notificationId/read')
+  markNotificationRead(
+    @CurrentUser() user: User,
+    @Param('notificationId', new ParseUUIDPipe()) notificationId: string,
+  ) {
+    return this.notifications.markRead({
+      userId: user.id,
+      notificationId,
+    });
+  }
+
+  @Post('notifications/read-all')
+  markAllNotificationsRead(@CurrentUser() user: User) {
+    return this.notifications.markAllRead(user.id);
   }
 
   @Get('bookings')

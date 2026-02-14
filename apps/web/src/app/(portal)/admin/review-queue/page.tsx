@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { RequireAuth } from "@/components/auth/RequireAuth";
 import { PortalShell } from "@/components/portal/PortalShell";
@@ -8,12 +9,9 @@ import { StatusPill } from "@/components/portal/ui/StatusPill";
 import { SkeletonTable } from "@/components/portal/ui/Skeleton";
 import { Toolbar } from "@/components/portal/ui/Toolbar";
 import { EmptyState } from "@/components/portal/ui/EmptyState";
-import { ReviewQueueDrawer } from "@/components/portal/admin/review-queue/ReviewQueueDrawer";
 import {
   approveAdminProperty,
   getAdminReviewQueue,
-  rejectAdminProperty,
-  requestChangesAdminProperty,
   type AdminReviewQueueItem,
   type ReviewQueueStatus,
 } from "@/lib/api/admin/reviewQueue";
@@ -45,7 +43,6 @@ export default function AdminReviewQueuePage() {
   const [pageSize] = useState(10);
 
   const [busy, setBusy] = useState<string | null>(null);
-  const [drawer, setDrawer] = useState<AdminReviewQueueItem | null>(null);
   const [q, setQ] = useState("");
   const [state, setState] = useState<LoadState>({ kind: "loading" });
 
@@ -221,16 +218,26 @@ export default function AdminReviewQueuePage() {
               variant="cards"
               rowActions={(row) => (
                 <>
-                  <button
-                    onClick={() => setDrawer(row)}
+                  <Link
+                    href={`/admin/review-queue/${encodeURIComponent(row.id)}`}
                     className="rounded-2xl border border-line/80 bg-surface px-3 py-2 text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
                   >
                     Review
-                  </button>
+                  </Link>
 
                   {canApprove(row.status) ? (
                     <button
-                      onClick={() => void approveAdminProperty(row.id)}
+                      onClick={() => {
+                        void (async () => {
+                          setBusy("Approving…");
+                          try {
+                            await approveAdminProperty(row.id);
+                            await load();
+                          } finally {
+                            setBusy(null);
+                          }
+                        })();
+                      }}
                       className="rounded-2xl bg-brand px-3 py-2 text-sm font-semibold text-accent-text shadow-sm hover:opacity-95"
                     >
                       Approve
@@ -240,35 +247,6 @@ export default function AdminReviewQueuePage() {
               )}
             />
           )}
-
-          {drawer ? (
-            <ReviewQueueDrawer
-              item={drawer}
-              busyLabel={busy}
-              onClose={() => setDrawer(null)}
-              onApprove={async (id) => {
-                setBusy("Approving…");
-                await approveAdminProperty(id);
-                await load();
-                setBusy(null);
-                setDrawer(null);
-              }}
-              onReject={async (id, reason) => {
-                setBusy("Rejecting…");
-                await rejectAdminProperty(id, reason);
-                await load();
-                setBusy(null);
-                setDrawer(null);
-              }}
-              onRequestChanges={async (id, note) => {
-                setBusy("Requesting changes…");
-                await requestChangesAdminProperty(id, note);
-                await load();
-                setBusy(null);
-                setDrawer(null);
-              }}
-            />
-          ) : null}
         </div>
       </PortalShell>
     </RequireAuth>

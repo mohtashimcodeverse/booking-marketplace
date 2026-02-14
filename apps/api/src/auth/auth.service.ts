@@ -18,6 +18,9 @@ type SafeAuthUser = {
   email: string;
   role: UserRole;
   isEmailVerified: boolean;
+  fullName: string | null;
+  firstName: string | null;
+  lastName: string | null;
 };
 
 @Injectable()
@@ -26,6 +29,34 @@ export class AuthService {
     private readonly prisma: PrismaService,
     private readonly jwt: JwtService,
   ) {}
+
+  private splitName(fullName?: string | null): {
+    fullName: string | null;
+    firstName: string | null;
+    lastName: string | null;
+  } {
+    const normalized = fullName?.trim() || null;
+    if (!normalized) {
+      return { fullName: null, firstName: null, lastName: null };
+    }
+
+    const parts = normalized.split(/\s+/g).filter(Boolean);
+    if (parts.length === 0) {
+      return { fullName: null, firstName: null, lastName: null };
+    }
+
+    if (parts.length === 1) {
+      return {
+        fullName: normalized,
+        firstName: parts[0] ?? null,
+        lastName: null,
+      };
+    }
+
+    const firstName = parts[0] ?? null;
+    const lastName = parts.slice(1).join(' ').trim() || null;
+    return { fullName: normalized, firstName, lastName };
+  }
 
   private accessExpiresSeconds(): number {
     const raw = process.env.JWT_ACCESS_EXPIRES_IN || '15m';
@@ -56,12 +87,13 @@ export class AuthService {
         email: true,
         role: true,
         isEmailVerified: true,
+        fullName: true,
       },
     });
 
     if (!user) throw new NotFoundException('User not found');
 
-    return { user };
+    return { user: { ...user, ...this.splitName(user.fullName) } };
   }
 
   async register(
@@ -76,6 +108,8 @@ export class AuthService {
       role: UserRole;
       isEmailVerified: boolean;
       fullName: string | null;
+      firstName: string | null;
+      lastName: string | null;
     };
   }> {
     const email = emailRaw.trim().toLowerCase();
@@ -125,7 +159,7 @@ export class AuthService {
       });
     }
 
-    return { user };
+    return { user: { ...user, ...this.splitName(user.fullName) } };
   }
 
   async login(
@@ -157,6 +191,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
+        ...this.splitName(user.fullName),
       },
       accessToken,
       refreshToken,
@@ -278,6 +313,7 @@ export class AuthService {
         email: user.email,
         role: user.role,
         isEmailVerified: user.isEmailVerified,
+        ...this.splitName(user.fullName),
       },
       accessToken: newAccess,
       refreshToken: newRefresh,

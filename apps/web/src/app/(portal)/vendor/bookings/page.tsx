@@ -1,9 +1,11 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { PortalShell } from "@/components/portal/PortalShell";
 import { CardList, type CardListItem } from "@/components/portal/ui/CardList";
-import { Modal } from "@/components/portal/ui/Modal";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
 import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
 import { getVendorBookings } from "@/lib/api/portal/vendor";
@@ -36,11 +38,12 @@ function formatMoney(amount: number | null | undefined, currency: string | null 
 }
 
 export default function VendorBookingsPage() {
+  const router = useRouter();
+
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState("ALL");
   const [query, setQuery] = useState("");
-  const [selected, setSelected] = useState<VendorBooking | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -90,7 +93,7 @@ export default function VendorBookingsPage() {
   const listItems = useMemo<CardListItem[]>(() => {
     if (!derived) return [];
 
-    return derived.filtered.map((booking) => ({
+    return derived.filtered.map((booking: VendorBooking) => ({
       id: booking.id,
       title: booking.propertyTitle ?? `Booking ${booking.id.slice(0, 8)}`,
       subtitle: `${formatDate(booking.checkIn)} - ${formatDate(booking.checkOut)}`,
@@ -105,12 +108,22 @@ export default function VendorBookingsPage() {
           </span>
         </div>
       ),
-      onClick: () => setSelected(booking),
+      actions: (
+        <Link
+          href={`/vendor/bookings/${encodeURIComponent(booking.id)}`}
+          className="rounded-xl border border-line/80 bg-surface px-3 py-1.5 text-xs font-semibold text-primary hover:bg-warm-alt"
+        >
+          Open page
+        </Link>
+      ),
+      onClick: () => {
+        router.push(`/vendor/bookings/${encodeURIComponent(booking.id)}`);
+      },
     }));
-  }, [derived]);
+  }, [derived, router]);
 
   return (
-    <PortalShell role="vendor" title="Bookings" subtitle="Booking timeline and guest stays for your properties">
+    <PortalShell role="vendor" title="Bookings" subtitle="Open a booking page for stay timeline and totals">
       {state.kind === "loading" ? (
         <div className="space-y-3">
           <SkeletonBlock className="h-24" />
@@ -118,9 +131,7 @@ export default function VendorBookingsPage() {
           <SkeletonBlock className="h-24" />
         </div>
       ) : state.kind === "error" ? (
-        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">
-          {state.message}
-        </div>
+        <div className="rounded-3xl border border-danger/30 bg-danger/12 p-6 text-sm text-danger">{state.message}</div>
       ) : (
         <div className="space-y-5">
           <div className="rounded-3xl border border-line/50 bg-surface p-4 shadow-sm">
@@ -149,7 +160,7 @@ export default function VendorBookingsPage() {
 
           <CardList
             title="Vendor bookings"
-            subtitle="Click a booking to inspect full stay details"
+            subtitle="Deep-link booking pages for operations and follow-up"
             items={listItems}
             emptyTitle="No bookings"
             emptyDescription="No bookings match the current filters."
@@ -180,43 +191,8 @@ export default function VendorBookingsPage() {
               </button>
             </div>
           </div>
-
-          <Modal
-            open={selected !== null}
-            onClose={() => setSelected(null)}
-            size="lg"
-            title={selected?.propertyTitle ?? "Booking detail"}
-            subtitle={selected ? `Booking ref: ${selected.id}` : undefined}
-          >
-            {selected ? (
-              <div className="space-y-4">
-                <div className="flex flex-wrap items-center gap-2">
-                  <StatusPill status={selected.status}>{selected.status}</StatusPill>
-                  <span className="rounded-full bg-warm-alt px-3 py-1 text-xs font-semibold text-secondary">
-                    Total: {formatMoney(selected.totalAmount, selected.currency)}
-                  </span>
-                </div>
-
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Info label="Check-in" value={formatDate(selected.checkIn)} />
-                  <Info label="Check-out" value={formatDate(selected.checkOut)} />
-                  <Info label="Property" value={selected.propertyTitle ?? "-"} />
-                  <Info label="Created" value={formatDate(selected.createdAt)} />
-                </div>
-              </div>
-            ) : null}
-          </Modal>
         </div>
       )}
     </PortalShell>
-  );
-}
-
-function Info(props: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-line/80 bg-warm-base p-4">
-      <div className="text-xs font-semibold text-muted">{props.label}</div>
-      <div className="mt-1 text-sm font-semibold text-primary">{props.value}</div>
-    </div>
   );
 }

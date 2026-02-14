@@ -18,6 +18,7 @@ export default function AccountMessagesPage() {
       getThread={getUserMessageThread}
       sendMessage={sendUserMessage}
       createThread={createUserMessageThread}
+      threadHref={(threadId) => `/account/messages/${encodeURIComponent(threadId)}`}
     />
   );
 }

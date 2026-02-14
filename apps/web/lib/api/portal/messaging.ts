@@ -71,16 +71,24 @@ async function listThreads(
     topic?: MessageTopic;
   }
 ) {
+  const query: Record<string, string | number | boolean> = {
+    page: params?.page ?? 1,
+    pageSize: params?.pageSize ?? 20,
+  };
+
+  if (params?.unreadOnly === true) {
+    query.unreadOnly = true;
+  }
+
+  if (params?.topic) {
+    query.topic = params.topic;
+  }
+
   const res = await apiFetch<MessageThreadListResponse>(`/portal/${role}/messages/threads`, {
     method: "GET",
     credentials: "include",
     cache: "no-store",
-    query: {
-      page: params?.page ?? 1,
-      pageSize: params?.pageSize ?? 20,
-      unreadOnly: params?.unreadOnly ?? false,
-      topic: params?.topic ?? "",
-    },
+    query,
   });
   return unwrap(res);
 }

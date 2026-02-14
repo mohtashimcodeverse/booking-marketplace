@@ -13,6 +13,10 @@ import {
   type MediaCategory,
 } from "@/lib/api/portal/admin";
 
+function cn(...xs: Array<string | false | null | undefined>): string {
+  return xs.filter(Boolean).join(" ");
+}
+
 const ALL_MEDIA_CATEGORIES: MediaCategory[] = [
   "LIVING_ROOM",
   "BEDROOM",
@@ -38,7 +42,11 @@ const ALL_MEDIA_CATEGORIES: MediaCategory[] = [
   "OTHER",
 ];
 
-const REQUIRED_UPLOAD_BLOCKS: Array<{ key: MediaCategory; title: string; help: string }> = [
+const REQUIRED_UPLOAD_BLOCKS: Array<{
+  key: MediaCategory;
+  title: string;
+  help: string;
+}> = [
   { key: "LIVING_ROOM", title: "Living room", help: "Required category" },
   { key: "BEDROOM", title: "Bedroom", help: "Required category" },
   { key: "BATHROOM", title: "Bathroom", help: "Required category" },
@@ -75,7 +83,11 @@ export function AdminPropertyMediaManager(props: {
   const inputsRef = useRef<Record<string, HTMLInputElement | null>>({});
 
   const [media, setMedia] = useState<AdminMediaItem[]>(props.initialMedia ?? []);
-  const sorted = useMemo(() => [...media].sort((a, b) => a.sortOrder - b.sortOrder), [media]);
+  const sorted = useMemo(
+    () => [...media].sort((a, b) => a.sortOrder - b.sortOrder),
+    [media],
+  );
+
   const grouped = useMemo(() => {
     const map = new Map<MediaCategory, AdminMediaItem[]>();
     for (const item of sorted) {
@@ -85,6 +97,7 @@ export function AdminPropertyMediaManager(props: {
     }
     return map;
   }, [sorted]);
+
   const optionalCategories = useMemo(
     () => ALL_MEDIA_CATEGORIES.filter((category) => !REQUIRED_UPLOAD_SET.has(category)),
     [],
@@ -100,7 +113,11 @@ export function AdminPropertyMediaManager(props: {
     if (el) el.value = "";
   }
 
-  async function uploadAndTag(files: FileList | null, category: MediaCategory, inputKey: string) {
+  async function uploadAndTag(
+    files: FileList | null,
+    category: MediaCategory,
+    inputKey: string,
+  ) {
     if (!files || files.length === 0) return;
     setError(null);
     setBusy(`Uploading to ${category}...`);
@@ -118,9 +135,12 @@ export function AdminPropertyMediaManager(props: {
         tagged.push(upd);
       }
 
-      // Merge with existing (avoid duplicates)
       const createdIds = new Set(created.map((x) => x.id));
-      const next = [...sorted.filter((m) => !createdIds.has(m.id)), ...tagged].sort((a, b) => a.sortOrder - b.sortOrder);
+      const next = [
+        ...sorted.filter((m) => !createdIds.has(m.id)),
+        ...tagged,
+      ].sort((a, b) => a.sortOrder - b.sortOrder);
+
       setNext(next);
       clearInput(inputKey);
     } catch (e) {
@@ -134,7 +154,11 @@ export function AdminPropertyMediaManager(props: {
     setError(null);
     setBusy("Updating category...");
     try {
-      const updated = await updateAdminPropertyMediaCategory(props.propertyId, mediaId, category);
+      const updated = await updateAdminPropertyMediaCategory(
+        props.propertyId,
+        mediaId,
+        category,
+      );
       const next = sorted.map((m) => (m.id === updated.id ? updated : m));
       setNext(next);
     } catch (e) {
@@ -186,7 +210,19 @@ export function AdminPropertyMediaManager(props: {
     }
   }
 
-  // drag reorder
+  function viewMedia(url: string) {
+    window.open(url, "_blank", "noopener,noreferrer");
+  }
+
+  function downloadMedia(url: string, filename: string) {
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  }
+
   const [dragId, setDragId] = useState<string | null>(null);
 
   async function dropOn(targetId: string) {
@@ -223,6 +259,7 @@ export function AdminPropertyMediaManager(props: {
     inputId: string;
   }) {
     const count = grouped.get(propsUpload.category)?.length ?? 0;
+
     return (
       <div className="rounded-2xl border border-line/80 bg-surface p-4 shadow-sm">
         <div className="flex items-start justify-between gap-3">
@@ -256,10 +293,16 @@ export function AdminPropertyMediaManager(props: {
               onChange={(event) => {
                 void uploadAndTag(event.target.files, propsUpload.category, propsUpload.inputId);
               }}
+              disabled={busy !== null}
             />
             <label
               htmlFor={propsUpload.inputId}
-              className="cursor-pointer rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
+              className={cn(
+                "cursor-pointer rounded-xl px-4 py-2 text-sm font-semibold",
+                busy
+                  ? "bg-accent-soft text-secondary"
+                  : "bg-brand text-accent-text hover:bg-brand-hover",
+              )}
             >
               Upload
             </label>
@@ -281,8 +324,11 @@ export function AdminPropertyMediaManager(props: {
         </div>
 
         {busy ? (
-          <div className="mt-4 rounded-2xl border border-line/80 bg-warm-base p-3 text-sm text-secondary">{busy}</div>
+          <div className="mt-4 rounded-2xl border border-line/80 bg-warm-base p-3 text-sm text-secondary">
+            {busy}
+          </div>
         ) : null}
+
         {error ? (
           <div className="mt-4 rounded-2xl border border-danger/30 bg-danger/12 p-3 text-sm text-danger whitespace-pre-wrap">
             {error}
@@ -311,7 +357,9 @@ export function AdminPropertyMediaManager(props: {
                   Optional
                 </span>
               </div>
-              <div className="mt-1 text-xs text-muted">Upload cover, view, building, amenities, and more.</div>
+              <div className="mt-1 text-xs text-muted">
+                Upload cover, view, building, amenities, and more.
+              </div>
             </div>
 
             <div className="flex items-center gap-2">
@@ -322,6 +370,7 @@ export function AdminPropertyMediaManager(props: {
                   if (isMediaCategory(value)) setOtherCategory(value);
                 }}
                 className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-sm text-primary"
+                disabled={busy !== null}
               >
                 {optionalCategories.map((category) => (
                   <option key={category} value={category}>
@@ -342,10 +391,16 @@ export function AdminPropertyMediaManager(props: {
                 onChange={(event) => {
                   void uploadAndTag(event.target.files, otherCategory, "OTHER_UPLOADER");
                 }}
+                disabled={busy !== null}
               />
               <label
                 htmlFor="admin-create-upload-other"
-                className="cursor-pointer rounded-xl bg-brand px-4 py-2 text-sm font-semibold text-accent-text hover:bg-brand-hover"
+                className={cn(
+                  "cursor-pointer rounded-xl px-4 py-2 text-sm font-semibold",
+                  busy
+                    ? "bg-accent-soft text-secondary"
+                    : "bg-brand text-accent-text hover:bg-brand-hover",
+                )}
               >
                 Upload
               </label>
@@ -363,7 +418,7 @@ export function AdminPropertyMediaManager(props: {
           {sorted.map((m) => (
             <div
               key={m.id}
-              className="rounded-3xl border border-line/50 bg-surface shadow-sm overflow-hidden"
+              className="overflow-hidden rounded-3xl border border-line/50 bg-surface shadow-sm"
               draggable
               onDragStart={() => setDragId(m.id)}
               onDragOver={(e) => e.preventDefault()}
@@ -371,7 +426,13 @@ export function AdminPropertyMediaManager(props: {
               title="Drag to reorder"
             >
               <div className="relative aspect-[4/3] bg-warm-base">
-                <Image src={m.url} alt={m.alt ?? "Media"} fill className="object-cover" sizes="(max-width: 1024px) 50vw, 33vw" />
+                <Image
+                  src={m.url}
+                  alt={m.alt ?? "Media"}
+                  fill
+                  className="object-cover"
+                  sizes="(max-width: 1024px) 50vw, 33vw"
+                />
                 <div className="absolute left-3 top-3 inline-flex items-center gap-2 rounded-full bg-surface/90 px-3 py-1 text-xs font-semibold text-primary shadow-sm">
                   <GripVertical className="h-3.5 w-3.5 text-secondary" />
                   #{m.sortOrder}
@@ -381,7 +442,7 @@ export function AdminPropertyMediaManager(props: {
                 </div>
               </div>
 
-              <div className="p-4 space-y-3">
+              <div className="space-y-3 p-4">
                 <div className="text-xs font-semibold text-secondary">Category</div>
                 <select
                   value={m.category}
@@ -417,6 +478,25 @@ export function AdminPropertyMediaManager(props: {
                   >
                     <ChevronDown className="h-4 w-4" />
                     Down
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => viewMedia(m.url)}
+                    className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-line/80 bg-surface text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
+                  >
+                    View
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      downloadMedia(m.url, `property-${props.propertyId}-${m.id}.jpg`)
+                    }
+                    className="inline-flex h-11 w-full items-center justify-center rounded-2xl border border-line/80 bg-surface text-sm font-semibold text-primary shadow-sm hover:bg-warm-alt"
+                  >
+                    Download
                   </button>
                 </div>
 

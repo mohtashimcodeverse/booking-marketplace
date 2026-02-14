@@ -14,11 +14,10 @@ import {
   GuestReviewStatus,
   HoldStatus,
   MessageCounterpartyRole,
-  PropertyStatus,
   RefundStatus,
   UserRole,
 } from '@prisma/client';
-import { existsSync } from 'fs';
+import { existsSync, unlinkSync } from 'fs';
 import { join } from 'path';
 import {
   BOOKING_DOCUMENTS_DIR,
@@ -658,7 +657,7 @@ export class UserPortalService {
   }): Promise<PortalCalendarResponse> {
     this.assertCustomer(params.role);
 
-    const [me, bookedPropertyRows, publishedPropertyRows] = await Promise.all([
+    const [me, bookedPropertyRows] = await Promise.all([
       this.prisma.user.findUnique({
         where: { id: params.userId },
         select: { fullName: true, email: true },
@@ -673,12 +672,6 @@ export class UserPortalService {
         take: 120,
         select: { id: true, title: true, city: true, status: true },
       }),
-      this.prisma.property.findMany({
-        where: { status: PropertyStatus.PUBLISHED },
-        orderBy: [{ updatedAt: 'desc' }, { createdAt: 'desc' }],
-        take: 120,
-        select: { id: true, title: true, city: true, status: true },
-      }),
     ]);
 
     const map = new Map<string, PortalCalendarProperty>();
@@ -689,16 +682,6 @@ export class UserPortalService {
         city: p.city,
         status: p.status,
       });
-    }
-    for (const p of publishedPropertyRows) {
-      if (!map.has(p.id)) {
-        map.set(p.id, {
-          id: p.id,
-          title: p.title,
-          city: p.city,
-          status: p.status,
-        });
-      }
     }
 
     const properties = Array.from(map.values());
@@ -1029,6 +1012,7 @@ export class UserPortalService {
         createdAt: doc.createdAt.toISOString(),
         updatedAt: doc.updatedAt.toISOString(),
         downloadUrl: `/api/portal/user/documents/${doc.id}/download`,
+        viewUrl: `/api/portal/user/documents/${doc.id}/view`,
       })),
     };
   }
@@ -1095,6 +1079,7 @@ export class UserPortalService {
       createdAt: doc.createdAt.toISOString(),
       updatedAt: doc.updatedAt.toISOString(),
       downloadUrl: `/api/portal/user/documents/${doc.id}/download`,
+      viewUrl: `/api/portal/user/documents/${doc.id}/view`,
     };
   }
 
@@ -1133,6 +1118,45 @@ export class UserPortalService {
       mimeType: doc.mimeType ?? 'application/octet-stream',
       downloadName: doc.originalName ?? doc.fileKey,
     };
+  }
+
+  async deleteCustomerDocument(params: {
+    userId: string;
+    role: UserRole;
+    documentId: string;
+  }) {
+    if (params.role !== UserRole.CUSTOMER) {
+      throw new ForbiddenException('Not allowed to delete this document.');
+    }
+
+    const doc = await this.prisma.customerDocument.findUnique({
+      where: { id: params.documentId },
+      select: {
+        id: true,
+        userId: true,
+        fileKey: true,
+      },
+    });
+
+    if (!doc) throw new NotFoundException('Document not found.');
+    if (doc.userId !== params.userId) {
+      throw new ForbiddenException('Not allowed to delete this document.');
+    }
+
+    await this.prisma.customerDocument.delete({
+      where: { id: doc.id },
+    });
+
+    const absolutePath = join(CUSTOMER_DOCUMENTS_DIR, doc.fileKey);
+    if (existsSync(absolutePath)) {
+      try {
+        unlinkSync(absolutePath);
+      } catch {
+        // best effort cleanup
+      }
+    }
+
+    return { ok: true, id: doc.id };
   }
 
   async createReview(params: {

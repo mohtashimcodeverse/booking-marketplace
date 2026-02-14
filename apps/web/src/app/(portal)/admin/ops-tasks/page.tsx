@@ -1,6 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+
 import { PortalShell } from "@/components/portal/PortalShell";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
 import { SkeletonTable } from "@/components/portal/ui/Skeleton";
@@ -52,49 +55,14 @@ function toneForTaskStatus(s: string | null): "neutral" | "success" | "warning" 
   return "neutral";
 }
 
-function Drawer(props: {
-  open: boolean;
-  title: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}) {
-  if (!props.open) return null;
-  return (
-    <div className="fixed inset-0 z-[90]">
-      <button
-        type="button"
-        aria-label="Close drawer"
-        onClick={props.onClose}
-        className="absolute inset-0 bg-dark-1/40"
-      />
-      <div className="absolute right-0 top-0 h-full w-full max-w-2xl bg-surface shadow-2xl">
-        <div className="flex items-center justify-between border-b px-5 py-4">
-          <div className="min-w-0">
-            <div className="text-sm font-semibold text-primary truncate">{props.title}</div>
-            <div className="mt-1 text-xs text-muted">Ops task detail</div>
-          </div>
-          <button
-            type="button"
-            onClick={props.onClose}
-            className="rounded-xl border bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
-          >
-            Close
-          </button>
-        </div>
-        <div className="h-[calc(100%-65px)] overflow-auto p-5">{props.children}</div>
-      </div>
-    </div>
-  );
-}
-
 export default function AdminOpsTasksPage() {
+  const router = useRouter();
   const [state, setState] = useState<ViewState>({ kind: "loading" });
 
   const [page, setPage] = useState<number>(1);
   const [pageSize] = useState<number>(20);
 
   const [filters, setFilters] = useState<FilterState>({ q: "", status: "ALL", type: "ALL" });
-  const [selected, setSelected] = useState<AdminOpsTaskRow | null>(null);
 
   useEffect(() => {
     let alive = true;
@@ -242,7 +210,7 @@ export default function AdminOpsTasksPage() {
             <div className="p-6 text-sm text-secondary">No tasks match this filter.</div>
           ) : (
             <div className="grid gap-3 p-4 sm:grid-cols-2 xl:grid-cols-3">
-              {derived.filtered.map((row, idx) => {
+              {derived.filtered.map((row: AdminOpsTaskRow, idx) => {
                 const id = getString(row, "id") ?? String(idx);
                 const status = getString(row, "status");
                 const type = getString(row, "type") ?? "—";
@@ -251,10 +219,13 @@ export default function AdminOpsTasksPage() {
                 const dueAt = getString(row, "dueAt") ?? getString(row, "scheduledAt") ?? null;
 
                 return (
-                  <button
+                  <Link
                     key={id}
-                    type="button"
-                    onClick={() => setSelected(row)}
+                    href={`/admin/ops-tasks/${encodeURIComponent(id)}`}
+                    onClick={(event) => {
+                      event.preventDefault();
+                      router.push(`/admin/ops-tasks/${encodeURIComponent(id)}`);
+                    }}
                     className="rounded-2xl border border-line/80 bg-surface p-4 text-left transition hover:bg-warm-alt"
                   >
                     <div className="flex items-center justify-between gap-2">
@@ -275,7 +246,7 @@ export default function AdminOpsTasksPage() {
                         <span className="font-semibold text-muted">Due:</span> {fmtDate(dueAt)}
                       </div>
                     </div>
-                  </button>
+                  </Link>
                 );
               })}
             </div>
@@ -306,41 +277,13 @@ export default function AdminOpsTasksPage() {
             </div>
           </div>
         </div>
-
-        <Drawer
-          open={selected !== null}
-          title={selected ? `Task ${getString(selected, "id") ?? ""}`.trim() : "Task"}
-          onClose={() => setSelected(null)}
-        >
-          {selected ? (
-            <div className="grid gap-3 sm:grid-cols-2">
-              <Detail label="Task ID" value={getString(selected, "id") ?? "—"} />
-              <Detail label="Status" value={getString(selected, "status") ?? "—"} />
-              <Detail label="Type" value={getString(selected, "type") ?? "—"} />
-              <Detail label="Property ID" value={getString(selected, "propertyId") ?? "—"} />
-              <Detail label="Booking ID" value={getString(selected, "bookingId") ?? "—"} />
-              <Detail label="Due" value={fmtDate(getString(selected, "dueAt") ?? getString(selected, "scheduledAt"))} />
-              <Detail label="Created" value={fmtDate(getString(selected, "createdAt"))} />
-              <Detail label="Updated" value={fmtDate(getString(selected, "updatedAt"))} />
-            </div>
-          ) : null}
-        </Drawer>
       </div>
     );
-  }, [state, derived, filters.status, filters.type, page, selected]);
+  }, [state, derived, filters.status, filters.type, page, router]);
 
   return (
     <PortalShell role="admin" title="Admin Ops Tasks" nav={nav}>
       {content}
     </PortalShell>
-  );
-}
-
-function Detail(props: { label: string; value: string }) {
-  return (
-    <div className="rounded-2xl border border-line/80 bg-surface p-3">
-      <div className="text-xs font-semibold text-muted">{props.label}</div>
-      <div className="mt-1 text-sm font-semibold text-primary break-words">{props.value}</div>
-    </div>
   );
 }

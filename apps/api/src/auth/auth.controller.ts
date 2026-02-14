@@ -51,6 +51,8 @@ type RegisterResult = {
     role: string;
     isEmailVerified: boolean;
     fullName: string | null;
+    firstName: string | null;
+    lastName: string | null;
   };
 };
 

@@ -261,6 +261,7 @@ export type AdminCustomerDocument = {
   createdAt: string;
   updatedAt: string;
   downloadUrl: string;
+  viewUrl?: string;
   user: {
     id: string;
     email: string;
@@ -822,6 +823,18 @@ export async function getAdminCustomerDocuments(params?: {
   return unwrap(res);
 }
 
+export async function getAdminCustomerDocument(documentId: string): Promise<AdminCustomerDocument> {
+  const res = await apiFetch<AdminCustomerDocument>(
+    `/portal/admin/customer-documents/${encodeURIComponent(documentId)}`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
 export async function approveAdminCustomerDocument(
   documentId: string,
   notes?: string
@@ -882,6 +895,22 @@ export async function downloadAdminCustomerDocument(documentId: string): Promise
       responseType: "blob",
       headers: {
         Accept: "application/octet-stream",
+      },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function viewAdminCustomerDocument(documentId: string): Promise<Blob> {
+  const res = await apiFetch<Blob>(
+    `/portal/admin/customer-documents/${encodeURIComponent(documentId)}/view`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      responseType: "blob",
+      headers: {
+        Accept: "application/pdf,image/*,*/*",
       },
     }
   );
@@ -1236,6 +1265,59 @@ export async function deleteAdminPropertyMedia(
   const query = options?.overrideReadiness ? "?overrideReadiness=true" : "";
   const res = await apiFetch<AdminMediaItem[]>(
     `/admin/properties/${encodeURIComponent(propertyId)}/media/${encodeURIComponent(mediaId)}${query}`,
+    {
+      method: "DELETE",
+      credentials: "include",
+      cache: "no-store",
+    }
+  );
+  return unwrap(res);
+}
+
+export async function downloadAdminPropertyDocument(
+  propertyId: string,
+  documentId: string
+): Promise<Blob> {
+  const res = await apiFetch<Blob>(
+    `/admin/properties/${encodeURIComponent(propertyId)}/documents/${encodeURIComponent(documentId)}/download`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      responseType: "blob",
+      headers: {
+        Accept: "application/octet-stream",
+      },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function viewAdminPropertyDocument(
+  propertyId: string,
+  documentId: string
+): Promise<Blob> {
+  const res = await apiFetch<Blob>(
+    `/admin/properties/${encodeURIComponent(propertyId)}/documents/${encodeURIComponent(documentId)}/view`,
+    {
+      method: "GET",
+      credentials: "include",
+      cache: "no-store",
+      responseType: "blob",
+      headers: {
+        Accept: "application/pdf,image/*,*/*",
+      },
+    }
+  );
+  return unwrap(res);
+}
+
+export async function deleteAdminPropertyDocument(
+  propertyId: string,
+  documentId: string
+): Promise<{ ok: true; id: string }> {
+  const res = await apiFetch<{ ok: true; id: string }>(
+    `/admin/properties/${encodeURIComponent(propertyId)}/documents/${encodeURIComponent(documentId)}`,
     {
       method: "DELETE",
       credentials: "include",

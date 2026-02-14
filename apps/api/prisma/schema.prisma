@@ -32,6 +32,7 @@ enum PropertyStatus {
   DRAFT
   UNDER_REVIEW
   APPROVED
+  APPROVED_PENDING_ACTIVATION_PAYMENT
   CHANGES_REQUESTED
   REJECTED
   PUBLISHED
@@ -188,6 +189,7 @@ enum NotificationType {
   BOOKING_CANCELLED_BY_GUEST
   OPS_TASKS_CREATED
   MAINTENANCE_REQUEST_CREATED
+  PROPERTY_APPROVED_ACTIVATION_REQUIRED
 }
 
 enum NotificationChannel {
@@ -198,6 +200,14 @@ enum NotificationStatus {
   PENDING
   SENT
   FAILED
+}
+
+enum ActivationInvoiceStatus {
+  PENDING
+  PROCESSING
+  PAID
+  FAILED
+  CANCELLED
 }
 
 //
@@ -428,6 +438,7 @@ model User {
   resolvedContactSubmissions ContactSubmission[]    @relation("ContactSubmissionResolvedByAdmin")
 
   notifications NotificationEvent[] @relation("NotificationRecipient")
+  activationInvoices PropertyActivationInvoice[] @relation("ActivationInvoiceVendor")
 
   // ✅ Property review relations
   propertyReviews   PropertyReview[]   @relation("PropertyReviewedByAdmin")
@@ -670,6 +681,7 @@ model Property {
   opsTasks      OpsTask[]
   maintenance   MaintenanceRequest[]
   blockRequests BlockRequest[]
+  activationInvoices PropertyActivationInvoice[]
 
   createdAt                DateTime                  @default(now())
   updatedAt                DateTime                  @updatedAt
@@ -1493,13 +1505,42 @@ model NotificationEvent {
 
   createdAt DateTime  @default(now())
   sentAt    DateTime?
+  readAt    DateTime?
 
   @@unique([type, channel, entityType, entityId, recipientUserId], map: "uniq_notification_idempotency")
   @@index([type])
   @@index([status])
   @@index([status, nextAttemptAt])
   @@index([recipientUserId])
+  @@index([recipientUserId, readAt])
   @@index([entityType, entityId])
+}
+
+model PropertyActivationInvoice {
+  id String @id @default(uuid())
+
+  propertyId String
+  property   Property @relation(fields: [propertyId], references: [id], onDelete: Cascade)
+
+  vendorId String
+  vendor   User   @relation("ActivationInvoiceVendor", fields: [vendorId], references: [id], onDelete: Cascade)
+
+  amount   Int
+  currency String @default("AED")
+
+  status ActivationInvoiceStatus @default(PENDING)
+
+  provider    PaymentProvider @default(MANUAL)
+  providerRef String?
+
+  createdAt DateTime  @default(now())
+  paidAt    DateTime?
+  updatedAt DateTime  @updatedAt
+
+  @@index([propertyId])
+  @@index([vendorId])
+  @@index([status])
+  @@index([propertyId, status])
 }
 
 model ServicePlan {

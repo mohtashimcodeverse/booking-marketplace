@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import {
   addDays,
@@ -17,7 +18,6 @@ import {
 import { CalendarCheck2 } from "lucide-react";
 import type { PortalCalendarEvent, PortalCalendarResponse } from "@/lib/api/portal/calendar";
 import { SharedAvailabilityCalendar, type SharedAvailabilityStatus } from "@/components/calendar/SharedAvailabilityCalendar";
-import { Modal } from "@/components/portal/ui/Modal";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
 import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
 
@@ -102,6 +102,7 @@ export function PortalAvailabilityCalendar(props: {
   loadData: (params: { from: string; to: string; propertyId?: string }) => Promise<PortalCalendarResponse>;
   allowBlockControls?: boolean;
   blockControlMode?: "direct" | "request";
+  eventHref?: (event: PortalCalendarEvent) => string | null;
   onBlockRange?: (params: { propertyId: string; from: string; to: string; note?: string }) => Promise<unknown>;
   onUnblockRange?: (params: { propertyId: string; from: string; to: string; note?: string }) => Promise<unknown>;
 }) {
@@ -125,7 +126,6 @@ export function PortalAvailabilityCalendar(props: {
   >({ kind: "loading" });
 
   const [range, setRange] = useState<DateRange>({ from: null, to: null });
-  const [openDetails, setOpenDetails] = useState(false);
 
   useEffect(() => {
     let alive = true;
@@ -209,7 +209,6 @@ export function PortalAvailabilityCalendar(props: {
       if (isSameDay(day, current.from)) return { from: day, to: day };
       return { from: current.from, to: day };
     });
-    setOpenDetails(true);
   }
 
   const propertySelector = (
@@ -380,8 +379,8 @@ export function PortalAvailabilityCalendar(props: {
         </>
       )}
 
-      <Modal open={openDetails} onClose={() => setOpenDetails(false)} title="Availability details" subtitle={rangeLabel(range)} size="lg">
-        <div className="space-y-4">
+      {range.from ? (
+        <section className="rounded-3xl bg-white/70 p-4 shadow-sm ring-1 ring-black/5">
           <div className="rounded-3xl bg-white/70 p-4 text-sm text-secondary shadow-sm ring-1 ring-black/5">
             <div className="font-semibold text-primary">{rangeLabel(range)}</div>
             <div className="mt-1">
@@ -392,58 +391,79 @@ export function PortalAvailabilityCalendar(props: {
           </div>
 
           {detailEvents.length === 0 ? (
-            <div className="rounded-3xl bg-[rgb(var(--color-success-rgb)/0.12)] p-4 text-sm text-[rgb(var(--color-success-rgb)/1)] shadow-sm ring-1 ring-black/5">
+            <div className="mt-3 rounded-3xl bg-[rgb(var(--color-success-rgb)/0.12)] p-4 text-sm text-[rgb(var(--color-success-rgb)/1)] shadow-sm ring-1 ring-black/5">
               <div className="font-semibold">Available</div>
               <div className="mt-1">No bookings, holds, or blocks overlap this date selection.</div>
             </div>
           ) : (
-            <div className="space-y-3">
-              {detailEvents.map((event) => (
-                <div key={`${event.type}:${event.id}`} className="rounded-3xl bg-white/70 p-4 shadow-sm ring-1 ring-black/5">
-                  <div className="flex flex-wrap items-center justify-between gap-3">
-                    <div className="text-sm font-semibold text-primary">{event.propertyTitle}</div>
-                    <StatusPill tone={statusTone(event)}>{event.type === "BOOKING" ? event.status : event.type}</StatusPill>
-                  </div>
+            <div className="mt-3 space-y-3">
+              {detailEvents.map((event) => {
+                const href = props.eventHref?.(event) ?? null;
+                const body = (
+                  <>
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div className="text-sm font-semibold text-primary">{event.propertyTitle}</div>
+                      <StatusPill tone={statusTone(event)}>{event.type === "BOOKING" ? event.status : event.type}</StatusPill>
+                    </div>
 
-                  <div className="mt-3 grid gap-3 text-sm text-secondary sm:grid-cols-2 lg:grid-cols-4">
-                    <div>
-                      <div className="text-xs font-semibold text-muted">Check-in</div>
-                      <div className="mt-1">{format(parseISO(event.start), "MMM d, yyyy")}</div>
+                    <div className="mt-3 grid gap-3 text-sm text-secondary sm:grid-cols-2 lg:grid-cols-4">
+                      <div>
+                        <div className="text-xs font-semibold text-muted">Check-in</div>
+                        <div className="mt-1">{format(parseISO(event.start), "MMM d, yyyy")}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-muted">Check-out</div>
+                        <div className="mt-1">{format(parseISO(event.end), "MMM d, yyyy")}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-muted">Guest</div>
+                        <div className="mt-1">{event.guestDisplay ?? "-"}</div>
+                      </div>
+                      <div>
+                        <div className="text-xs font-semibold text-muted">Booking ref</div>
+                        <div className="mt-1 font-mono text-xs">{event.bookingRef ?? "-"}</div>
+                      </div>
                     </div>
-                    <div>
-                      <div className="text-xs font-semibold text-muted">Check-out</div>
-                      <div className="mt-1">{format(parseISO(event.end), "MMM d, yyyy")}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-semibold text-muted">Guest</div>
-                      <div className="mt-1">{event.guestDisplay ?? "-"}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs font-semibold text-muted">Booking ref</div>
-                      <div className="mt-1 font-mono text-xs">{event.bookingRef ?? "-"}</div>
-                    </div>
-                  </div>
 
-                  <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-secondary">
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 shadow-sm ring-1 ring-black/5">
-                      <CalendarCheck2 className="h-3.5 w-3.5" />
-                      Status: {event.status}
-                    </span>
-                    <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 shadow-sm ring-1 ring-black/5">
-                      Value: {formatMoney(event.totalAmount, event.currency)}
-                    </span>
-                    {event.note ? (
+                    <div className="mt-3 flex flex-wrap items-center gap-2 text-xs text-secondary">
                       <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 shadow-sm ring-1 ring-black/5">
-                        Note: {event.note}
+                        <CalendarCheck2 className="h-3.5 w-3.5" />
+                        Status: {event.status}
                       </span>
-                    ) : null}
-                  </div>
-                </div>
-              ))}
+                      <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 shadow-sm ring-1 ring-black/5">
+                        Value: {formatMoney(event.totalAmount, event.currency)}
+                      </span>
+                      {event.note ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-white/70 px-3 py-1 shadow-sm ring-1 ring-black/5">
+                          Note: {event.note}
+                        </span>
+                      ) : null}
+                    </div>
+                  </>
+                );
+
+                if (!href) {
+                  return (
+                    <div key={`${event.type}:${event.id}`} className="rounded-3xl bg-white/70 p-4 shadow-sm ring-1 ring-black/5">
+                      {body}
+                    </div>
+                  );
+                }
+
+                return (
+                  <Link
+                    key={`${event.type}:${event.id}`}
+                    href={href}
+                    className="block rounded-3xl bg-white/70 p-4 shadow-sm ring-1 ring-black/5 transition hover:bg-warm-alt"
+                  >
+                    {body}
+                  </Link>
+                );
+              })}
             </div>
           )}
-        </div>
-      </Modal>
+        </section>
+      ) : null}
     </div>
   );
 }

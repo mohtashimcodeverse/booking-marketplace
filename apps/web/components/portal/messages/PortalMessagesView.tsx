@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PortalShell, type PortalRole } from "@/components/portal/PortalShell";
 import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
@@ -24,6 +25,8 @@ type Props = {
   getThread: (threadId: string) => Promise<MessageThreadDetail>;
   sendMessage: (threadId: string, body: string) => Promise<{ ok: true }>;
   createThread?: (input: { subject?: string; topic?: MessageTopic; body: string }) => Promise<MessageThreadDetail>;
+  selectedThreadId?: string | null;
+  threadHref?: (threadId: string) => string;
 };
 
 type ThreadState =
@@ -47,6 +50,9 @@ function topicLabel(topic: MessageTopic): string {
 }
 
 export default function PortalMessagesView(props: Props) {
+  const router = useRouter();
+  const routeMode = typeof props.threadHref === "function";
+
   const [threadsState, setThreadsState] = useState<
     | { kind: "loading" }
     | { kind: "error"; message: string }
@@ -73,7 +79,15 @@ export default function PortalMessagesView(props: Props) {
       });
       const items = data.items ?? [];
       setThreadsState({ kind: "ready", items });
-      if (items.length > 0 && !selectedId) setSelectedId(items[0].id);
+      if (routeMode) {
+        if (props.selectedThreadId) {
+          setSelectedId(props.selectedThreadId);
+        } else {
+          setSelectedId(null);
+        }
+      } else if (items.length > 0 && !selectedId) {
+        setSelectedId(items[0].id);
+      }
       if (items.length === 0) {
         setSelectedId(null);
         setThreadState({ kind: "idle" });
@@ -90,6 +104,16 @@ export default function PortalMessagesView(props: Props) {
     void loadThreads();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [unreadOnly, topicFilter]);
+
+  useEffect(() => {
+    if (!routeMode) return;
+    if (props.selectedThreadId) {
+      setSelectedId(props.selectedThreadId);
+      return;
+    }
+    setSelectedId(null);
+    setThreadState({ kind: "idle" });
+  }, [props.selectedThreadId, routeMode]);
 
   useEffect(() => {
     let alive = true;
@@ -162,7 +186,11 @@ export default function PortalMessagesView(props: Props) {
       setNewBody("");
       setNewSubject("");
       await loadThreads();
-      setSelectedId(thread.id);
+      if (props.threadHref) {
+        router.push(props.threadHref(thread.id));
+      } else {
+        setSelectedId(thread.id);
+      }
     } catch (e) {
       setThreadsState({
         kind: "error",
@@ -272,7 +300,13 @@ export default function PortalMessagesView(props: Props) {
                     <button
                       key={thread.id}
                       type="button"
-                      onClick={() => setSelectedId(thread.id)}
+                      onClick={() => {
+                        if (props.threadHref) {
+                          router.push(props.threadHref(thread.id));
+                          return;
+                        }
+                        setSelectedId(thread.id);
+                      }}
                       className={[
                         "w-full rounded-2xl border p-3 text-left transition",
                         active

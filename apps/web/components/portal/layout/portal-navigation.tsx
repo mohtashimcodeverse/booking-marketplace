@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import {
+  Bell,
   Building2,
   CalendarDays,
   ClipboardCheck,
@@ -37,6 +38,7 @@ export function getRoleNav(role?: PortalRole): PortalNavItem[] {
       { href: "/vendor/calendar", label: "Calendar", icon: <CalendarDays className="h-4 w-4" />, group: "Operations" },
       { href: "/vendor/block-requests", label: "Block Requests", icon: <CalendarDays className="h-4 w-4" />, group: "Operations" },
       { href: "/vendor/messages", label: "Messages", icon: <MessageSquare className="h-4 w-4" />, group: "Operations" },
+      { href: "/vendor/notifications", label: "Notifications", icon: <Bell className="h-4 w-4" />, group: "Operations" },
       { href: "/vendor/ops-tasks", label: "Ops Tasks", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
       { href: "/vendor/maintenance", label: "Maintenance", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
       { href: "/vendor/work-orders", label: "Work Orders", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
@@ -57,6 +59,7 @@ export function getRoleNav(role?: PortalRole): PortalNavItem[] {
       { href: "/admin/calendar", label: "Calendar", icon: <CalendarDays className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/block-requests", label: "Block Requests", icon: <CalendarDays className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/messages", label: "Messages", icon: <MessageSquare className="h-4 w-4" />, group: "Operations" },
+      { href: "/admin/notifications", label: "Notifications", icon: <Bell className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/ops-tasks", label: "Ops Tasks", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/properties/deletion-requests", label: "Deletion Requests", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
       { href: "/admin/properties/unpublish-requests", label: "Unpublish Requests", icon: <Wrench className="h-4 w-4" />, group: "Operations" },
@@ -75,6 +78,7 @@ export function getRoleNav(role?: PortalRole): PortalNavItem[] {
       { href: "/account/documents", label: "Documents", icon: <ShieldCheck className="h-4 w-4" />, group: "Account" },
       { href: "/account/calendar", label: "Calendar", icon: <CalendarDays className="h-4 w-4" />, group: "Account" },
       { href: "/account/messages", label: "Messages", icon: <MessageSquare className="h-4 w-4" />, group: "Account" },
+      { href: "/account/notifications", label: "Notifications", icon: <Bell className="h-4 w-4" />, group: "Account" },
       { href: "/account/refunds", label: "Refunds", icon: <CreditCard className="h-4 w-4" />, group: "Account" },
     ];
   }

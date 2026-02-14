@@ -1,0 +1,7 @@
+Property approved
+
+Your property {{title}} has been approved.
+Activation payment is required before publishing.
+
+Amount: {{activationAmount}} {{currency}}
+Open: {{actionUrl}}

@@ -5,6 +5,9 @@ export interface AuthUser {
   email: string;
   role: UserRole;
   isEmailVerified: boolean;
+  fullName: string | null;
+  firstName: string | null;
+  lastName: string | null;
 }
 
 export interface AuthMeResponse {

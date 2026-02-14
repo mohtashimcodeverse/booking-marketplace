@@ -1,10 +1,13 @@
 "use client";
 
+import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { PortalShell } from "@/components/portal/PortalShell";
 import { SkeletonBlock } from "@/components/portal/ui/Skeleton";
 import { StatusPill } from "@/components/portal/ui/StatusPill";
 import {
+  deleteUserCustomerDocument,
   downloadUserCustomerDocument,
   getUserCustomerDocuments,
   uploadUserCustomerDocument,
@@ -36,6 +39,7 @@ function formatDateTime(value: string | null | undefined): string {
 }
 
 export default function AccountDocumentsPage() {
+  const router = useRouter();
   const [state, setState] = useState<ViewState>({ kind: "loading" });
   const [uploadType, setUploadType] = useState<CustomerDocumentType>("PASSPORT");
   const [uploadNotes, setUploadNotes] = useState("");
@@ -100,6 +104,23 @@ export default function AccountDocumentsPage() {
       URL.revokeObjectURL(url);
     } catch (error) {
       setMessage(error instanceof Error ? error.message : "Failed to download document");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  async function remove(doc: UserCustomerDocument) {
+    const confirmed = window.confirm("Delete this document?");
+    if (!confirmed) return;
+
+    setBusy("Deleting document...");
+    setMessage(null);
+    try {
+      await deleteUserCustomerDocument(doc.id);
+      await load();
+      setMessage("Document deleted.");
+    } catch (error) {
+      setMessage(error instanceof Error ? error.message : "Failed to delete document");
     } finally {
       setBusy(null);
     }
@@ -207,7 +228,19 @@ export default function AccountDocumentsPage() {
               ) : (
                 <div className="mt-3 space-y-3">
                   {state.data.items.map((doc) => (
-                    <div key={doc.id} className="rounded-2xl border border-line/70 bg-warm-base p-4">
+                    <div
+                      key={doc.id}
+                      role="button"
+                      tabIndex={0}
+                      onClick={() => router.push(`/account/documents/${encodeURIComponent(doc.id)}`)}
+                      onKeyDown={(event) => {
+                        if (event.key === "Enter" || event.key === " ") {
+                          event.preventDefault();
+                          router.push(`/account/documents/${encodeURIComponent(doc.id)}`);
+                        }
+                      }}
+                      className="rounded-2xl border border-line/70 bg-warm-base p-4 transition hover:bg-accent-soft/35"
+                    >
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
                           <div className="text-sm font-semibold text-primary">
@@ -222,13 +255,34 @@ export default function AccountDocumentsPage() {
                         </div>
                         <div className="flex items-center gap-2">
                           <StatusPill status={doc.status}>{doc.status}</StatusPill>
+                          <Link
+                            href={`/account/documents/${encodeURIComponent(doc.id)}`}
+                            onClick={(event) => event.stopPropagation()}
+                            className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt"
+                          >
+                            View
+                          </Link>
                           <button
                             type="button"
                             disabled={busy !== null}
-                            onClick={() => void download(doc)}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void download(doc);
+                            }}
                             className="rounded-xl border border-line/80 bg-surface px-3 py-2 text-xs font-semibold text-primary hover:bg-warm-alt disabled:opacity-60"
                           >
                             Download
+                          </button>
+                          <button
+                            type="button"
+                            disabled={busy !== null}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              void remove(doc);
+                            }}
+                            className="rounded-xl border border-danger/30 bg-danger/12 px-3 py-2 text-xs font-semibold text-danger hover:bg-danger/12 disabled:opacity-60"
+                          >
+                            Delete
                           </button>
                         </div>
                       </div>
